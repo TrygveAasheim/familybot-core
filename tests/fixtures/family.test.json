@@ -1,5 +1,13 @@
 {
-  "family": {"display_name": "Test Family"},
+  "schema_version": 1,
+  "family": {"display_name": "Test Family", "locale": "nb-NO", "timezone": "Europe/Oslo"},
+  "portal": {
+    "hostname": "familie.local",
+    "web_port": 3000,
+    "api_port": 8788,
+    "bonjour_name": "Familieportalen",
+    "allowed_origins": ["http://familie.local:3000", "http://localhost:3000", "http://127.0.0.1:3000"]
+  },
   "members": [
     {"member_id": 1, "role": "parent", "name": "Parent One", "slug": "parent_1", "telegram_target": "test-parent-1"},
     {"member_id": 2, "role": "parent", "name": "Parent Two", "slug": "parent_2", "telegram_target": "test-parent-2"},
@@ -10,7 +18,10 @@
     "email": {"account": "bot@example.invalid", "forward_addresses": ["parent@example.invalid"]},
     "spond": {"groups": []},
     "entur": {"client_name": "familybot-test"},
-    "transport": {"line": "2", "route_description": "test route"},
-    "weather": {"user_agent": "FamilyBot-test/1.0", "home_lat": 59.9, "home_lon": 10.7}
+    "transport": {
+      "stop_name": "Test stop", "stop_id": "NSR:StopPlace:test", "centre_quay_id": "NSR:Quay:test",
+      "line": "2", "route_description": "test route", "direction_label": "toward centre", "client_name": "familybot-test"
+    },
+    "weather": {"user_agent": "FamilyBot-test/1.0 test@example.invalid", "home_lat": 59.9, "home_lon": 10.7}
   }
 }

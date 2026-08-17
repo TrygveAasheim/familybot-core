@@ -5,7 +5,8 @@
 ### Privacy
 - One parent's private conversations with the bot are never shared with another parent
 - Shared family data (events, tasks, school info) is visible to both
-- No family data is stored in cloud services beyond: the OpenAI/Codex LLM API, configured email, and Spond (which already has the data)
+- Durable normalized family data remains local. Selected content may transit the
+  configured inference provider and Telegram when those features are used.
 
 ### Infrastructure
 - Runs on the family Mac mini (self-hosted, always-on)
@@ -34,7 +35,8 @@
 - Do not let phase 2 requirements influence phase 1 architecture decisions unless the cost is near-zero
 
 ### User experience
-- Telegram is the primary interface — no web UI required in phase 1
+- The iPad-first LAN dashboard is the family's glanceable and child-facing
+  interface. Telegram/OpenClaw is the conversational layer for complex actions.
 - Commands should be simple and natural-language where possible
 - The daily briefing should be scannable in under 60 seconds
 

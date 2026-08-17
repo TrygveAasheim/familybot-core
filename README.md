@@ -1,94 +1,69 @@
-# FamilyBot Core 🇳🇴
+# FamilyBot 🇳🇴
 
-> **Norway-first deployment.** This repository contains the deterministic,
-> self-hosted core for a Norwegian family setup built around OpenClaw. Several
-> integrations and parsers are intentionally Norwegian rather than generic.
+FamilyBot is a local-first family information service for a Norwegian household.
+An always-on Mac mini processes school email and `ukeplan` PDFs, Spond,
+Norwegian calendar data, MET weather and Entur transport; OpenClaw provides the
+conversational/Telegram layer; Familieportalen provides the iPad-first touch UI.
 
-FamilyBot Core handles email ingestion and routing, Norwegian weekly-plan
-parsing, Spond synchronization, weather and transport collection, durable
-Telegram delivery, health checks and runtime status. Inference may improve the
-wording, but it is not part of the durability boundary.
+> **Norway-first:** the reliability layer and dashboard model are reusable, but
+> the current school, calendar, transport and activity adapters assume Norwegian
+> language and services, with Oslo school-calendar data.
 
-## Norwegian integration profile
+## What is in this repository
 
-| Area | Current assumption |
-| --- | --- |
-| School communication | Norwegian `ukeplan`, grade/class expressions and Norwegian-language PDFs and email |
-| School calendar | Norwegian public holidays and Oslo school-year data |
-| Activities | Spond group synchronization |
-| Public transport | Entur Journey Planner and configured Norwegian stop/quay IDs |
-| Weather | MET Norway Locationforecast |
-| Delivery | OpenClaw as the Telegram gateway, with Norwegian family-facing output |
-| Hosting | Always-on macOS host with launchd and local SQLite |
+- deterministic email/PDF routing and weekly-plan extraction;
+- Spond synchronization through an unofficial community client;
+- Norwegian calendar, weather and transport inputs;
+- SQLite reliability primitives, ingestion ledger and delivery outbox;
+- launchd-compatible scheduled jobs, health and status reporting;
+- the **one canonical family configuration template**.
 
-The retry queues, email ledger, health checks, atomic state handling and
-deterministic fallbacks are reusable elsewhere. A non-Norwegian deployment must
-supply different school/calendar parsers and may need different activity,
-weather and transit adapters.
+The sibling `familybot-portal` repository contains the responsive LAN dashboard.
+Inference may improve family-facing wording, but it is not part of the
+durability boundary.
 
-## Development model
+## Start here
 
-`dev` is the normal working branch; `main` is the tested production and
-deployment branch. The lightweight promotion procedure is documented in
-[`docs/BRANCHES.md`](docs/BRANCHES.md).
+1. [New-user walkthrough](GETTING_STARTED.md)
+2. [Architecture and Mac mini/iPad topology](ARCHITECTURE.md)
+3. [Canonical configuration](CONFIGURATION.md)
+4. [Credential/token checklist](CREDENTIALS.md)
+5. [Security and OWASP posture](SECURITY.md)
+6. [Redeploy and disaster recovery](REDEPLOY.md)
 
-## Local family configuration
+## Canonical local configuration
 
-Git contains no household identities or delivery identifiers. Both FamilyBot
-repositories carry the same canonical placeholder file at
-[`config/family.example.json`](config/family.example.json). Install and edit
-one shared local copy:
+Only [`config/family.example.json`](config/family.example.json) is a template.
+Copy it outside Git and validate it:
 
 ```bash
 install -d -m 700 "$HOME/.openclaw/workspace/config"
 install -m 600 config/family.example.json \
   "$HOME/.openclaw/workspace/config/family.local.json"
 ${EDITOR:-nano} "$HOME/.openclaw/workspace/config/family.local.json"
+python3 scripts/validate_config.py
 ```
 
-Replace every applicable uppercase placeholder and remove unused optional
-second-location fields. Keep the populated file owner-readable:
+The populated file holds private metadata and routing IDs, never passwords or
+tokens. Both core and portal read the same file.
+
+## Verify source
 
 ```bash
-chmod 600 "$HOME/.openclaw/workspace/config/family.local.json"
-```
-
-The file supplies family names, ages, grades/classes, Telegram recipients,
-email routing addresses, Spond group IDs, home/optional second-location
-coordinates and Entur preferences. `FAMILYBOT_FAMILY_CONFIG` overrides the file
-path. `FAMILYBOT_WORKSPACE` or `OPENCLAW_WORKSPACE` overrides the workspace.
-
-API tokens and credentials do **not** belong in this JSON file. OpenClaw/
-Telegram credentials, the configured mail client's credentials and Spond
-authentication remain in their respective ignored local credential stores.
-
-Required and optional fields are documented in
-[`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).
-
-## Runtime boundary
-
-The live SQLite database, email attachments, OpenClaw memory, credentials, logs,
-caches and database backups are runtime data and must never be committed. The
-repository is restorable source, not a backup of private household state.
-
-A complete clean-host restoration therefore needs both:
-
-1. these Git repositories; and
-2. a separate protected local backup of the workspace database, family config
-   and external-service credentials.
-
-See [`docs/REDEPLOY.md`](docs/REDEPLOY.md) for the ordered recovery checklist.
-
-## Verification
-
-```bash
+python3 scripts/validate_config.py \
+  --config config/family.example.json --allow-placeholders --skip-permissions
 FAMILYBOT_FAMILY_CONFIG=tests/fixtures/family.test.json \
   python3 -m unittest discover -s tests -p 'test_*.py'
 python3 -m py_compile scripts/*.py
 bash -n scripts/*.sh
 ```
 
-[`scripts/reliability.py`](scripts/reliability.py) owns atomic state, safe
-SQLite access, idempotent delivery and retryable ingestion. The operational
-invariants and promotion checklist are in
-[`specs/RELIABILITY.md`](specs/RELIABILITY.md).
+Runtime SQLite, email attachments, credentials, OpenClaw memory, logs and
+backups are deliberately excluded from Git. Git is a source backup, not a
+household-state backup.
+
+## Development and release
+
+`dev` is the normal working branch. Tested commits are fast-forwarded to
+`main`, which is the deployment branch. See [docs/BRANCHES.md](docs/BRANCHES.md)
+and [specs/RELIABILITY.md](specs/RELIABILITY.md).

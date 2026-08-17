@@ -5,6 +5,17 @@
     "locale": "nb-NO",
     "timezone": "Europe/Oslo"
   },
+  "portal": {
+    "hostname": "familie.local",
+    "web_port": 3000,
+    "api_port": 8788,
+    "bonjour_name": "Familieportalen",
+    "allowed_origins": [
+      "http://familie.local:3000",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000"
+    ]
+  },
   "members": [
     {
       "member_id": 1,
