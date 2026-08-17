@@ -1,0 +1,16 @@
+{
+  "family": {"display_name": "Test Family"},
+  "members": [
+    {"member_id": 1, "role": "parent", "name": "Parent One", "slug": "parent_1", "telegram_target": "test-parent-1"},
+    {"member_id": 2, "role": "parent", "name": "Parent Two", "slug": "parent_2", "telegram_target": "test-parent-2"},
+    {"member_id": 3, "role": "child", "name": "Child One", "slug": "child_1", "grade": 3},
+    {"member_id": 4, "role": "child", "name": "Child Two", "slug": "child_2", "grade": 6}
+  ],
+  "integrations": {
+    "email": {"account": "bot@example.invalid", "forward_addresses": ["parent@example.invalid"]},
+    "spond": {"groups": []},
+    "entur": {"client_name": "familybot-test"},
+    "transport": {"line": "2", "route_description": "test route"},
+    "weather": {"user_agent": "FamilyBot-test/1.0", "home_lat": 59.9, "home_lon": 10.7}
+  }
+}

@@ -1,0 +1,40 @@
+# Session transcripts and state
+*.jsonl
+sessions.json
+
+# Credentials and secrets
+credentials/
+*.env
+.env*
+
+# OpenClaw internal state
+.openclaw/
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+db/family.db
+secrets.env
+config/family.local.json
+backups/
+logs/
+db/*.db
+db/*.db-*
+db/dashboard_*.json
+db/*_state.json
+db/health_failures.json
+
+# Private operational context belongs only in the OpenClaw workspace
+db/
+memory/
+STATUS.md
+MEMORY.md
+USER.md
+SOUL.md
+IDENTITY.md
+AGENTS.md
+SKILLS.md
+TOOLS.md
+CHANGELOG.md

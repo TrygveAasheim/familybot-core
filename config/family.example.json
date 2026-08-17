@@ -1,0 +1,23 @@
+{
+  "family": {"display_name": "FAMILY_DISPLAY_NAME"},
+  "members": [
+    {"member_id": 1, "role": "parent", "name": "PARENT_1_NAME", "slug": "parent_1", "telegram_target": "PARENT_1_TELEGRAM_ID"},
+    {"member_id": 2, "role": "parent", "name": "PARENT_2_NAME", "slug": "parent_2", "telegram_target": "PARENT_2_TELEGRAM_ID"},
+    {"member_id": 3, "role": "child", "name": "CHILD_1_NAME", "slug": "child_1", "grade": "CHILD_1_GRADE"},
+    {"member_id": 4, "role": "child", "name": "CHILD_2_NAME", "slug": "child_2", "grade": "CHILD_2_GRADE"}
+  ],
+  "integrations": {
+    "email": {"account": "FAMILYBOT_EMAIL", "forward_addresses": ["FORWARDING_PARENT_EMAIL"]},
+    "spond": {"groups": [{"group_id": "SPOND_GROUP_ID", "name": "GROUP_DISPLAY_NAME", "member_id": 3}]},
+    "entur": {"client_name": "familybot-local"},
+    "transport": {"line": "TRANSIT_LINE", "route_description": "TRANSIT_ROUTE_DESCRIPTION"},
+    "weather": {
+      "user_agent": "FamilyBot-local/1.0",
+      "home_lat": "HOME_LATITUDE",
+      "home_lon": "HOME_LONGITUDE",
+      "cabin_label": "OPTIONAL_SECOND_LOCATION_LABEL",
+      "cabin_lat": "OPTIONAL_SECOND_LOCATION_LATITUDE",
+      "cabin_lon": "OPTIONAL_SECOND_LOCATION_LONGITUDE"
+    }
+  }
+}
