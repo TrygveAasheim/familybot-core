@@ -1,13 +1,15 @@
-# FamilyBot 🇳🇴
+# FamilyBot
 
-FamilyBot is a local-first family information service for a Norwegian household.
+FamilyBot is a local-first family information service custom-built for Norwegian
+households.
 An always-on Mac mini processes school email and `ukeplan` PDFs, Spond,
 Norwegian calendar data, MET weather and Entur transport; OpenClaw provides the
 conversational/Telegram layer; Familieportalen provides the iPad-first touch UI.
 
-> **Norway-first:** the reliability layer and dashboard model are reusable, but
-> the current school, calendar, transport and activity adapters assume Norwegian
-> language and services, with Oslo school-calendar data.
+> **Custom-built for Norwegian households:** the reliability layer and dashboard
+> model are reusable, while the included school, calendar, transport and activity
+> adapters are configured for Norwegian language and services, including Oslo
+> school-calendar data.
 
 ## What is in this repository
 
