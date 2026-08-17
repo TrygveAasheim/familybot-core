@@ -59,6 +59,15 @@ class ValidateConfigTests(unittest.TestCase):
         self.assertIn("credential-like fields", combined)
         self.assertNotIn("do-not-print-this", combined)
 
+    def test_transport_requires_supported_mode_and_direction_quay(self):
+        value = self.load_fixture()
+        value["integrations"]["transport"]["transport_mode"] = "spaceship"
+        value["integrations"]["transport"].pop("direction_quay_id")
+        report = self.validate_value(value)
+        combined = "\n".join(report.errors)
+        self.assertIn("metro, bus, tram, rail, or water", combined)
+        self.assertIn("direction_quay_id", combined)
+
 
 if __name__ == "__main__":
     unittest.main()

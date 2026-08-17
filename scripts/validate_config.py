@@ -21,6 +21,7 @@ PLACEHOLDER = re.compile(
 SLUG = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
 ROLES = {"parent", "child"}
 GOAL_TYPES = {"points", "currency", "items"}
+TRANSPORT_MODES = {"metro", "bus", "tram", "rail", "water"}
 SECRET_KEY = re.compile(r"(?:^|_)(?:password|passwd|secret|token|api_key|apikey|private_key|client_secret|bot_token)(?:$|_)", re.IGNORECASE)
 
 
@@ -210,12 +211,17 @@ def validate_integrations(report: Report, raw: Any, member_ids: set[int], *, pla
                 if owner is not None and owner not in member_ids:
                     report.error(f"{path}.member_id", "must reference an existing member_id")
     transport = require_dict(report, integrations.get("transport"), "integrations.transport")
-    for field in ("stop_name", "stop_id", "centre_quay_id", "line", "direction_label", "client_name"):
+    for field in ("stop_name", "stop_id", "line", "direction_label", "client_name"):
         require_text(report, transport.get(field), f"integrations.transport.{field}", placeholders=placeholders)
+    mode = transport.get("transport_mode", "metro")
+    if mode not in TRANSPORT_MODES:
+        report.error("integrations.transport.transport_mode", "must be metro, bus, tram, rail, or water")
+    quay = transport.get("direction_quay_id") or transport.get("centre_quay_id")
+    require_text(report, quay, "integrations.transport.direction_quay_id", placeholders=placeholders)
     if transport.get("stop_id") and not placeholders and not str(transport["stop_id"]).startswith("NSR:StopPlace:"):
         report.warn("integrations.transport.stop_id", "does not look like an Entur StopPlace ID")
-    if transport.get("centre_quay_id") and not placeholders and not str(transport["centre_quay_id"]).startswith("NSR:Quay:"):
-        report.warn("integrations.transport.centre_quay_id", "does not look like an Entur Quay ID")
+    if quay and not placeholders and not str(quay).startswith("NSR:Quay:"):
+        report.warn("integrations.transport.direction_quay_id", "does not look like an Entur Quay ID")
     weather = require_dict(report, integrations.get("weather"), "integrations.weather")
     user_agent = require_text(report, weather.get("user_agent"), "integrations.weather.user_agent", placeholders=placeholders)
     if user_agent and not placeholders and "@" not in user_agent:

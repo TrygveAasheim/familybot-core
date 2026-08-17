@@ -40,6 +40,11 @@ Create the one local file from `familybot-core/config/family.example.json` and
 follow [CONFIGURATION.md](CONFIGURATION.md). Complete the
 [credential checklist](CREDENTIALS.md). Keep both Git trees clean.
 
+For public transport, do not guess the station or platform IDs. Follow
+“Configure Ruter or other Norwegian public transport” in `CONFIGURATION.md` and
+use `scripts/find_transport.py` to select the departure stop, line and exact
+direction-specific quay.
+
 ## 4. Restore or initialize data
 
 For an existing household, restore `family.db` before starting any job. For a

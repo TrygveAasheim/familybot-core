@@ -119,7 +119,7 @@ def classify(disruptions: list[dict]) -> dict:
         lines = set(d["lines"])
         if len(lines & ALL_TBANE) >= SYSTEM_THRESHOLD:
             system.append(d)
-        elif "2" in lines:
+        elif CONFIGURED_LINE in lines:
             line2.append(d)
 
     return {

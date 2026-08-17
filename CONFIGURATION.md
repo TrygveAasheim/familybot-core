@@ -42,7 +42,7 @@ broken references and malformed portal origins.
 | `members[].default_reward` | optional | Initial portal reward definition |
 | `integrations.email` | when email job is enabled | Himalaya account label and known forwarding addresses |
 | `integrations.spond.groups[]` | when Spond job is enabled | Group ID, label and optional owning `member_id` |
-| `integrations.transport` | dashboard | Entur stop, quay, line, direction and client label |
+| `integrations.transport` | dashboard | Entur stop, direction-specific quay, mode, line and labels |
 | `integrations.weather` | dashboard/briefing | MET user agent and coordinates |
 
 A Spond group may omit or set `member_id` to `null` when it belongs to the
@@ -57,6 +57,61 @@ home weather and transport blocks are required by the current dashboard.
 
 The three cabin fields are all-or-none:
 `cabin_label`, `cabin_lat`, and `cabin_lon`.
+
+## Configure Ruter or other Norwegian public transport
+
+The dashboard does not call a household-specific Ruter API. Ruter departures
+are published through Entur's national Journey Planner, so the same setup also
+works for supported bus, tram, train and ferry services elsewhere in Norway.
+No Ruter or Entur token is required, but Entur requires a descriptive
+`ET-Client-Name`.
+
+Choose the stop the family actually departs **from**, then choose the exact
+quay/platform for the wanted direction. A station's opposite platforms have
+different `NSR:Quay` IDs; selecting only the station is not enough to distinguish
+"toward the centre" from the opposite direction.
+
+The included helper performs both lookups:
+
+```bash
+# 1. Find candidate stations/stops and their NSR:StopPlace IDs.
+python3 scripts/find_transport.py "STATION OR STOP NAME" \
+  --client-name "surname-familybot"
+
+# 2. Inspect upcoming destinations, lines and direction-specific quays.
+python3 scripts/find_transport.py \
+  --stop-id "NSR:StopPlace:NUMBER" \
+  --client-name "surname-familybot"
+
+# Optional filtering for a busy multimodal stop.
+python3 scripts/find_transport.py \
+  --stop-id "NSR:StopPlace:NUMBER" \
+  --mode metro --line 2 \
+  --client-name "surname-familybot"
+```
+
+Match the destination text to the direction your family needs, then copy these
+fields into the local configuration:
+
+| Field | What to enter |
+| --- | --- |
+| `transport_mode` | `metro`, `bus`, `tram`, `rail`, or `water` |
+| `stop_name` | Family-facing stop/station label |
+| `stop_id` | Selected `NSR:StopPlace:…` from step 1 |
+| `direction_quay_id` | `NSR:Quay:…` for the wanted platform/direction from step 2 |
+| `line` | Public line number/name shown by Entur |
+| `route_description` | Plain description, for example “line 2 from the local station toward the city” |
+| `direction_label` | Dashboard label, for example “Next toward the city centre” |
+| `client_name` | Identifiable Entur client name, normally `surname-familybot` |
+
+`centre_quay_id` remains accepted as a compatibility alias for older local
+files; new configurations should use `direction_quay_id`. The current dashboard
+card follows one configured mode/line/direction. Multiple independent commuter
+routes require an additional adapter/card rather than comma-separated IDs.
+
+After editing, run `python3 scripts/validate_config.py`, deploy, and confirm that
+the displayed destinations and platform are correct before relying on the
+countdown.
 
 `portal.allowed_origins` is an allowlist, not a wildcard. Add an IP-based origin
 only if an iPad must use it, for example `http://192.168.1.50:3000`. Do not add

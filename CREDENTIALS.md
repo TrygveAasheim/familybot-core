@@ -37,8 +37,8 @@ not paste secret values into issues, commits, screenshots or validation logs.
 
 ## Integrations without secrets
 
-- Entur requires a descriptive client name and stop/quay identifiers, not an
-  API key.
+- Entur requires a descriptive client name and the correct stop/quay identifiers,
+  not an API key. Ruter departures are consumed through Entur.
 - MET Locationforecast requires an identifiable User-Agent with contact
   information, not an API key.
 - Bonjour/mDNS needs no credential and must remain limited to the home LAN.
