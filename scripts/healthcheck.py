@@ -64,11 +64,14 @@ else:
              auto_fix="restart")
 
 # ── 2. Telegram channel ────────────────────────────────────────────────────────
-code, out, err = run("openclaw status 2>&1 | grep -A1 'Telegram'")
-if "OK" in out:
+# Fast status intentionally reports SETUP/unknown. Deep status performs the
+# actual channel probe and is the only result suitable for health reporting.
+code, out, err = run("openclaw status --deep 2>&1")
+telegram_line = next((line for line in out.splitlines() if "telegram" in line.lower()), "")
+if code == 0 and " OK " in f" {telegram_line.upper()} ":
     ok("telegram", "Telegram channel connected")
 else:
-    warn("telegram", f"Telegram channel state unclear: {out}",
+    warn("telegram", f"Telegram channel state unclear: {telegram_line or err}",
          fix="Check bot token and restart gateway")
 
 # ── 3. Email / himalaya ───────────────────────────────────────────────────────
@@ -147,6 +150,11 @@ for label in required_jobs:
     if code != 0:
         missing_jobs.append(label)
         continue
+    # Do not use this health job's previous warning exit as evidence against
+    # itself. Its presence is still checked above; all other jobs retain their
+    # last-exit validation.
+    if label == "familybot.health":
+        continue
     for line in out.splitlines():
         if "last exit code =" in line:
             try:
@@ -207,15 +215,22 @@ except Exception as e:
     warn("calendar_hygiene", f"Could not run calendar hygiene: {e}")
 
 # ── Summary ───────────────────────────────────────────────────────────────────
-now = datetime.now(OSLO).strftime("%Y-%m-%d %H:%M %Z")
+now = datetime.now(OSLO)
 oks = [r for r in results if r["status"] == "ok"]
 warns = [r for r in results if r["status"] == "warn"]
 crits = [r for r in results if r["status"] == "critical"]
 
-print(json.dumps({
-    "checked_at": now,
+payload = {
+    "checked_at": now.isoformat(timespec="seconds"),
     "summary": {"ok": len(oks), "warn": len(warns), "critical": len(crits)},
     "results": results
-}, indent=2, ensure_ascii=False))
+}
+status_path = WORKSPACE / "db" / "health_status.json"
+status_path.parent.mkdir(parents=True, exist_ok=True)
+temporary_path = status_path.with_suffix(".json.tmp")
+temporary_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+os.chmod(temporary_path, 0o600)
+os.replace(temporary_path, status_path)
+print(json.dumps(payload, indent=2, ensure_ascii=False))
 
 sys.exit(exit_code)
