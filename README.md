@@ -26,6 +26,12 @@ deterministic fallbacks are reusable elsewhere. A non-Norwegian deployment must
 supply different school/calendar parsers and may need different activity,
 weather and transit adapters.
 
+## Development model
+
+`dev` is the normal working branch; `main` is the tested production and
+deployment branch. The lightweight promotion procedure is documented in
+[`docs/BRANCHES.md`](docs/BRANCHES.md).
+
 ## Local family configuration
 
 Git contains no household identities or delivery identifiers. Both FamilyBot
