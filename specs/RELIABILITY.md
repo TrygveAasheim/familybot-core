@@ -1,7 +1,7 @@
 # Reliability foundation
 
-Status: isolated prototype on `hardening/reliability-foundation`. Nothing in this
-document is installed in the running OpenClaw workspace yet.
+Status: privacy-safe source baseline. Deployment state must be verified from the
+running OpenClaw workspace and launchd; this document is not a live status file.
 
 ## Invariants
 
