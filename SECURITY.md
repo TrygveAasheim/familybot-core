@@ -46,6 +46,21 @@ paths. Runtime data, backups, config, PIN and audit logs are Git-ignored.
 Review new fields before adding them to `/api/dashboard`. A value being present
 in SQLite does not make it suitable for a child's screen or browser response.
 
+## OpenClaw operator boundary
+
+The current Telegram/OpenClaw gateway follows a personal-assistant trust model:
+configured parents are trusted operators, not hostile tenants. Do not add
+children, public groups or untrusted users to a context that exposes runtime or
+filesystem tools. If mutually untrusted users are ever added, use separate
+gateway/OS-user boundaries or enable full sandboxing, workspace-only file access
+and a minimal per-channel tool allowlist first.
+
+The OpenClaw control UI is intentionally loopback-only. A missing
+`trustedProxies` value is therefore expected; configure it only if a reviewed
+reverse proxy is actually introduced. Pin separately installed OpenClaw plugins
+to exact versions and resolve duplicate install metadata before the next
+OpenClaw upgrade.
+
 ## Security release gate
 
 Before promotion:
