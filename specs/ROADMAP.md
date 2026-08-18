@@ -1,14 +1,16 @@
 # Roadmap
 
-## Phase 1 — Core Family Organiser (current focus)
+## Foundation — Core family organiser
 
-- [ ] Kanban board skill
-- [ ] Dedicated email address setup
-- [ ] Email ingestion skill (IMAP polling + parsing)
-- [ ] PDF parser skill
-- [ ] Spond monitor skill
-- [ ] Daily briefing (07:30, per-user, consolidated)
-- [ ] Configured-parent onboarding (first contact, preference capture)
+- [x] Kanban storage and Telegram command surface
+- [x] Email ingestion and processing ledger
+- [x] `ukeplan` PDF/text parsing and normalized storage
+- [x] Spond event synchronization through a community client
+- [x] Deterministic daily/weekly briefing fallbacks and durable delivery outbox
+- [x] Canonical local family configuration and validation
+- [x] iPad-first LAN portal with family, child and parent surfaces
+- [ ] Clean-room core database migration and complete LaunchAgent installer
+- [ ] Complete configured-parent onboarding and preference management
 
 ## Uavklarte tekniske punkt
 
@@ -24,7 +26,18 @@ Status: ikke løst, ikke prioritert. Følges opp når det er aktuelt.
 
 ---
 
-## Phase 2 — Local Discovery (future)
+## Add-on track — Smart Home
+
+The canonical plan, device inventory and acceptance criteria are in
+[`SMART_HOME.md`](SMART_HOME.md). Current order:
+
+- [ ] Install Home Assistant as an isolated broker on the Mac mini
+- [ ] Integrate the home Roborock S5 locally without re-pairing
+- [ ] Test the cabin Q5 Pro through the existing Xiaomi Home account
+- [ ] Add a separate `/smart-home` portal page and parent-authorized controls
+- [ ] Evaluate laundry, freezer, Nest and cabin climate only after Xiaomi passes
+
+## Add-on track — Local discovery
 
 ### Oslo-events for barn og familier
 Research gjort 2026-04-19. Anbefalte kilder:
@@ -43,7 +56,7 @@ Features that enrich family life but are not core to the organiser function.
 - [ ] "What's happening near our configured second location" — conditions, events, activities
 - [ ] Artist tour tracker — monitor announcements for locally configured artists
 
-## Phase 3 — Expansion (ideas only)
+## Expansion ideas
 
 Not committed to, not designed for yet. Written down so they don't get lost.
 
@@ -54,4 +67,5 @@ Not committed to, not designed for yet. Written down so they don't get lost.
 
 ---
 
-*Phase 2 and 3 items should not influence Phase 1 architecture unless the cost of accommodation is near-zero.*
+*Add-ons must not alter core ingestion or delivery semantics. Promote only a
+generic, reviewed interface into core.*

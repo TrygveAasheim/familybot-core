@@ -29,10 +29,14 @@
 - Prefer existing libraries over building from scratch (e.g. existing Spond API clients if available)
 - Keep external dependencies minimal and auditable
 
-### Scope creep
-- Phase 1 is the four core skills: email ingestion, PDF parsing, Spond monitoring, kanban board
-- Phase 2 features (local events, second-location events, artist tour tracking) belong in ROADMAP.md only
-- Do not let phase 2 requirements influence phase 1 architecture decisions unless the cost is near-zero
+### Scope and add-on isolation
+- The reliability core is email ingestion, weekly-plan parsing, normalized
+  family facts, Spond/calendar inputs, deterministic briefings, durable delivery
+  and health.
+- Portal features, Smart Home, cameras, menu providers and local-event discovery
+  are add-ons behind curated interfaces.
+- An add-on must not change core completion semantics or make a core job depend
+  on its availability. See `docs/REPOSITORY_GUIDE.md`.
 
 ### User experience
 - The iPad-first LAN dashboard is the family's glanceable and child-facing
@@ -56,12 +60,15 @@ Telegram-sesjoner og isolerte cron-sesjoner starter fra scratch og har ikke tilg
 ### Dokumentasjonsplikt
 - Etter hver samtale der noe endres: oppdater MEMORY.md, CHANGELOG.md og relevante specs
 - Hvis en feil avdekkes i dokumentasjon: rett det umiddelbart
-- Kilde til sannhet-hierarki: STATUS.md (system) → MEMORY.md (familie/kontekst) → SKILLS.md (kapabiliteter)
+- For conversational runtime orientation: STATUS.md (system) → MEMORY.md
+  (family/context) → SKILLS.md (capabilities). This runtime hierarchy does not
+  override normalized SQLite state, canonical configuration or reviewed source.
 
 ## Open Questions
 
 - **Email address**: A dedicated email address needs to be set up for the bot to receive forwards from school apps. Provider TBD (could be a simple Gmail, Fastmail alias, or self-hosted).
 - **Parent onboarding**: preferences such as format, timing, and language are captured locally on first contact.
-- **Kids on Telegram**: Not currently planned. If kids get their own Telegram accounts later, the architecture should be able to accommodate them without a rewrite.
+- **Kids on Telegram**: Not currently planned. Children use the portal directly;
+  adding child Telegram accounts later requires an explicit security boundary.
 - **Spond API access**: Spond does not have an official public API. A third-party client or scraping approach will be needed — this is the highest technical risk item.
 - **Norwegian language**: School communications and Spond content may be in Norwegian. Prompts and summaries use each locally configured preference.

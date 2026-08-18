@@ -26,12 +26,22 @@ durability boundary.
 
 ## Start here
 
-1. [New-user walkthrough](GETTING_STARTED.md)
-2. [Architecture and Mac mini/iPad topology](ARCHITECTURE.md)
-3. [Canonical configuration](CONFIGURATION.md)
-4. [Credential/token checklist](CREDENTIALS.md)
-5. [Security and OWASP posture](SECURITY.md)
-6. [Redeploy and disaster recovery](REDEPLOY.md)
+For a coding agent or a session without prior context, begin with
+[`AGENTS.md`](AGENTS.md), then follow this map:
+
+1. [Repository guide and core/add-on boundaries](docs/REPOSITORY_GUIDE.md)
+2. [New-user walkthrough](GETTING_STARTED.md)
+3. [Architecture and Mac mini/iPad topology](ARCHITECTURE.md)
+4. [Reliability invariants](specs/RELIABILITY.md)
+5. [Change protocol](docs/CHANGE_PROTOCOL.md)
+6. [Canonical configuration](CONFIGURATION.md)
+7. [Credential/token checklist](CREDENTIALS.md)
+8. [Security and OWASP posture](SECURITY.md)
+9. [Redeploy and disaster recovery](REDEPLOY.md)
+
+Smart Home is a documented add-on plan, not a current core capability. See
+[`specs/SMART_HOME.md`](specs/SMART_HOME.md). Documentation handoff quality is
+tested with [`docs/NEW_SESSION_VERIFICATION.md`](docs/NEW_SESSION_VERIFICATION.md).
 
 ## Canonical local configuration
 
@@ -52,6 +62,7 @@ tokens. Both core and portal read the same file.
 ## Verify source
 
 ```bash
+python3 scripts/validate_docs.py
 python3 scripts/validate_config.py \
   --config config/family.example.json --allow-placeholders --skip-permissions
 FAMILYBOT_FAMILY_CONFIG=tests/fixtures/family.test.json \

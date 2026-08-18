@@ -11,7 +11,9 @@ the durable source of truth. Git does not contain your household database,
 names or credentials.
 
 Read [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY.md](SECURITY.md) and
-[CREDENTIALS.md](CREDENTIALS.md) before exposing the service to the LAN.
+[CREDENTIALS.md](CREDENTIALS.md) before exposing the service to the LAN. A
+developer or coding agent should start at [AGENTS.md](AGENTS.md) and
+[docs/REPOSITORY_GUIDE.md](docs/REPOSITORY_GUIDE.md).
 
 ## 2. Prepare the host
 
@@ -94,7 +96,8 @@ and an iPad, then save `http://familie.local:3000/` to the iPad Home Screen.
   changes.
 - Core database creation and the full LaunchAgent set are not yet one-command.
 - Local HTTP assumes a trusted home LAN; untrusted networks need TLS/VPN.
-- External smart-home, menu and camera integrations are ideas, not part of the
-  supported deployment.
+- Smart Home, menu and camera integrations are isolated add-ons and are not part
+  of the supported deployment yet. The researched Smart Home boundary is in
+  [specs/SMART_HOME.md](specs/SMART_HOME.md).
 
 These are explicit product boundaries, not silent setup steps.

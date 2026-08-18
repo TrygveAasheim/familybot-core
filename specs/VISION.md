@@ -10,7 +10,9 @@ The core value is **reducing cognitive load for busy parents**. The bot handles 
 
 - **Parent 1** — primary technical owner; receives information in their preferred format and cadence
 - **Parent 2** — co-owner; receives the same underlying information but may prefer different formats, summaries, or timing
-- **The kids** — not direct users yet, but the subject of most of the planning
+- **The children** — direct users of the iPad-first dashboard for school
+  information, chores and age-appropriate household status; they are not
+  OpenClaw administrators
 
 ## Guiding Principles
 
@@ -20,6 +22,11 @@ The core value is **reducing cognitive load for busy parents**. The bot handles 
 4. **Privacy wall between users.** Personal conversations stay with the individual user. Shared family data (tasks, events, school info) is visible to configured parents.
 5. **Self-hosted.** Runs on the family Mac mini. No family data leaves the house except to the LLM API and configured external services (Spond, email).
 6. **Extensible.** The architecture should make it straightforward to add new skills later without reworking the core.
+7. **Dashboard first for family life.** The chatbot is the intelligence layer;
+   the touch dashboard is the calm, direct interface the household lives with.
+8. **Optional means optional.** Smart Home and other conveniences may enrich the
+   product but never determine whether school information was processed or a
+   briefing was delivered.
 
 ## What Success Looks Like
 
@@ -28,3 +35,5 @@ The core value is **reducing cognitive load for busy parents**. The bot handles 
 - Spond events, decisions, and chat updates are monitored and flagged when action is needed
 - The kanban board is a shared, living list that both can add to and that feeds into the daily briefing
 - Nothing important falls through the cracks
+- Children can understand today's information and use their own dashboard
+  without adult help

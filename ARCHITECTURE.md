@@ -4,6 +4,9 @@ FamilyBot is a local-first Norwegian family information service. Deterministic
 jobs collect and store facts; optional inference improves wording; the iPad
 dashboard and Telegram expose curated views.
 
+This document describes the running family-information architecture. Planned
+add-ons are explicitly labelled and may not be treated as deployed services.
+
 ## Physical topology
 
 ```mermaid
@@ -100,3 +103,30 @@ $HOME/Library/LaunchAgents/                reviewed schedules/supervisors
 Source control is not a household backup. See [REDEPLOY.md](REDEPLOY.md) for
 the source/state/credential restore order and [SECURITY.md](SECURITY.md) for
 the threat model.
+
+## Core and add-on dependency rule
+
+```mermaid
+flowchart LR
+  Edge["Untrusted external adapters"] --> Core["Deterministic reliability core"]
+  Core --> Facts["Normalized durable facts"]
+  Facts --> Portal["Curated portal API and UI"]
+  Facts --> Conversation["OpenClaw and delivery"]
+  HA["Home Assistant - planned"] --> Smart["Smart Home add-on - planned"]
+  Smart --> Portal
+  Smart --> Conversation
+  Smart -. "must not be required by" .-> Core
+```
+
+Core owns ingestion completion, fact durability, briefings, outbox delivery and
+health. Add-ons may consume curated facts or own separate schemas, but they do
+not change core completion state. The detailed ownership map is in
+[`docs/REPOSITORY_GUIDE.md`](docs/REPOSITORY_GUIDE.md).
+
+## Planned Smart Home topology
+
+Home Assistant is the proposed broker on the Mac mini. Home-local devices may
+use local protocols. Cabin devices are cloud-backed until a cabin-side broker
+and reviewed VPN exist. This topology, device research and acceptance criteria
+are specified in [`specs/SMART_HOME.md`](specs/SMART_HOME.md); no Home Assistant
+runtime is currently implied by this diagram.

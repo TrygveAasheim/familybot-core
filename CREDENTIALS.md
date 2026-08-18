@@ -30,10 +30,13 @@ not paste secret values into issues, commits, screenshots or validation logs.
   `$HOME/.openclaw/workspace/secrets.env`, mode `0600`, as `SPOND_USERNAME` and
   `SPOND_PASSWORD`. The community Spond client is unofficial; use a dedicated
   account if practical and review it after upstream changes.
-- [ ] **Future smart-home credentials** (Nest, Xiaomi, Toshiba or a Home
-  Assistant token) use a dedicated ignored secret store, a least-privilege
-  account and a separate trust boundary. They are not implemented or required
-  by this release.
+- [ ] **Future Home Assistant credential** uses a dedicated non-admin account
+  where possible and an owner-only token stored outside Git. FamilyBot receives
+  an allowlisted adapter, never an arbitrary browser-to-Home-Assistant proxy.
+- [ ] **Future appliance authorizations** (Xiaomi, Nest, SmartThings,
+  Electrolux/AEG, HomeWhiz or Toshiba) are entered in Home Assistant or the
+  provider's local OAuth/setup flow. Do not paste them into chat, FamilyBot
+  configuration or issues. See [specs/SMART_HOME.md](specs/SMART_HOME.md).
 
 ## Integrations without secrets
 

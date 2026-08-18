@@ -47,6 +47,11 @@ Store runtime backup material encrypted and separately from Git.
     briefing preview, one Telegram delivery to each parent, weather, Entur and
     an iPad child completion/parent rejection cycle.
 
+Optional add-ons such as Home Assistant are restored only after this base
+pipeline is healthy. Their failure must not block core recovery. Follow the
+separate acceptance and credential boundary in `specs/SMART_HOME.md` before
+restoring appliance control.
+
 ## Upgrade an existing host
 
 ```bash

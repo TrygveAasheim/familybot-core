@@ -8,7 +8,8 @@ application, with stronger controls around credentials and parent writes.
 
 Protected assets include children's identities, school plans, schedules,
 locations, email-derived facts, Spond content, Telegram identifiers, household
-tasks, tokens and credentials. Expected threats are accidental Git disclosure,
+tasks, camera images, appliance state, tokens and credentials. Expected threats
+are accidental Git disclosure,
 malicious email/PDF content, an untrusted device on the LAN, PIN guessing,
 dependency compromise, failed jobs and loss of the Mac mini.
 
@@ -46,6 +47,19 @@ paths. Runtime data, backups, config, PIN and audit logs are Git-ignored.
 Review new fields before adding them to `/api/dashboard`. A value being present
 in SQLite does not make it suitable for a child's screen or browser response.
 
+## Smart Home boundary
+
+Smart Home remains an optional add-on behind Home Assistant. Vendor credentials
+stay in Home Assistant or a separate owner-only store. The FamilyBot adapter
+allowlists entities and actions; the browser cannot issue arbitrary Home
+Assistant service calls. Camera access and consequential appliance/climate
+commands require parent authorization and audit. Every device reports whether
+its state is Local, Cloud, Experimental, Stale or Offline.
+
+The Mac mini must not expose Home Assistant, portal or camera ports directly to
+the internet. True cabin-local control requires a cabin-side node and reviewed
+VPN rather than a public port forward. See [specs/SMART_HOME.md](specs/SMART_HOME.md).
+
 ## OpenClaw operator boundary
 
 The current Telegram/OpenClaw gateway follows a personal-assistant trust model:
@@ -66,6 +80,7 @@ OpenClaw upgrade.
 Before promotion:
 
 ```bash
+python3 scripts/validate_docs.py
 python3 scripts/validate_config.py
 python3 -m unittest discover -s tests -p 'test_*.py'
 python3 -m py_compile scripts/*.py
