@@ -23,6 +23,17 @@ The sibling `familybot-portal` repository contains the responsive LAN dashboard.
 Inference may improve family-facing wording, but it is not part of the
 durability boundary.
 
+## Telegram child-chore interview
+
+The conversational layer should use the separate `chore-preview` and
+`chore-create` commands in `scripts/kanban.py` when a family wants to add a
+real child chore. Preview gathers and normalizes the child, points, repeat
+weekdays and approval setting; creation requires explicit confirmation and an
+idempotency key. The command delegates storage to the sibling portal, which
+owns the child-chore metadata and validation. Generic `kanban.py add` remains
+for parent Kanban tasks. The complete handoff contract is documented in the
+portal repository at `docs/TELEGRAM_CHILD_CHORES.md`.
+
 ## Start here
 
 For a coding agent or a session without prior context, begin with
