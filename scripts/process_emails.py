@@ -152,11 +152,56 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
+def strip_email_metadata(text: str) -> str:
+    """Remove transport headers, attachment markers and addresses from text."""
+    text = clean_text(text)
+    attachment = re.search(r"\[[^\]]*attachment:\s*[^\]]+\]", text, flags=re.IGNORECASE)
+    if attachment:
+        text = text[attachment.end():].lstrip()
+    else:
+        subject = re.search(r"\bSubject:\s*", text, flags=re.IGNORECASE)
+        prefix = text[:subject.start()] if subject else ""
+        if subject and re.search(r"\b(?:From|To|Cc|Bcc|Date|Reply-To):", prefix, flags=re.IGNORECASE):
+            text = text[subject.end():].lstrip()
+    text = re.sub(r"(?im)^\s*(?:from|to|cc|bcc|date|reply-to|subject):[^\n]*\n?", "", text)
+    text = re.sub(r"\b(?:from|to|cc|bcc|date|reply-to|subject):\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b", "", text)
+    text = re.sub(r"\s+[A-Za-z][\w .-]*\s*<\s*>", " ", text)
+    text = re.sub(r"\[[^\]]*attachment:[^\]]*\]", "", text, flags=re.IGNORECASE)
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 def declared_attachment_names(message_text: str) -> set[str]:
     names = set()
     for match in re.finditer(r"<#part\b[^>]*\bfilename=\"([^\"]+)\"", message_text or ""):
         names.add(os.path.basename(html.unescape(match.group(1))))
     return names
+
+
+def save_ukeplan_attachments(paths, member_id, email_id, subject="", year=None):
+    """Store a ukeplan from document attachments, never from the email body.
+
+    A PDF is authoritative when present. Falling back to ``full_text`` after a
+    PDF parse failure used to persist mail headers, addresses and unrelated
+    prose as if it were the plan. That is both noisy and a data-boundary bug;
+    the caller should leave the message retryable when the PDF cannot be
+    parsed.
+    """
+    paths = [path for path in paths if path]
+    pdf_paths = [path for path in paths if path.lower().endswith(".pdf")]
+    if pdf_paths:
+        saved = False
+        for path in pdf_paths:
+            saved = save_ukeplan(path, member_id, email_id, year=year) or saved
+        if not saved:
+            raise RuntimeError("ukeplan PDF was present but could not be parsed")
+        return True
+
+    docx_paths = [path for path in paths if path.lower().endswith(".docx")]
+    for path in docx_paths:
+        if save_ukeplan_text(extract_docx(path), member_id, email_id, subject, year=year):
+            return True
+    return False
 
 
 def save_ukeplan_text(raw_text, member_id, email_id, subject="", year=None):
@@ -257,19 +302,19 @@ def backfill_weekplans_from_email_log():
         conn.commit()
         conn.close()
 
-        saved = False
+        attachment_paths = []
         for name in declared_attachment_names(summary or ""):
-            if "ukeplan" not in name.lower():
-                continue
             path = os.path.join(ATTACHMENT_DIR, os.path.basename(name))
             if not os.path.isfile(path):
                 continue
-            if path.lower().endswith(".pdf"):
-                saved = save_ukeplan(path, resolved_member, message_id) or saved
-            elif path.lower().endswith(".docx"):
-                saved = save_ukeplan_text(extract_docx(path), resolved_member, message_id, subject) or saved
-        if not saved:
-            saved = save_ukeplan_text(summary, resolved_member, message_id, subject)
+            attachment_paths.append(path)
+        try:
+            saved = save_ukeplan_attachments(
+                attachment_paths, resolved_member, message_id, subject=subject
+            )
+        except RuntimeError as exc:
+            print(f"  [UKEPLAN] {exc}")
+            saved = False
         if saved:
             count += 1
     return count
@@ -416,16 +461,17 @@ def process_new_emails():
             if category == "school" and member_id:
                 ukeplan_keywords = ["ukeplan", "week plan", "ukeplanen"]
                 if any(kw in subject.lower() for kw in ukeplan_keywords):
-                    saved = False
+                    attachment_paths = []
                     likely_plans = [p for p in fresh_ukeplan_files if "ukeplan" in os.path.basename(p).lower()]
                     candidates = likely_plans or fresh_ukeplan_files
-                    for path in candidates:
-                        if path.lower().endswith(".pdf"):
-                            saved = save_ukeplan(path, member_id=member_id, email_id=msg_id) or saved
-                        elif path.lower().endswith(".docx"):
-                            saved = save_ukeplan_text(extract_docx(path), member_id, msg_id, subject) or saved
-                    if not saved:
-                        saved = save_ukeplan_text(full_text, member_id, msg_id, subject)
+                    attachment_paths.extend(candidates)
+                    try:
+                        saved = save_ukeplan_attachments(
+                            attachment_paths, member_id, msg_id, subject=subject
+                        )
+                    except RuntimeError as exc:
+                        print(f"  [UKEPLAN] {exc}")
+                        saved = False
                     if not saved:
                         raise RuntimeError("ukeplan detected but no week plan was stored")
                     ledger.update(msg_id, "ukeplan-stored")

@@ -14,6 +14,7 @@ os.environ["FAMILYBOT_FAMILY_CONFIG"] = os.path.join(
 
 import briefing
 import briefing_data
+import process_emails
 from calendar_guard import validate_event, week_date_range
 from email_routing import _resolve_member_from_body
 from reliability import DeliveryOutbox, EmailProcessingLedger, atomic_write_json
@@ -39,6 +40,18 @@ class CurrentClassRoutingTests(unittest.TestCase):
 
     def test_6a_routes_to_child_two(self):
         self.assertEqual(_resolve_member_from_body("Til 6A: ukeplan uke 34"), 4)
+
+
+class UkeplanSourceTests(unittest.TestCase):
+    def test_pdf_failure_never_falls_back_to_email_text(self):
+        with mock.patch.object(process_emails, "save_ukeplan", return_value=False), \
+                mock.patch.object(process_emails, "save_ukeplan_text") as save_text:
+            with self.assertRaises(RuntimeError):
+                process_emails.save_ukeplan_attachments(
+                    ["/tmp/ukeplan.pdf"], member_id=3, email_id="42",
+                    subject="Ukeplan uke 35",
+                )
+            save_text.assert_not_called()
 
 
 class BriefingTimeDimensionTests(unittest.TestCase):

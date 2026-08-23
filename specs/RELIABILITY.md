@@ -45,6 +45,9 @@ connections enable foreign-key enforcement and a 10-second busy timeout.
 - Himalaya list/read fails: job exits non-zero; no message is marked processed.
 - Attachment download or ukeplan parsing fails: ledger records the error and the
   email remains retryable.
+- When an ukeplan PDF is present, only parsed PDF text may populate `week_plans`;
+  the email body, headers, addresses and attachment metadata are never a
+  fallback source.
 - A recent ukeplan was logged before a class mapping update: the bounded backfill
   resolves current 3A/6A content, repairs its member mapping and stores the plan.
 - A Saturday/Sunday daily briefing: week-plan lookup rolls forward to Monday's
