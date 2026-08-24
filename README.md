@@ -12,7 +12,8 @@ conversational/Telegram layer; Familieportalen provides the iPad-first touch UI.
 
 ## What is in this repository
 
-- deterministic email/PDF routing and weekly-plan extraction;
+- deterministic email/PDF routing and weekly-plan extraction, with optional
+  validated LLM enrichment for readable day/category structure;
 - Spond synchronization through an unofficial community client;
 - Norwegian calendar, weather and transport inputs;
 - SQLite reliability primitives, ingestion ledger and delivery outbox;

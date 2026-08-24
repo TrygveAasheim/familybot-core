@@ -77,10 +77,44 @@ def x_to_weekday_index(x: float, boundaries: list = None) -> int:
     return len(boundaries)  # last column
 
 
+def _layout_blocks(words: list, page_number: int, boundaries: list = None) -> list[dict]:
+    """Preserve readable PDF lines and their evidence coordinates."""
+    rows = {}
+    for word in words:
+        top = round(word["top"] / 3) * 3
+        rows.setdefault(top, []).append(word)
+
+    result = []
+    for index, (top, row_words) in enumerate(sorted(rows.items())):
+        ordered = sorted(row_words, key=lambda item: item["x0"])
+        text = " ".join(str(item["text"]).strip() for item in ordered if str(item["text"]).strip()).strip()
+        if not text:
+            continue
+        columns = set()
+        if page_number == 2 and boundaries:
+            for word in ordered:
+                if word["x0"] >= 190:
+                    columns.add(x_to_weekday_index(word["x0"], boundaries))
+        block = {
+            "id": f"page{page_number}-block{index + 1}",
+            "page": page_number,
+            "text": text,
+            "x0": round(min(item["x0"] for item in ordered), 1),
+            "x1": round(max(item["x1"] for item in ordered), 1),
+            "top": round(min(item["top"] for item in ordered), 1),
+            "bottom": round(max(item["bottom"] for item in ordered), 1),
+        }
+        if len(columns) == 1:
+            block["weekday"] = COL_INDEX_TO_WEEKDAY[next(iter(columns))]
+        result.append(block)
+    return result
+
+
 def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026) -> dict:
     result = {
         "week": None, "year": year, "class": None, "teacher": None,
         "theme": None, "homework": {}, "days": {}, "info": "", "raw_text": "",
+        "layout_text": "", "source_blocks": [],
         "future_weeks": {}
     }
 
@@ -94,6 +128,17 @@ def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026) -> dict:
 
     full_text = "\n".join(full_text_pages)
     result["raw_text"] = full_text
+
+    timetable_words = pages_words[1] if len(pages_words) > 1 else []
+    col_boundaries = _compute_col_boundaries(timetable_words)
+    source_blocks = []
+    for page_index, page_words in enumerate(pages_words, start=1):
+        source_blocks.extend(_layout_blocks(page_words, page_index, col_boundaries))
+    result["source_blocks"] = source_blocks
+    result["layout_text"] = "\n".join(
+        f"[{block['id']}] {block.get('weekday', 'general')}: {block['text']}"
+        for block in source_blocks
+    )
 
     # --- Metadata ---
     m = re.search(r'uke\s*(\d+)', full_text, re.IGNORECASE)
@@ -150,8 +195,6 @@ def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026) -> dict:
         result["days"][iso] = {"date": iso, "weekday": weekday_name, "events": [], "bring": []}
 
     # --- Coordinate-based event extraction from timetable page (page 2) ---
-    timetable_words = pages_words[1] if len(pages_words) > 1 else []
-
     # Compute column boundaries dynamically from this PDF's day headers
     col_boundaries = _compute_col_boundaries(timetable_words)
 

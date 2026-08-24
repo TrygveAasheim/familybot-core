@@ -13,7 +13,7 @@ export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 task="${1:-}"
 case "$task" in
-  email|spond|tbane|health|status|briefing-daily|briefing-weekly|delivery) ;;
+  email|spond|tbane|health|status|briefing-daily|briefing-weekly|delivery|ukeplan-interpret) ;;
   *)
     echo "Unknown task: $task" >&2
     exit 64
@@ -89,5 +89,9 @@ case "$task" in
   delivery)
     echo "[$timestamp] delivery outbox retry" >> "$LOG"
     $PYTHON "$WORKSPACE/scripts/flush_outbox.py" >> "$LOG" 2>&1
+    ;;
+  ukeplan-interpret)
+    echo "[$timestamp] ukeplan interpretation" >> "$LOG"
+    $PYTHON "$WORKSPACE/scripts/interpret_ukeplan.py" --limit 1 >> "$LOG" 2>&1
     ;;
 esac

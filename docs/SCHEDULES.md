@@ -13,6 +13,7 @@ live in [`ops/launchd/`](../ops/launchd/), and the installer expands the
 | Weekend morning briefing | `0` and `6` | 08:00 | `briefing-daily` |
 | Weekly overview | `0` | 21:00 | `briefing-weekly` |
 | Delivery retry worker | interval | every 5 minutes | `delivery` |
+| Ukeplan interpretation | interval | every 15 minutes | `ukeplan-interpret` |
 
 Validate the templates before installation:
 

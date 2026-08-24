@@ -33,6 +33,10 @@ running OpenClaw workspace and launchd; this document is not a live status file.
 Both tables are created idempotently by the code that owns them. SQLite
 connections enable foreign-key enforcement and a 10-second busy timeout.
 
+Ukeplan PDF layout evidence is stored with `week_plans.layout_json`. The
+optional `week_plan_interpretations` row records a validated, source-backed
+structured result separately from deterministic `week_plan_days` facts.
+
 ## Failure behaviour
 
 - OpenClaw inference failure: render deterministic briefing, then queue it.
@@ -48,6 +52,10 @@ connections enable foreign-key enforcement and a 10-second busy timeout.
 - When an ukeplan PDF is present, only parsed PDF text may populate `week_plans`;
   the email body, headers, addresses and attachment metadata are never a
   fallback source.
+- Ukeplan interpretation runs asynchronously after ingestion. An LLM may only
+  produce accepted items whose text is present in stored PDF evidence and whose
+  dates are in the plan's Monday–Friday ISO week. A timeout, malformed response,
+  or validation failure leaves deterministic plan data available and is retried.
 - A recent ukeplan was logged before a class mapping update: the bounded backfill
   resolves current 3A/6A content, repairs its member mapping and stores the plan.
 - A Saturday/Sunday daily briefing: week-plan lookup rolls forward to Monday's

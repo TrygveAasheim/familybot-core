@@ -26,6 +26,7 @@ JOBS = [
     ("familybot.briefing.weekend", "Morgenbriefing helg", "08:00 lørdag–søndag"),
     ("familybot.briefing.weekly", "Søndagsoversikt", "21:00 søndag"),
     ("familybot.delivery", "Telegram-kø", "hvert 5. minutt"),
+    ("familybot.ukeplan", "Ukeplanforståelse", "hvert 15. minutt"),
 ]
 
 def launchd_state(label):

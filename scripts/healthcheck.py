@@ -144,7 +144,7 @@ except Exception as e:
 required_jobs = ["familybot.email", "familybot.spond", "familybot.health",
                  "familybot.status", "familybot.briefing.weekday",
                  "familybot.briefing.weekend", "familybot.briefing.weekly",
-                 "familybot.delivery"]
+                 "familybot.delivery", "familybot.ukeplan"]
 missing_jobs, failed_jobs, schedule_errors = [], [], []
 for label in required_jobs:
     code, out, err = run(f"launchctl print gui/{os.getuid()}/{label}")

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>familybot.ukeplan</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__FAMILYBOT_WORKSPACE__/scripts/cron_runner.sh</string>
+    <string>ukeplan-interpret</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FAMILYBOT_WORKSPACE</key>
+    <string>__FAMILYBOT_WORKSPACE__</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>900</integer>
+  <key>StandardOutPath</key>
+  <string>__FAMILYBOT_WORKSPACE__/logs/ukeplan.log</string>
+  <key>StandardErrorPath</key>
+  <string>__FAMILYBOT_WORKSPACE__/logs/ukeplan-error.log</string>
+</dict>
+</plist>

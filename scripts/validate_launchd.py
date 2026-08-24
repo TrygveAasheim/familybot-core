@@ -34,6 +34,11 @@ EXPECTED: dict[str, dict[str, Any]] = {
         "task": "delivery",
         "interval": 300,
     },
+    "familybot.ukeplan.plist.example": {
+        "label": "familybot.ukeplan",
+        "task": "ukeplan-interpret",
+        "interval": 900,
+    },
 }
 
 

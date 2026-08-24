@@ -43,6 +43,13 @@ def run(cmd, timeout=60):
 def get_db():
     return connect_db(DB_PATH)
 
+
+def ensure_week_plan_layout_column(connection):
+    """Keep older FamilyBot databases compatible with layout evidence."""
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(week_plans)")}
+    if columns and "layout_json" not in columns:
+        connection.execute("ALTER TABLE week_plans ADD COLUMN layout_json TEXT NOT NULL DEFAULT ''")
+
 def already_processed(message_id):
     conn = get_db()
     c = conn.cursor()
@@ -88,43 +95,49 @@ def save_ukeplan(pdf_path, member_id, email_id, year=None):
         summary_parts.append(data["info"][:300])
     summary = " | ".join(summary_parts)
     raw_text = clean_text(data.get("raw_text") or data.get("info") or "")
+    layout_json = json.dumps({
+        "version": 1,
+        "layout_text": data.get("layout_text") or "",
+        "source_blocks": data.get("source_blocks") or [],
+    }, ensure_ascii=False, separators=(",", ":"))
     if not summary:
         summary = raw_text[:900]
 
     conn = get_db()
     c = conn.cursor()
+    ensure_week_plan_layout_column(conn)
     teacher = data.get("teacher") or ""
     if not teacher:
         teacher_row = c.execute("SELECT teacher FROM family_members WHERE id=?", (member_id,)).fetchone()
         teacher = (teacher_row[0] if teacher_row else "") or ""
 
     row = c.execute("""
-        SELECT id, source_email_id, raw_text FROM week_plans
+        SELECT id, source_email_id, raw_text, COALESCE(layout_json,'') FROM week_plans
         WHERE member_id=? AND week_number=? AND year=?
         ORDER BY created_at DESC, id DESC LIMIT 1
     """, (member_id, week, year)).fetchone()
     if row:
-        plan_id, existing_source, existing_raw = row
+        plan_id, existing_source, existing_raw, existing_layout = row
         try:
             if existing_source and int(existing_source) > int(email_id):
                 conn.close()
                 return False
         except (TypeError, ValueError):
             pass
-        if existing_source == str(email_id) and (existing_raw or "") == raw_text:
+        if existing_source == str(email_id) and (existing_raw or "") == raw_text and (existing_layout or "") == layout_json:
             conn.close()
             return True
         c.execute("""
             UPDATE week_plans
-            SET raw_text=?, summary=?, source_email_id=?, teacher=?, created_at=datetime('now')
+            SET raw_text=?, summary=?, source_email_id=?, teacher=?, layout_json=?, created_at=datetime('now')
             WHERE id=?
-        """, (raw_text, summary, str(email_id), teacher, plan_id))
+        """, (raw_text, summary, str(email_id), teacher, layout_json, plan_id))
         c.execute("DELETE FROM week_plan_days WHERE week_plan_id=?", (plan_id,))
     else:
         c.execute("""
-            INSERT INTO week_plans (member_id, week_number, year, raw_text, summary, source_email_id, teacher)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (member_id, week, year, raw_text, summary, str(email_id), teacher))
+            INSERT INTO week_plans (member_id, week_number, year, raw_text, summary, source_email_id, teacher, layout_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (member_id, week, year, raw_text, summary, str(email_id), teacher, layout_json))
         plan_id = c.lastrowid
 
     for iso, day_data in data.get("days", {}).items():
@@ -231,6 +244,7 @@ def save_ukeplan_text(raw_text, member_id, email_id, subject="", year=None):
 
     conn = get_db()
     c = conn.cursor()
+    ensure_week_plan_layout_column(conn)
     row = c.execute("""
         SELECT id, raw_text, source_email_id FROM week_plans
         WHERE member_id=? AND week_number=? AND year=?
