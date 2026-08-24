@@ -17,6 +17,8 @@ conversational/Telegram layer; Familieportalen provides the iPad-first touch UI.
 - Norwegian calendar, weather and transport inputs;
 - SQLite reliability primitives, ingestion ledger and delivery outbox;
 - launchd-compatible scheduled jobs, health and status reporting;
+- source-controlled LaunchAgent templates with schedule validation and an
+  explicit installer;
 - the **one canonical family configuration template**.
 
 The sibling `familybot-portal` repository contains the responsive LAN dashboard.
@@ -75,6 +77,7 @@ tokens. Both core and portal read the same file.
 python3 scripts/validate_docs.py
 python3 scripts/validate_config.py \
   --config config/family.example.json --allow-placeholders --skip-permissions
+python3 scripts/validate_launchd.py
 FAMILYBOT_FAMILY_CONFIG=tests/fixtures/family.test.json \
   python3 -m unittest discover -s tests -p 'test_*.py'
 python3 -m py_compile scripts/*.py

@@ -38,8 +38,8 @@ Store runtime backup material encrypted and separately from Git.
 7. Restore credentials using [CREDENTIALS.md](CREDENTIALS.md). Test capability,
    never secret value.
 8. Run both repositories' unit/lint/build suites before installing services.
-9. Back up the restored database, then copy reviewed core scripts to
-   `$HOME/.openclaw/workspace/scripts` and restore reviewed LaunchAgents.
+9. Back up the restored database, then deploy reviewed core scripts and
+   LaunchAgent templates with `bash scripts/deploy_core.sh --reload`.
 10. In `familybot-portal`, create/restore the parent PIN and run
     `bash scripts/deploy-local.sh`.
 11. Run `python3 tests/acceptance.py`; require every critical criterion to pass.
@@ -79,7 +79,8 @@ Do not use Git rollback to restore private SQLite state.
 
 ## Current non-automated boundary
 
-The portal has a local deploy script and LaunchAgent. The core still lacks a
-complete fresh-database migration and a one-command installer for all schedules.
-Until those are implemented, retain reviewed operational LaunchAgents in the
-encrypted recovery bundle and inspect every command/path on a new host.
+The portal has a local deploy script and LaunchAgent. The core's scheduled jobs
+are now source-controlled under `ops/launchd/` and installed through
+`scripts/install_launchagents.sh`. The core still lacks a complete fresh-
+database migration; retain reviewed operational state and credentials in the
+encrypted recovery bundle.

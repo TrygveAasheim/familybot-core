@@ -6,16 +6,22 @@
   <string>familybot.delivery</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/YOUR_ACCOUNT/.openclaw/workspace/scripts/cron_runner.sh</string>
+    <string>/bin/bash</string>
+    <string>__FAMILYBOT_WORKSPACE__/scripts/cron_runner.sh</string>
     <string>delivery</string>
   </array>
   <key>StartInterval</key>
   <integer>300</integer>
   <key>RunAtLoad</key>
   <true/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FAMILYBOT_WORKSPACE</key>
+    <string>__FAMILYBOT_WORKSPACE__</string>
+  </dict>
   <key>StandardOutPath</key>
-  <string>/Users/YOUR_ACCOUNT/.openclaw/workspace/logs/delivery.log</string>
+  <string>__FAMILYBOT_WORKSPACE__/logs/delivery.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/YOUR_ACCOUNT/.openclaw/workspace/logs/delivery.log</string>
+  <string>__FAMILYBOT_WORKSPACE__/logs/delivery.log</string>
 </dict>
 </plist>

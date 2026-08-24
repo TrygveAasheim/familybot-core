@@ -16,6 +16,7 @@ import zoneinfo
 sys.path.insert(0, os.path.dirname(__file__))
 from reliability import connect_db, database_path, workspace_path
 from family_config import integration
+from validate_launchd import validate_launchctl_output
 
 DB_PATH = str(database_path())
 WORKSPACE = workspace_path()
@@ -144,7 +145,7 @@ required_jobs = ["familybot.email", "familybot.spond", "familybot.health",
                  "familybot.status", "familybot.briefing.weekday",
                  "familybot.briefing.weekend", "familybot.briefing.weekly",
                  "familybot.delivery"]
-missing_jobs, failed_jobs = [], []
+missing_jobs, failed_jobs, schedule_errors = [], [], []
 for label in required_jobs:
     code, out, err = run(f"launchctl print gui/{os.getuid()}/{label}")
     if code != 0:
@@ -162,8 +163,12 @@ for label in required_jobs:
                     failed_jobs.append(label)
             except ValueError:
                 pass
+    schedule_errors.extend(validate_launchctl_output(label, out))
 if missing_jobs:
     critical("scheduler", f"Missing launchd jobs: {', '.join(missing_jobs)}")
+elif schedule_errors:
+    critical("scheduler", "; ".join(schedule_errors),
+             fix="Run scripts/deploy_core.sh --reload from the reviewed core checkout")
 elif failed_jobs:
     warn("scheduler", f"Jobs with non-zero last exit: {', '.join(failed_jobs)}")
 else:
