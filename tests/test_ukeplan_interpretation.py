@@ -52,6 +52,24 @@ class UkeplanInterpretationTests(unittest.TestCase):
                 payload, year=2026, week=34, blocks=self.blocks
             )
 
+    def test_validation_tolerates_pdf_line_break_variation(self):
+        payload = {
+            "days": [{
+                "date": "2026-08-20",
+                "items": [{
+                    "category": "homework",
+                    "text": "Les side 10 til torsdag",
+                    "source_blocks": ["page2-block1"],
+                    "confidence": 0.8,
+                }],
+            }],
+            "general_notes": [],
+        }
+        result = interpret_ukeplan.validate_interpretation(
+            payload, year=2026, week=34, blocks=self.blocks
+        )
+        self.assertEqual(result["days"][0]["items"][0]["source_blocks"], ["page2-block1"])
+
     def test_fenced_json_is_parsed(self):
         self.assertEqual(
             interpret_ukeplan.parse_model_json('```json\n{"days": []}\n```'),

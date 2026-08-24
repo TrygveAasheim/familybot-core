@@ -77,6 +77,32 @@ def normalize_text(value: str) -> str:
     return re.sub(r"[^\w]+", " ", value.casefold(), flags=re.UNICODE).strip()
 
 
+def grounded_references(text: str, references: Any, block_text: dict[str, str]) -> list[str]:
+    """Accept light model whitespace/paraphrase variation without accepting invention."""
+    if not isinstance(references, list) or not references:
+        raise ValueError("each item needs valid source_blocks")
+    requested = [str(ref) for ref in references if str(ref) in block_text]
+    if not requested:
+        raise ValueError("each item needs valid source_blocks")
+    normalized = normalize_text(text)
+    exact = [ref for ref in requested if normalized and normalized in normalize_text(block_text[ref])]
+    if exact:
+        return exact
+
+    text_tokens = set(normalized.split())
+    if len(text_tokens) < 3:
+        raise ValueError("item text was not found in its source evidence")
+    candidates = []
+    for ref, evidence in block_text.items():
+        evidence_tokens = set(normalize_text(evidence).split())
+        overlap = len(text_tokens & evidence_tokens) / len(text_tokens)
+        candidates.append((overlap, ref))
+    best_overlap, best_ref = max(candidates, default=(0, ""))
+    if best_overlap < 0.8:
+        raise ValueError("item text was not found in its source evidence")
+    return [best_ref]
+
+
 def parse_model_json(value: str) -> dict[str, Any]:
     text = value.strip()
     fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.IGNORECASE | re.DOTALL)
@@ -120,21 +146,17 @@ def validate_interpretation(payload: dict[str, Any], *, year: int, week: int, bl
             confidence = item.get("confidence")
             if category not in CATEGORIES or not text or len(text) > 600:
                 raise ValueError("invalid day item category or text")
-            if not isinstance(references, list) or not references or any(str(ref) not in block_text for ref in references):
-                raise ValueError("each item needs valid source_blocks")
+            normalized_references = grounded_references(text, references, block_text)
             try:
                 confidence_value = float(confidence)
             except (TypeError, ValueError) as exc:
                 raise ValueError("item confidence must be numeric") from exc
             if not 0 <= confidence_value <= 1:
                 raise ValueError("item confidence must be between 0 and 1")
-            evidence = " ".join(block_text[str(ref)] for ref in references)
-            if normalize_text(text) not in normalize_text(evidence):
-                raise ValueError("item text was not found in its source evidence")
             normalized_items.append({
                 "category": category,
                 "text": text,
-                "source_blocks": [str(ref) for ref in references],
+                "source_blocks": normalized_references,
                 "confidence": round(confidence_value, 3),
             })
         weekday = WEEKDAYS[dt.date.fromisoformat(date_value).weekday()]
@@ -149,14 +171,12 @@ def validate_interpretation(payload: dict[str, Any], *, year: int, week: int, bl
             raise ValueError("each general note must be an object")
         text = str(note.get("text") or "").strip()
         references = note.get("source_blocks")
-        if not text or len(text) > 600 or not isinstance(references, list) or not references:
+        if not text or len(text) > 600:
             raise ValueError("general notes need text and source_blocks")
-        if any(str(ref) not in block_text for ref in references):
-            raise ValueError("general note has an invalid source block")
-        evidence = " ".join(block_text[str(ref)] for ref in references)
-        if normalize_text(text) not in normalize_text(evidence):
-            raise ValueError("general note was not found in its source evidence")
-        normalized_notes.append({"text": text, "source_blocks": [str(ref) for ref in references]})
+        normalized_notes.append({
+            "text": text,
+            "source_blocks": grounded_references(text, references, block_text),
+        })
 
     return {
         "version": 1,
