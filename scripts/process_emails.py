@@ -13,6 +13,7 @@ import sys
 import tempfile
 import re
 import html
+from pathlib import Path
 from datetime import datetime
 sys.path.insert(0, os.path.dirname(__file__))
 from email_routing import resolve_sender, assert_no_member_mix, get_quarantined, _resolve_member_from_body
@@ -99,6 +100,7 @@ def save_ukeplan(pdf_path, member_id, email_id, year=None):
         "version": 1,
         "layout_text": data.get("layout_text") or "",
         "source_blocks": data.get("source_blocks") or [],
+        "source_pdf": str(Path(pdf_path).resolve()),
     }, ensure_ascii=False, separators=(",", ":"))
     if not summary:
         summary = raw_text[:900]

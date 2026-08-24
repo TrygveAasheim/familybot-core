@@ -58,6 +58,14 @@ class UkeplanInterpretationTests(unittest.TestCase):
             {"days": []},
         )
 
+    def test_pdf_prompt_uses_original_document_as_primary_input(self):
+        prompt = interpret_ukeplan.prompt_for_plan(
+            2026, 34, {}, "/private/ukeplan.pdf"
+        )
+        self.assertIn("/private/ukeplan.pdf", prompt)
+        self.assertIn("days is an array, never an object", prompt)
+        self.assertIn("PDF is the only source of truth", prompt)
+
     def test_model_failure_is_durable_and_does_not_remove_plan(self):
         with tempfile.TemporaryDirectory() as directory:
             db_path = Path(directory) / "family.db"

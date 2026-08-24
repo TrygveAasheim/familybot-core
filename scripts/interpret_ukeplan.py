@@ -14,12 +14,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pdfplumber
+
 sys.path.insert(0, os.path.dirname(__file__))
 from reliability import connect_db, database_path, workspace_path
 
 
 OPENCLAW = "/opt/homebrew/bin/openclaw"
-INTERPRETER_VERSION = "ukeplan-llm-v1"
+INTERPRETER_VERSION = "ukeplan-llm-v2-pdf"
 WEEKDAYS = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag"]
 CATEGORIES = {"homework", "bring", "event", "subject", "notice", "general"}
 
@@ -52,6 +54,18 @@ def ensure_schema(connection) -> None:
 
 def source_hash(layout_json: str) -> str:
     return hashlib.sha256(layout_json.encode("utf-8")).hexdigest()
+
+
+def pdf_page_blocks(pdf_path: str) -> list[dict[str, Any]]:
+    """Extract page text only for validating model claims, not for semantics."""
+    path = Path(pdf_path).expanduser()
+    if not path.is_file():
+        raise FileNotFoundError(f"source PDF is unavailable: {path}")
+    with pdfplumber.open(path) as pdf:
+        return [
+            {"id": f"pdf-page-{number}", "page": number, "text": page.extract_text() or ""}
+            for number, page in enumerate(pdf.pages, start=1)
+        ]
 
 
 def expected_dates(year: int, week: int) -> list[str]:
@@ -153,7 +167,37 @@ def validate_interpretation(payload: dict[str, Any], *, year: int, week: int, bl
     }
 
 
-def prompt_for_plan(year: int, week: int, layout: dict[str, Any]) -> str:
+def prompt_for_plan(year: int, week: int, layout: dict[str, Any], pdf_path: str | None = None) -> str:
+    if pdf_path:
+        dates = expected_dates(year, week)
+        return f"""You are interpreting a Norwegian school ukeplan from the original PDF.
+
+Read every page of this local PDF with the PDF-reading capability:
+{pdf_path}
+
+The PDF is the only source of truth. Do not use email text, filenames, memory,
+or a previous parser result. This is ISO week {week}/{year}; valid weekday
+dates are {', '.join(dates)}. Assign timetable cells to the correct weekday,
+and keep general homework, bring-items and notices in general_notes when they
+do not belong to one day. Preserve the original Norwegian wording. Do not
+invent, summarize, or omit actual plan content.
+
+Return JSON only, exactly in this shape (days is an array, never an object):
+{{
+  "days": [{{"date": "YYYY-MM-DD", "items": [{{
+    "category": "homework|bring|event|subject|notice|general",
+    "text": "verbatim text from the PDF",
+    "source_blocks": ["pdf-page-2"],
+    "confidence": 0.0
+  }}]}}],
+  "general_notes": [{{"text": "verbatim text from the PDF", "source_blocks": ["pdf-page-1"]}}]
+}}
+
+Use source_blocks to name the PDF page(s) supporting each item. Include every
+meaningful homework, bring-item, event and notice once, grouped under the day
+where the PDF places it. Return an empty list only when the PDF truly has no
+content for that section.
+"""
     blocks = layout.get("source_blocks") or []
     evidence = "\n".join(
         f"{item.get('id')}: page={item.get('page')} weekday={item.get('weekday', 'general')} text={item.get('text', '')}"
@@ -210,10 +254,11 @@ def interpret_one(db_path: Path, row: Any) -> bool:
     plan_id, week, year, layout_json, interpretation_id = row
     try:
         layout = json.loads(layout_json)
-        blocks = layout.get("source_blocks") or []
+        pdf_path = str(layout.get("source_pdf") or "").strip() or None
+        blocks = pdf_page_blocks(pdf_path) if pdf_path else (layout.get("source_blocks") or [])
         if not blocks:
             raise ValueError("plan has no layout evidence")
-        model_text = invoke_model(prompt_for_plan(int(year), int(week), layout))
+        model_text = invoke_model(prompt_for_plan(int(year), int(week), layout, pdf_path))
         normalized = validate_interpretation(
             parse_model_json(model_text), year=int(year), week=int(week), blocks=blocks
         )
