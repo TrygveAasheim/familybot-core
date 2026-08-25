@@ -21,7 +21,7 @@ from reliability import connect_db, database_path, workspace_path
 
 
 OPENCLAW = "/opt/homebrew/bin/openclaw"
-INTERPRETER_VERSION = "ukeplan-llm-v2-pdf"
+INTERPRETER_VERSION = "ukeplan-llm-v3-extract-review"
 WEEKDAYS = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag"]
 CATEGORIES = {"homework", "bring", "event", "subject", "notice", "general"}
 
@@ -103,6 +103,23 @@ def grounded_references(text: str, references: Any, block_text: dict[str, str]) 
     return [best_ref]
 
 
+def normalize_notes(notes: Any, label: str, block_text: dict[str, str]) -> list[dict[str, Any]]:
+    if not isinstance(notes, list):
+        raise ValueError(f"{label} must be a list")
+    normalized = []
+    for note in notes:
+        if not isinstance(note, dict):
+            raise ValueError(f"each {label} entry must be an object")
+        text = str(note.get("text") or "").strip()
+        if not text or len(text) > 600:
+            raise ValueError(f"{label} entries need text and source_blocks")
+        normalized.append({
+            "text": text,
+            "source_blocks": grounded_references(text, note.get("source_blocks"), block_text),
+        })
+    return normalized
+
+
 def parse_model_json(value: str) -> dict[str, Any]:
     text = value.strip()
     fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.IGNORECASE | re.DOTALL)
@@ -162,45 +179,39 @@ def validate_interpretation(payload: dict[str, Any], *, year: int, week: int, bl
         weekday = WEEKDAYS[dt.date.fromisoformat(date_value).weekday()]
         normalized_days.append({"date": date_value, "weekday": weekday, "items": normalized_items})
 
-    general_notes = payload.get("general_notes", [])
-    if not isinstance(general_notes, list):
-        raise ValueError("general_notes must be a list")
-    normalized_notes = []
-    for note in general_notes:
-        if not isinstance(note, dict):
-            raise ValueError("each general note must be an object")
-        text = str(note.get("text") or "").strip()
-        references = note.get("source_blocks")
-        if not text or len(text) > 600:
-            raise ValueError("general notes need text and source_blocks")
-        normalized_notes.append({
-            "text": text,
-            "source_blocks": grounded_references(text, references, block_text),
-        })
+    weekly_tasks = payload.get("weekly_tasks", payload.get("general_notes", []))
+    general_info = payload.get("general_info", [])
+    normalized_tasks = normalize_notes(weekly_tasks, "weekly_tasks", block_text)
+    normalized_info = normalize_notes(general_info, "general_info", block_text)
 
     return {
-        "version": 1,
+        "version": 2,
         "week": week,
         "year": year,
         "days": sorted(normalized_days, key=lambda item: item["date"]),
-        "general_notes": normalized_notes,
+        "weekly_tasks": normalized_tasks,
+        "general_info": normalized_info,
     }
 
 
 def prompt_for_plan(year: int, week: int, layout: dict[str, Any], pdf_path: str | None = None) -> str:
     if pdf_path:
         dates = expected_dates(year, week)
-        return f"""You are interpreting a Norwegian school ukeplan from the original PDF.
+        return f"""You are extracting a Norwegian school ukeplan from the original PDF.
 
 Read every page of this local PDF with the PDF-reading capability:
 {pdf_path}
 
-The PDF is the only source of truth. Do not use email text, filenames, memory,
-or a previous parser result. This is ISO week {week}/{year}; valid weekday
-dates are {', '.join(dates)}. Assign timetable cells to the correct weekday,
-and keep general homework, bring-items and notices in general_notes when they
-do not belong to one day. Preserve the original Norwegian wording. Do not
-invent, summarize, or omit actual plan content.
+The PDF is the only source of truth. Read every page before answering. Do not
+use email text, filenames, memory, or a previous parser result. This is ISO
+week {week}/{year}; valid weekday dates are {', '.join(dates)}.
+
+Put information tied to a specific weekday under that day's items. Put actions
+that apply to the whole week or have no single day (reading, homework,
+equipment, routines) in weekly_tasks. Put notices, themes, school-hour
+reminders and other information that is not an action in general_info. Do not
+put the same point in more than one bucket. Preserve the original Norwegian
+wording. Do not invent, summarize, or omit meaningful plan content.
 
 Return JSON only, exactly in this shape (days is an array, never an object):
 {{
@@ -210,13 +221,14 @@ Return JSON only, exactly in this shape (days is an array, never an object):
     "source_blocks": ["pdf-page-2"],
     "confidence": 0.0
   }}]}}],
-  "general_notes": [{{"text": "verbatim text from the PDF", "source_blocks": ["pdf-page-1"]}}]
+  "weekly_tasks": [{{"text": "verbatim text from the PDF", "source_blocks": ["pdf-page-1"]}}],
+  "general_info": [{{"text": "verbatim text from the PDF", "source_blocks": ["pdf-page-1"]}}]
 }}
 
 Use source_blocks to name the PDF page(s) supporting each item. Include every
 meaningful homework, bring-item, event and notice once, grouped under the day
 where the PDF places it. Return an empty list only when the PDF truly has no
-content for that section.
+content for that section. The days value must be an array, never an object.
 """
     blocks = layout.get("source_blocks") or []
     evidence = "\n".join(
@@ -234,14 +246,44 @@ blocks, apart from harmless whitespace normalization.
 Return exactly this shape:
 {{
   "days": [{{"date": "YYYY-MM-DD", "items": [{{"category": "homework|bring|event|subject|notice|general", "text": "verbatim text", "source_blocks": ["page2-block3"], "confidence": 0.0}}]}}],
-  "general_notes": [{{"text": "verbatim text", "source_blocks": ["page1-block4"]}}]
+  "weekly_tasks": [{{"text": "verbatim text", "source_blocks": ["page1-block4"]}}],
+  "general_info": [{{"text": "verbatim text", "source_blocks": ["page1-block5"]}}]
 }}
 
-Include a day only when there is evidence for it. Use `general_notes` for
-information outside a weekday. Keep every source item assigned at most once.
+Include a day only when there is evidence for it. Keep every source item
+assigned at most once.
 
 EVIDENCE:
 {evidence}
+"""
+
+
+def review_prompt(year: int, week: int, pdf_path: str, extraction: dict[str, Any]) -> str:
+    dates = expected_dates(year, week)
+    extraction_json = json.dumps(extraction, ensure_ascii=False, indent=2)
+    return f"""You are the completeness reviewer for a Norwegian school ukeplan.
+
+Reread every page of the original PDF with the PDF-reading capability:
+{pdf_path}
+
+Audit the proposed extraction below against the entire PDF. Recover any
+meaningful missed point, remove anything not supported by the PDF, and move
+misclassified points into the correct bucket. Information tied to a weekday
+belongs in that day's items. Whole-week actions belong in weekly_tasks.
+Non-action notices and practical information belong in general_info. Do not
+duplicate a point. Preserve Norwegian wording and cite the supporting page as
+source_blocks using pdf-page-N. Do not use filenames, email text, memory, or
+anything outside the PDF. Valid dates are {', '.join(dates)}.
+
+PROPOSED EXTRACTION:
+{extraction_json}
+
+Return JSON only, exactly the same shape:
+{{
+  "days": [{{"date": "YYYY-MM-DD", "items": [{{"category": "homework|bring|event|subject|notice|general", "text": "verbatim text", "source_blocks": ["pdf-page-2"], "confidence": 0.0}}]}}],
+  "weekly_tasks": [{{"text": "verbatim text", "source_blocks": ["pdf-page-1"]}}],
+  "general_info": [{{"text": "verbatim text", "source_blocks": ["pdf-page-1"]}}]
+}}
 """
 
 
@@ -282,6 +324,14 @@ def interpret_one(db_path: Path, row: Any) -> bool:
         normalized = validate_interpretation(
             parse_model_json(model_text), year=int(year), week=int(week), blocks=blocks
         )
+        if pdf_path:
+            try:
+                reviewed_text = invoke_model(review_prompt(int(year), int(week), pdf_path, normalized))
+                normalized = validate_interpretation(
+                    parse_model_json(reviewed_text), year=int(year), week=int(week), blocks=blocks
+                )
+            except Exception as exc:
+                print(f"[UKEPLAN] Review fallback for plan {plan_id}: {type(exc).__name__}")
         with connect_db(db_path) as connection:
             connection.execute(
                 """UPDATE week_plan_interpretations

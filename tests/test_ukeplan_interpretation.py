@@ -83,6 +83,24 @@ class UkeplanInterpretationTests(unittest.TestCase):
         self.assertIn("/private/ukeplan.pdf", prompt)
         self.assertIn("days is an array, never an object", prompt)
         self.assertIn("PDF is the only source of truth", prompt)
+        self.assertIn("weekly_tasks", prompt)
+        self.assertIn("general_info", prompt)
+
+    def test_validation_normalizes_structured_week_buckets(self):
+        payload = {
+            "days": [],
+            "weekly_tasks": [{
+                "text": "Les side 10 til torsdag.",
+                "source_blocks": ["page2-block1"],
+            }],
+            "general_info": [],
+        }
+        result = interpret_ukeplan.validate_interpretation(
+            payload, year=2026, week=34, blocks=self.blocks
+        )
+        self.assertEqual(result["version"], 2)
+        self.assertEqual(result["weekly_tasks"][0]["text"], "Les side 10 til torsdag.")
+        self.assertEqual(result["general_info"], [])
 
     def test_model_failure_is_durable_and_does_not_remove_plan(self):
         with tempfile.TemporaryDirectory() as directory:
