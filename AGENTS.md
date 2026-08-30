@@ -66,8 +66,9 @@ git diff --check
 ```
 
 Run the additional risk-specific checks in `docs/CHANGE_PROTOCOL.md`. Do not
-deploy from an unverified feature branch. Normal work lands on `dev`; verified
-commits are fast-forwarded to `main`.
+deploy from an unverified feature branch. Normal work is committed and
+deployed from `dev`; `main` only receives pull requests reviewed and approved
+by `@TrygveAasheim`.
 
 ## Documentation duty
 

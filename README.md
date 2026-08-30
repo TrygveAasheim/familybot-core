@@ -1,7 +1,11 @@
 # FamilyBot
 
-FamilyBot is a local-first family information service for households that want
-their planning data kept close to home.
+FamilyBot is loosely based on OpenClaw's local-first household-agent ideas, but
+much of the system is custom to make planning practical for Norwegian
+households: school `ukeplan` processing, Spond activities, Norwegian calendars,
+MET weather, Entur transport and Norwegian family routines. It is a local-first
+family information service for households that want their planning data kept
+close to home.
 An always-on Mac mini processes school email and `ukeplan` PDFs, Spond,
 Norwegian calendar data, MET weather and Entur transport; OpenClaw provides the
 conversational/Telegram layer; Familieportalen provides the iPad-first touch UI.
@@ -91,6 +95,7 @@ household-state backup.
 
 ## Development and release
 
-`dev` is the normal working branch. Tested commits are fast-forwarded to
-`main`, which is the deployment branch. See [docs/BRANCHES.md](docs/BRANCHES.md)
-and [specs/RELIABILITY.md](specs/RELIABILITY.md).
+`dev` is the only working and deployment branch. Tested changes are promoted
+to `main` through a pull request reviewed and approved by `@TrygveAasheim`.
+See [docs/BRANCHES.md](docs/BRANCHES.md) and
+[specs/RELIABILITY.md](specs/RELIABILITY.md).
