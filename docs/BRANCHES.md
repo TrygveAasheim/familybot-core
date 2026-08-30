@@ -12,6 +12,10 @@ All changes must be committed on `dev`. Promotion to `main` is a pull request
 reviewed and explicitly approved by `@TrygveAasheim`; normal work must not push
 directly to `main`. `.github/CODEOWNERS` requests that review for every file.
 
+GitHub branch protection is enabled on `main`: direct pushes, force pushes and
+deletions are blocked; administrators are covered; conversations must be
+resolved; and a fresh pull-request review from a code owner is required.
+
 The dev verification and deployment workflow is:
 
 1. work and commit on `dev`;
