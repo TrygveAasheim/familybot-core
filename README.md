@@ -135,7 +135,7 @@ household-state backup.
 
 ## Development and release
 
-`dev` is the only working and deployment branch. Tested changes are promoted
-to `main` through a pull request reviewed and approved by `@TrygveAasheim`.
-See [docs/BRANCHES.md](docs/BRANCHES.md) and
-[specs/RELIABILITY.md](specs/RELIABILITY.md).
+`dev` is the working and deployment branch. `main` is the public release and
+fork baseline; GitHub branch protection is intentionally not enabled because
+forks are the expected customization path. See [docs/BRANCHES.md](docs/BRANCHES.md)
+and [specs/RELIABILITY.md](specs/RELIABILITY.md).
