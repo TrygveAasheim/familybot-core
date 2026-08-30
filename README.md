@@ -1,7 +1,11 @@
 # FamilyBot
 
-FamilyBot is a local-first family information service for households that want
-their planning data kept close to home.
+FamilyBot is loosely based on OpenClaw's local-first household-agent ideas, but
+much of the system is custom to make planning practical for Norwegian
+households: school `ukeplan` processing, Spond activities, Norwegian calendars,
+MET weather, Entur transport and Norwegian family routines. It is a local-first
+family information service for households that want their planning data kept
+close to home.
 An always-on Mac mini processes school email and `ukeplan` PDFs, Spond,
 Norwegian calendar data, MET weather and Entur transport; OpenClaw provides the
 conversational/Telegram layer; Familieportalen provides the iPad-first touch UI.
@@ -9,6 +13,19 @@ conversational/Telegram layer; Familieportalen provides the iPad-first touch UI.
 > **Built for local family life:** the reliability layer and dashboard model are
 > reusable, while the included school, calendar, transport and activity adapters
 > can be configured for the services used by each household.
+
+## Network and security boundary
+
+FamilyBot is designed to run as a LAN-only service on an always-on household
+Mac. Its local configuration, database, ingestion jobs and dashboard data stay
+on the home network. Telegram is the intentional external integration, using
+the conversational layer supplied by OpenClaw. The security controls therefore
+provide defense in depth for a self-hosted home appliance: owner-only files,
+credential separation, input validation, idempotent delivery, curated data
+boundaries and safe local deployment. This is not an internet-facing
+multi-tenant service, and it should not be exposed directly to the public
+internet without an explicit security review and additional perimeter
+controls.
 
 ## What is in this repository
 
@@ -25,6 +42,33 @@ conversational/Telegram layer; Familieportalen provides the iPad-first touch UI.
 The sibling `familybot-portal` repository contains the responsive LAN dashboard.
 Inference may improve family-facing wording, but it is not part of the
 durability boundary.
+
+## Dependencies and repository layout
+
+`familybot-core` is the reliability foundation; `familybot-portal` is its
+separate LAN-facing add-on. Keep the checkouts as siblings:
+
+```text
+familybot-core/
+familybot-portal/
+```
+
+The operational dependency map is:
+
+- Core owns the canonical `family.local.json` template, normalized SQLite facts,
+  ingestion/delivery jobs, schedules and health reporting;
+- Portal reads the same owner-only local configuration and SQLite database,
+  validates against Core's configuration contract, and owns its curated API,
+  UI, chores and rewards tables;
+- OpenClaw supplies the conversational/Telegram layer and private workspace
+  convention; it is optional for the deterministic Core pipeline;
+- macOS `launchd`, Python 3, SQLite and Node.js/npm (for Portal) are required by
+  the local appliance deployment.
+
+Clone and configure Core first, then install and deploy Portal. Keep both
+repositories on compatible `dev` commits and run both verification suites before
+promoting either one to `main`; this is an operational compatibility contract,
+not a Python or npm package dependency.
 
 ## Telegram child-chore interview
 
@@ -91,6 +135,7 @@ household-state backup.
 
 ## Development and release
 
-`dev` is the normal working branch. Tested commits are fast-forwarded to
-`main`, which is the deployment branch. See [docs/BRANCHES.md](docs/BRANCHES.md)
+`dev` is the working and deployment branch. `main` is the public release and
+fork baseline; GitHub branch protection is intentionally not enabled because
+forks are the expected customization path. See [docs/BRANCHES.md](docs/BRANCHES.md)
 and [specs/RELIABILITY.md](specs/RELIABILITY.md).

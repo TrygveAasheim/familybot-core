@@ -8,6 +8,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 USER_HOME="${HOME:?HOME is required}"
 WORKSPACE_DIR="${FAMILYBOT_WORKSPACE:-$USER_HOME/.openclaw/workspace}"
 
+CURRENT_BRANCH="$(git -C "$REPO_ROOT" branch --show-current)"
+if [ "$CURRENT_BRANCH" != "dev" ]; then
+  echo "Refusing deployment from '$CURRENT_BRANCH'. Deploy only from dev." >&2
+  exit 1
+fi
+
 if [ "${1:-}" != "" ] && [ "${1:-}" != "--reload" ]; then
   echo "Usage: $0 [--reload]" >&2
   exit 64
