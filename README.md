@@ -14,6 +14,19 @@ conversational/Telegram layer; Familieportalen provides the iPad-first touch UI.
 > reusable, while the included school, calendar, transport and activity adapters
 > can be configured for the services used by each household.
 
+## Network and security boundary
+
+FamilyBot is designed to run as a LAN-only service on an always-on household
+Mac. Its local configuration, database, ingestion jobs and dashboard data stay
+on the home network. Telegram is the intentional external integration, using
+the conversational layer supplied by OpenClaw. The security controls therefore
+provide defense in depth for a self-hosted home appliance: owner-only files,
+credential separation, input validation, idempotent delivery, curated data
+boundaries and safe local deployment. This is not an internet-facing
+multi-tenant service, and it should not be exposed directly to the public
+internet without an explicit security review and additional perimeter
+controls.
+
 ## What is in this repository
 
 - deterministic email/PDF routing and weekly-plan extraction, with optional
