@@ -30,6 +30,33 @@ The sibling `familybot-portal` repository contains the responsive LAN dashboard.
 Inference may improve family-facing wording, but it is not part of the
 durability boundary.
 
+## Dependencies and repository layout
+
+`familybot-core` is the reliability foundation; `familybot-portal` is its
+separate LAN-facing add-on. Keep the checkouts as siblings:
+
+```text
+familybot-core/
+familybot-portal/
+```
+
+The operational dependency map is:
+
+- Core owns the canonical `family.local.json` template, normalized SQLite facts,
+  ingestion/delivery jobs, schedules and health reporting;
+- Portal reads the same owner-only local configuration and SQLite database,
+  validates against Core's configuration contract, and owns its curated API,
+  UI, chores and rewards tables;
+- OpenClaw supplies the conversational/Telegram layer and private workspace
+  convention; it is optional for the deterministic Core pipeline;
+- macOS `launchd`, Python 3, SQLite and Node.js/npm (for Portal) are required by
+  the local appliance deployment.
+
+Clone and configure Core first, then install and deploy Portal. Keep both
+repositories on compatible `dev` commits and run both verification suites before
+promoting either one to `main`; this is an operational compatibility contract,
+not a Python or npm package dependency.
+
 ## Telegram child-chore interview
 
 The conversational layer should use the separate `chore-preview` and
