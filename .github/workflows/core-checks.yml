@@ -1,0 +1,32 @@
+name: Core checks
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Core checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.11"
+      - name: Verify source
+        env:
+          FAMILYBOT_FAMILY_CONFIG: tests/fixtures/family.test.json
+        run: |
+          python3 scripts/validate_docs.py
+          python3 scripts/validate_config.py --config config/family.example.json --allow-placeholders --skip-permissions
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          python3 -m py_compile scripts/*.py
+          bash -n scripts/*.sh
+          git diff --check
