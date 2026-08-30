@@ -29,8 +29,9 @@ class CalendarGuardTests(unittest.TestCase):
         self.assertFalse(result.ok)
 
     def test_accepts_future_reference(self):
-        result = validate_event("test", date(2026, 8, 24), stated_week=34,
-                                year=2026, future_week_ref=True)
+        future_date = date.today() + timedelta(days=1)
+        result = validate_event("test", future_date, stated_week=34,
+                                year=future_date.year, future_week_ref=True)
         self.assertTrue(result.ok)
 
 
