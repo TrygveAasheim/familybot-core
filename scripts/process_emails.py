@@ -59,6 +59,16 @@ def already_processed(message_id):
     conn.close()
     return row is not None
 
+
+def is_ukeplan_message(subject, content=""):
+    """Identify ukeplan mail from metadata or message contents.
+
+    Parent-sent messages can arrive from Gmail with an empty IMAP subject;
+    the plan name and attachment declaration are still present in the body.
+    """
+    searchable = f"{subject or ''}\n{content or ''}".lower()
+    return any(keyword in searchable for keyword in ("ukeplan", "week plan", "ukeplanen"))
+
 def log_email(message_id, subject, sender, received_at, category, has_pdf, summary, member_id=None):
     conn = get_db()
     c = conn.cursor()
@@ -283,15 +293,18 @@ def save_ukeplan_text(raw_text, member_id, email_id, subject="", year=None):
 
 
 def backfill_weekplans_from_email_log():
-    """Recover recent ukeplans stranded before a class mapping update."""
+    """Recover recent ukeplans stranded by an incomplete ingestion run."""
     conn = get_db()
     rows = conn.execute("""
-        SELECT message_id, subject, member_id, summary
-        FROM email_log
-        WHERE category='school'
-          AND member_id IS NULL
-          AND lower(subject) LIKE '%ukeplan%'
-          AND date(processed_at) >= date('now', '-45 days')
+        SELECT e.message_id, e.subject, e.member_id, e.summary
+        FROM email_log e
+        WHERE e.category='school'
+          AND lower(COALESCE(e.subject,'') || ' ' || COALESCE(e.summary,'')) LIKE '%ukeplan%'
+          AND date(e.processed_at) >= date('now', '-45 days')
+          AND NOT EXISTS (
+              SELECT 1 FROM week_plans w
+              WHERE w.source_email_id = e.message_id
+          )
         ORDER BY id
     """).fetchall()
     conn.close()
@@ -475,8 +488,7 @@ def process_new_emails():
 
             # A ukeplan is only terminal after it has produced a week_plan row.
             if category == "school" and member_id:
-                ukeplan_keywords = ["ukeplan", "week plan", "ukeplanen"]
-                if any(kw in subject.lower() for kw in ukeplan_keywords):
+                if is_ukeplan_message(subject, full_text):
                     attachment_paths = []
                     likely_plans = [p for p in fresh_ukeplan_files if "ukeplan" in os.path.basename(p).lower()]
                     candidates = likely_plans or fresh_ukeplan_files

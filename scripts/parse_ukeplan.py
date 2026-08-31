@@ -181,6 +181,16 @@ def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026) -> dict:
     # the five timetable columns away from the stated ISO week.
     if result["week"]:
         week_dates = [d for d in week_dates if d.isocalendar().week == result["week"]]
+        # Some school templates state only the ISO week number. Derive the
+        # Monday-Friday range so the child overview still has day rows.
+        if not week_dates:
+            try:
+                week_dates = [
+                    date.fromisocalendar(year, result["week"], weekday)
+                    for weekday in range(1, 6)
+                ]
+            except ValueError:
+                week_dates = []
     week_dates = sorted(week_dates)[:5]  # max 5 school days
 
     # Map weekday index to date
