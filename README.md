@@ -99,6 +99,8 @@ For a coding agent or a session without prior context, begin with
 Smart Home is a documented add-on plan, not a current core capability. See
 [`specs/SMART_HOME.md`](specs/SMART_HOME.md). Documentation handoff quality is
 tested with [`docs/NEW_SESSION_VERIFICATION.md`](docs/NEW_SESSION_VERIFICATION.md).
+The Ukeplan source/interpretation contract and its incident safeguards are in
+[`docs/UKEPLAN_INTERPRETATION.md`](docs/UKEPLAN_INTERPRETATION.md).
 
 ## Canonical local configuration
 

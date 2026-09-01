@@ -28,6 +28,7 @@ answer all of these questions with a file/path citation:
 | How is the portal prevented from exposing raw family data? | `SECURITY.md` and portal `docs/DATA_BOUNDARY.md` |
 | How should a Smart Home feature be added? | `specs/SMART_HOME.md` and `docs/CHANGE_PROTOCOL.md` |
 | What must run before promotion? | `AGENTS.md` and `docs/CHANGE_PROTOCOL.md` |
+| How is every bug fix, feature or improvement recorded? | `docs/CHANGE_PROTOCOL.md` |
 | How can a failed deployment be restored? | `REDEPLOY.md` |
 
 ## Change-location drill

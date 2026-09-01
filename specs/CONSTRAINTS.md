@@ -58,7 +58,11 @@ Telegram-sesjoner og isolerte cron-sesjoner starter fra scratch og har ikke tilg
 - LLM-sesjoner må aldri gjette dato eller tid
 
 ### Dokumentasjonsplikt
-- Etter hver samtale der noe endres: oppdater MEMORY.md, CHANGELOG.md og relevante specs
+- For every bug fix, feature and improvement, complete the change record in
+  `docs/CHANGE_PROTOCOL.md` and update the relevant README, specification,
+  acceptance, security, configuration or runbook contract in the same commit.
+  Record the evidence, tests, deployment and rollback path; do not rely on
+  conversation history.
 - Hvis en feil avdekkes i dokumentasjon: rett det umiddelbart
 - For conversational runtime orientation: STATUS.md (system) → MEMORY.md
   (family/context) → SKILLS.md (capabilities). This runtime hierarchy does not

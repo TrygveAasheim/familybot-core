@@ -23,3 +23,31 @@ The portal exposes an interpretation only when its status is `accepted`.
 Until then, or after any model, timeout, JSON, or validation failure, it shows
 the deterministic layout-preserving text and day facts. No LLM failure can
 prevent email completion, plan persistence, or Telegram delivery.
+
+## Incident pattern and permanent safeguards
+
+Ukeplan emails from a parent may have an empty IMAP subject even though the
+body contains the plan name and a PDF attachment. Subject-only classification
+is therefore not sufficient. The ingestion contract is:
+
+1. detect the Ukeplan signal from the subject or sanitized message/attachment
+   metadata;
+2. route the message to the child before storing it;
+3. download and parse the PDF, treating the PDF as the semantic source of truth;
+4. store the normalized plan and day facts before marking the email terminal;
+5. run the validated LLM interpretation asynchronously and keep it retryable;
+6. expose the accepted interpretation consistently in both the child overview
+   and the full-plan view.
+
+Some school PDFs state an ISO week but omit explicit calendar dates. The
+deterministic parser derives the Monday-Friday dates from that valid week so
+the dashboard does not have an empty day structure. It never invents events;
+weekday items still require evidence from the PDF or an accepted interpretation.
+
+When a previous run marked a Ukeplan email complete before storing its plan, the
+bounded recent backfill repairs it by source message ID and is idempotent. A
+successful recovery must be checked for one plan per child/week, correct member
+attribution, day rows, interpretation status and dashboard visibility.
+
+For future changes, use the cross-repository worked example and change-record
+standard in [`docs/CHANGE_PROTOCOL.md`](CHANGE_PROTOCOL.md).
