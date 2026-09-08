@@ -30,8 +30,8 @@ not trusted.
 | A06 Insecure Design | Local-first trust boundaries, curated API, inference outside durability, backups before writes | Children intentionally need no login; any trusted dashboard device can register a child completion |
 | A07 Authentication Failures | Parent PIN comparison, random in-memory parent token, five-attempt/five-minute rate limit | PIN is shared and server-restart resets the in-memory throttle; use 6–8 random digits |
 | A08 Software or Data Integrity Failures | Idempotency keys, SQLite constraints, atomic writes, integrity checks, reviewed `main` deployment | Audit log is local and not tamper-evident; no signed update channel |
-| A09 Security Logging and Alerting Failures | Owner-only audit log, health snapshot, job freshness, launchd logs | No external security alert sink; host loss also loses unshipped logs |
-| A10 Mishandling Exceptional Conditions | Bounded timeouts/payloads, generic client errors, durable retry/outbox, supervisor restarts | External API schema changes can degrade integrations until adapters are updated |
+| A09 Security Logging and Alerting Failures | Owner-only audit log, health snapshot, schedule-aware job freshness, bounded SRE action log, launchd logs | No external security alert sink; host loss also loses unshipped logs |
+| A10 Mishandling Exceptional Conditions | Bounded timeouts/payloads, generic client errors, durable retry/outbox, cooldown-limited supervisor recovery | External API schema changes can degrade integrations until adapters are updated; briefing replay remains manual to avoid duplicates |
 
 Reference baselines: [OWASP Top 10:2025](https://owasp.org/Top10/2025/),
 [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/),

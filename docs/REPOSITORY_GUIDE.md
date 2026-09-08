@@ -93,7 +93,7 @@ core jobs depend on its availability.
 | Fact aggregation and external weather/transport | `scripts/briefing_data.py` |
 | Rendering, queuing and preview | `scripts/briefing.py` |
 | Delivery worker | `scripts/flush_outbox.py` |
-| Health/status | `scripts/healthcheck.py`, `scripts/update_status.py` |
+| Health/status/SRE | `scripts/healthcheck.py`, `scripts/update_status.py`, `scripts/job_state.py`, `scripts/sre.py`, `scripts/sre_reconcile.py` |
 | Canonical household contract | `config/family.example.json`, `scripts/family_config.py`, `scripts/validate_config.py` |
 | Schedule wrapper | `scripts/cron_runner.sh`, `ops/launchd/` |
 

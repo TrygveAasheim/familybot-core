@@ -10,12 +10,20 @@ import sqlite3
 import os
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import zoneinfo
 sys.path.insert(0, os.path.dirname(__file__))
 from reliability import connect_db, database_path, workspace_path
 from family_config import integration
+from sre import (
+    JOB_SPECS,
+    latest_calendar_due,
+    next_calendar_due,
+    parse_launchctl_output,
+    parse_timestamp,
+    read_job_state,
+)
 from validate_launchd import validate_launchctl_output
 
 DB_PATH = str(database_path())
@@ -140,39 +148,96 @@ except Exception as e:
 
 # ── 5. Email processing freshness ─────────────────────────────────────────────
 
-# ── 6. Cron jobs ──────────────────────────────────────────────────────────────
-required_jobs = ["familybot.email", "familybot.spond", "familybot.health",
-                 "familybot.status", "familybot.briefing.weekday",
-                 "familybot.briefing.weekend", "familybot.briefing.weekly",
-                 "familybot.delivery", "familybot.ukeplan"]
-missing_jobs, failed_jobs, schedule_errors = [], [], []
-for label in required_jobs:
+# ── 6. Cron jobs and freshness ───────────────────────────────────────────────
+now_utc = datetime.now(timezone.utc)
+missing_jobs, active_failures, historical_failures, schedule_errors = [], [], [], []
+job_details = []
+for spec in JOB_SPECS:
+    label = spec.label
     code, out, err = run(f"launchctl print gui/{os.getuid()}/{label}")
     if code != 0:
         missing_jobs.append(label)
         continue
-    # Do not use this health job's previous warning exit as evidence against
-    # itself. Its presence is still checked above; all other jobs retain their
-    # last-exit validation.
-    if label == "familybot.health":
-        continue
-    for line in out.splitlines():
-        if "last exit code =" in line:
-            try:
-                if int(line.rsplit("=", 1)[1].strip()) != 0:
-                    failed_jobs.append(label)
-            except ValueError:
-                pass
+    launchd_info = parse_launchctl_output(out)
     schedule_errors.extend(validate_launchctl_output(label, out))
+
+    state = read_job_state(WORKSPACE, spec.label)
+    finished = parse_timestamp(state.get("finished_at"))
+    started = parse_timestamp(state.get("started_at"))
+    state_exit = state.get("last_exit_code")
+    last_exit = int(state_exit) if isinstance(state_exit, int) else launchd_info.last_exit_code
+    next_due = next_calendar_due(spec, now_utc) if spec.kind == "calendar" else None
+    latest_due = latest_calendar_due(spec, now_utc) if spec.kind == "calendar" else None
+    detail = {
+        "label": label,
+        "state": state.get("status", "unknown"),
+        "last_run": state.get("finished_at"),
+        "last_exit": last_exit,
+        "next_due": next_due.isoformat(timespec="seconds") if next_due else None,
+    }
+    job_details.append(detail)
+
+    if state.get("status") == "running" and started:
+        if (now_utc - started).total_seconds() > spec.max_runtime_seconds:
+            active_failures.append(f"{label} has been running for too long")
+        continue
+
+    if state.get("status") == "failed":
+        # A failed calendar job is actionable near its failed occurrence. Once
+        # its failure is old and the next run is not due, keep the evidence in
+        # the snapshot without turning every health poll into another alert.
+        recent = bool(finished and (now_utc - finished).total_seconds() <= 36 * 3600)
+        if spec.kind == "interval" or recent:
+            active_failures.append(f"{label} last exited {last_exit}")
+        else:
+            historical_failures.append(f"{label} last exited {last_exit}")
+        continue
+
+    if state.get("status") == "success" and finished:
+        if spec.kind == "interval":
+            overdue = (now_utc - finished).total_seconds() > (spec.interval_seconds or 0) + spec.max_runtime_seconds
+        else:
+            overdue = bool(latest_due and finished < latest_due)
+        if overdue:
+            active_failures.append(f"{label} has no successful run since {finished.isoformat(timespec='seconds')}")
+        continue
+
+    # Legacy launchd jobs may have no execution-state file yet. Do not turn an
+    # old launchd last-exit value into a repeated alert; the next run will be
+    # recorded with a precise timestamp by cron_runner.sh.
+    if launchd_info.last_exit_code not in (None, 0):
+        historical_failures.append(f"{label} launchd last exit {launchd_info.last_exit_code} (legacy state)")
+    elif (
+        spec.kind == "calendar"
+        and launchd_info.runs in (None, 0)
+        and latest_due
+        and latest_due < now_utc - timedelta(seconds=spec.max_runtime_seconds)
+    ):
+        active_failures.append(f"{label} has no recorded run for its latest scheduled occurrence")
+
 if missing_jobs:
     critical("scheduler", f"Missing launchd jobs: {', '.join(missing_jobs)}")
 elif schedule_errors:
     critical("scheduler", "; ".join(schedule_errors),
              fix="Run scripts/deploy_core.sh --reload from the reviewed core checkout")
-elif failed_jobs:
-    warn("scheduler", f"Jobs with non-zero last exit: {', '.join(failed_jobs)}")
+elif active_failures:
+    exit_code = max(exit_code, 1)
+    results.append({
+        "service": "scheduler",
+        "status": "warn",
+        "msg": "; ".join(active_failures),
+        "fix": "Inspect the job state and let sre_reconcile.py recover allowlisted interval jobs",
+        "jobs": job_details,
+        "historical_failures": historical_failures,
+    })
 else:
-    ok("scheduler", f"{len(required_jobs)} launchd jobs loaded")
+    results.append({
+        "service": "scheduler",
+        "status": "ok",
+        "msg": f"{len(JOB_SPECS)} launchd jobs loaded; no active freshness failures",
+        "jobs": job_details,
+        "historical_failures": historical_failures,
+    })
 
 try:
     with open(WORKSPACE / "db" / "spond_sync_state.json") as handle:

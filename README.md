@@ -35,6 +35,7 @@ controls.
 - Norwegian calendar, weather and transport inputs;
 - SQLite reliability primitives, ingestion ledger and delivery outbox;
 - launchd-compatible scheduled jobs, health and status reporting;
+- schedule-aware health monitoring with bounded, auditable SRE recovery;
 - source-controlled LaunchAgent templates with schedule validation and an
   explicit installer;
 - the **one canonical family configuration template**.
@@ -134,6 +135,12 @@ bash -n scripts/*.sh
 Runtime SQLite, email attachments, credentials, OpenClaw memory, logs and
 backups are deliberately excluded from Git. Git is a source backup, not a
 household-state backup.
+
+The health layer is intentionally self-healing only within a safe allowlist. It
+records per-job execution state, recovers stale interval workers and missing
+owner-only LaunchAgents, retries the durable outbox and may restart the
+gateway after repeated failures. Calendar briefings are never automatically
+replayed because an external send cannot provide exactly-once delivery.
 
 ## Development and release
 

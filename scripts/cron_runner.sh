@@ -20,6 +20,8 @@ case "$task" in
     ;;
 esac
 
+job_label="${FAMILYBOT_JOB_LABEL:-$task}"
+
 timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 LOCK_DIR="/tmp/familybot_${task}.lock"
 PID_FILE="$LOCK_DIR/pid"
@@ -55,7 +57,22 @@ if ! acquire_lock; then
   echo "[$timestamp] $task skipped: previous run still active" >> "$LOG"
   exit 0
 fi
-trap release_lock EXIT INT TERM
+
+record_state() {
+  "$PYTHON" "$WORKSPACE/scripts/job_state.py" "$@" >/dev/null 2>&1 || \
+    echo "[$timestamp] $task: unable to persist execution state" >> "$LOG"
+}
+
+record_state start "$job_label" "$$"
+
+finish_run() {
+  exit_code=$?
+  record_state finish "$job_label" "$$" "$exit_code"
+  release_lock
+  exit "$exit_code"
+}
+
+trap finish_run EXIT INT TERM
 
 case "$task" in
   email)
@@ -73,6 +90,9 @@ case "$task" in
   health)
     echo "[$timestamp] health check" >> "$LOG"
     $PYTHON "$WORKSPACE/scripts/healthcheck.py" >> "$LOG" 2>&1
+    health_code=$?
+    $PYTHON "$WORKSPACE/scripts/sre_reconcile.py" >> "$LOG" 2>&1 || true
+    exit "$health_code"
     ;;
   status)
     echo "[$timestamp] status update" >> "$LOG"

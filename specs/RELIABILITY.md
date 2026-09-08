@@ -21,6 +21,13 @@ running OpenClaw workspace and launchd; this document is not a live status file.
    recover stale PID locks left by a killed process.
 7. Health checks expose pending/repeatedly failed deliveries and retryable email
    failures instead of reporting only gateway availability.
+8. Health monitoring is schedule-aware: a historical failure of a calendar job
+   is not counted as a new failure on every later health poll. Each execution
+   has an owner-only state record with start time, finish time, duration and
+   exit code.
+9. SRE recovery is bounded and auditable. Only allowlisted interval jobs may be
+   bootstrapped or kickstarted, actions have a cooldown, and calendar briefings
+   are never automatically replayed.
 
 ## New durable state
 
@@ -29,6 +36,11 @@ running OpenClaw workspace and launchd; this document is not a live status file.
 - `email_processing_state`: per-message stage, status, attempt count and last
   error. Existing `email_log` rows remain the legacy completion signal only when
   no ledger row exists.
+- `db/job_state/*.json`: per-LaunchAgent execution state. These files contain
+  task labels and timestamps only; they never contain message content or
+  credentials.
+- `db/sre_state.json` and `db/sre-actions.jsonl`: cooldowns, repeated gateway
+  failure counts and a privacy-safe audit trail of automatic recovery actions.
 
 Both tables are created idempotently by the code that owns them. SQLite
 connections enable foreign-key enforcement and a 10-second busy timeout.
@@ -46,6 +58,12 @@ structured result separately from deterministic `week_plan_days` facts.
   retry worker can reclaim the row.
 - Telegram stays unavailable: exponential retry up to one hour, with daily and
   weekly expiry preventing stale briefings from arriving too late.
+- An interval worker is missing or overdue: the SRE reconciler may bootstrap
+  its owner-only LaunchAgent or kickstart it after the configured cooldown.
+  Calendar jobs are reported for review instead of replayed automatically.
+- The gateway fails two consecutive health observations: the reconciler may
+  restart it once per cooldown, records the action and leaves persistent
+  failures for escalation.
 - Himalaya list/read fails: job exits non-zero; no message is marked processed.
 - Attachment download or ukeplan parsing fails: ledger records the error and the
   email remains retryable.
@@ -69,6 +87,8 @@ structured result separately from deterministic `week_plan_days` facts.
 4. Run daily and weekly briefing previews with OpenClaw unavailable.
 5. Install `familybot.delivery` from the reviewed plist and verify its five-minute
    retry schedule.
-6. Deploy source files, restart only the affected launchd jobs, and inspect the
-   first health report.
-7. Keep the previous source snapshot and database backup for rollback.
+6. Run `python3 scripts/sre_reconcile.py --dry-run` and inspect the proposed
+   actions; it must not propose replaying a briefing.
+7. Deploy source files, restart only the affected launchd jobs, and inspect the
+   first health report plus `db/sre-actions.jsonl`.
+8. Keep the previous source snapshot and database backup for rollback.
