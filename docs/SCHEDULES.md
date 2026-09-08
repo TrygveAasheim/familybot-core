@@ -58,3 +58,10 @@ python3 scripts/sre_reconcile.py --dry-run
 
 Database corruption, credentials, external API changes and persistent gateway
 failures remain escalation cases rather than destructive automatic repairs.
+
+SRE also owns `db/health_failures.json` and the transition-based Telegram alert
+path. The separate OpenClaw conversational health-alert cron must remain
+disabled; it previously re-read stale counters and produced duplicate warnings
+even when the structured health snapshot was green. Set
+`FAMILYBOT_SRE_ALERT_TARGET` only when the first configured parent is not the
+desired owner alert recipient.

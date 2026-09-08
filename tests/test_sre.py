@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from sre import JOB_BY_LABEL, LaunchdInfo, latest_calendar_due, next_calendar_due  # noqa: E402
-from sre_reconcile import plan_actions  # noqa: E402
+from sre_reconcile import plan_actions, update_health_failures  # noqa: E402
 
 
 class ScheduleContractTests(unittest.TestCase):
@@ -71,6 +71,41 @@ class ScheduleContractTests(unittest.TestCase):
             gateway_failures=1,
         )
         self.assertFalse(any(action["kind"] == "gateway_restart" for action in actions))
+
+    def test_sre_owns_and_resets_legacy_failure_counter(self):
+        current = datetime(2026, 9, 8, 6, 0, tzinfo=timezone.utc)
+        counters, alerts = update_health_failures(
+            {
+                "checked_at": "2026-09-08T04:00:00+00:00",
+                "results": [{
+                    "service": "scheduler",
+                    "status": "ok",
+                    "msg": "10 launchd jobs loaded; no active freshness failures",
+                }],
+            },
+            {
+                "health_failures": {
+                    "scheduler": {"count": 3, "event_key": "old-failure", "alerted": True}
+                }
+            },
+            current,
+        )
+        self.assertEqual(counters["scheduler"], 0)
+        self.assertEqual(alerts, [])
+
+    def test_sre_alert_threshold_is_per_failure_event(self):
+        current = datetime(2026, 9, 8, 6, 0, tzinfo=timezone.utc)
+        status = {
+            "checked_at": "2026-09-08T04:00:00+00:00",
+            "results": [{"service": "gateway", "status": "critical", "msg": "gateway down"}],
+        }
+        previous = {"health_failures": {"gateway": {"count": 2, "event_key": "gateway:gateway down"}}}
+        counters, alerts = update_health_failures(status, previous, current)
+        self.assertEqual(counters["gateway"], 3)
+        self.assertEqual([item["service"] for item in alerts], ["gateway"])
+        previous["health_failures"]["gateway"]["alerted"] = True
+        _, duplicate_alerts = update_health_failures(status, previous, current)
+        self.assertEqual(duplicate_alerts, [])
 
 
 if __name__ == "__main__":

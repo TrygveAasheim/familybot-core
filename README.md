@@ -141,6 +141,8 @@ records per-job execution state, recovers stale interval workers and missing
 owner-only LaunchAgents, retries the durable outbox and may restart the
 gateway after repeated failures. Calendar briefings are never automatically
 replayed because an external send cannot provide exactly-once delivery.
+Consecutive health counters and owner alerts are also SRE-owned; the OpenClaw
+conversation scheduler is not an independent monitoring authority.
 
 ## Development and release
 

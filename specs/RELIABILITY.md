@@ -28,6 +28,9 @@ running OpenClaw workspace and launchd; this document is not a live status file.
 9. SRE recovery is bounded and auditable. Only allowlisted interval jobs may be
    bootstrapped or kickstarted, actions have a cooldown, and calendar briefings
    are never automatically replayed.
+10. SRE owns consecutive health-failure counters and transition-based Telegram
+    alerts. The conversational cron layer must not interpret health snapshots,
+    maintain a second counter or send duplicate alerts.
 
 ## New durable state
 
@@ -41,6 +44,9 @@ running OpenClaw workspace and launchd; this document is not a live status file.
   credentials.
 - `db/sre_state.json` and `db/sre-actions.jsonl`: cooldowns, repeated gateway
   failure counts and a privacy-safe audit trail of automatic recovery actions.
+- `db/health_failures.json`: SRE-owned compatibility counters for the local
+  health alert surface. They are reset from the current structured snapshot,
+  not trusted as an independent source of truth.
 
 Both tables are created idempotently by the code that owns them. SQLite
 connections enable foreign-key enforcement and a 10-second busy timeout.

@@ -17,11 +17,27 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from reliability import atomic_write_json, workspace_path
+from family_config import telegram_recipients
 from sre import JOB_SPECS, JobSpec, LaunchdInfo, parse_timestamp, plist_path, read_job_state
 
 
 COOLDOWN = timedelta(minutes=15)
 GATEWAY_FAILURE_THRESHOLD = 2
+HEALTH_ALERT_THRESHOLD = 3
+HEALTH_FAILURE_KEYS = {
+    "gateway",
+    "telegram",
+    "email",
+    "database",
+    "delivery_outbox",
+    "email_pipeline",
+    "scheduler",
+    "spond",
+    "disk",
+    "calendar_hygiene",
+    "email_processing",
+    "cron",
+}
 
 
 def now() -> datetime:
@@ -68,6 +84,88 @@ def overdue(spec: JobSpec, state: dict[str, Any], current: datetime) -> bool:
     if not finished or spec.kind != "interval" or not spec.interval_seconds:
         return False
     return current - finished > timedelta(seconds=spec.interval_seconds + spec.max_runtime_seconds)
+
+
+def health_event_key(result: dict[str, Any]) -> str:
+    """Build a stable key for one unchanged failure, without raw payloads."""
+    service = str(result.get("service", "unknown"))[:80]
+    if service == "scheduler":
+        active = result.get("jobs", [])
+        return f"{service}:{json.dumps(active, sort_keys=True, ensure_ascii=True)[:500]}"
+    return f"{service}:{str(result.get('msg', 'failure'))[:300]}"
+
+
+def update_health_failures(
+    status: dict[str, Any],
+    previous: dict[str, Any],
+    current: datetime,
+    threshold: int = HEALTH_ALERT_THRESHOLD,
+) -> tuple[dict[str, int], list[dict[str, Any]]]:
+    """Own consecutive failure counters and return newly eligible alerts."""
+    records = previous.setdefault("health_failures", {})
+    checked_at = str(status.get("checked_at") or current.isoformat(timespec="seconds"))
+    duplicate_observation = previous.get("last_health_checked_at") == checked_at
+    alerts: list[dict[str, Any]] = []
+    counters = {key: 0 for key in HEALTH_FAILURE_KEYS}
+
+    for result in status.get("results", []):
+        service = str(result.get("service", ""))
+        if service not in HEALTH_FAILURE_KEYS:
+            continue
+        failed = result.get("status") in {"warn", "critical"}
+        record = records.get(service, {})
+        event_key = health_event_key(result) if failed else ""
+        if duplicate_observation:
+            count = int(record.get("count", 0))
+        elif failed:
+            count = int(record.get("count", 0)) + 1 if record.get("event_key") == event_key else 1
+            records[service] = {
+                "count": count,
+                "event_key": event_key,
+                "last_seen": checked_at,
+                "alerted": bool(record.get("alerted", False)) if record.get("event_key") == event_key else False,
+            }
+        else:
+            count = 0
+            records[service] = {"count": 0, "event_key": "", "last_seen": checked_at, "alerted": False}
+        counters[service] = count
+        if failed and count >= threshold and not records.get(service, {}).get("alerted"):
+            alerts.append({
+                "service": service,
+                "status": str(result.get("status")),
+                "count": count,
+                "msg": str(result.get("msg", "failure"))[:300],
+                "event_key": event_key,
+            })
+
+    previous["last_health_checked_at"] = checked_at
+    previous["health_failures"] = records
+    return counters, alerts
+
+
+def send_health_alert(alert: dict[str, Any]) -> tuple[bool, str]:
+    """Send one deduplicated owner alert; return success and bounded detail."""
+    configured = os.environ.get("FAMILYBOT_SRE_ALERT_TARGET", "").strip()
+    targets = [configured] if configured else [target for _, target in telegram_recipients()]
+    if not targets:
+        return False, "no configured Telegram alert target"
+    message = (
+        f"Health check alert: {alert['service']} has reached {alert['count']} consecutive failures. "
+        f"Status: {alert['status']}. SRE analysis: {alert['msg']}"
+    )
+    for target in targets[:1]:
+        try:
+            result = subprocess.run(
+                ["openclaw", "message", "send", "--channel", "telegram", "--target", target, "--message", message],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            return False, str(exc)[:200]
+        if result.returncode != 0:
+            return False, (result.stderr or result.stdout or "Telegram send failed").strip()[:200]
+    return True, "sent"
 
 
 def plan_actions(
@@ -179,6 +277,10 @@ def main() -> int:
         status = load_json(db_dir / "health_status.json", {})
         state_path = db_dir / "sre_state.json"
         previous = load_json(state_path, {"actions": {}, "failures": {}})
+        counters, pending_alerts = update_health_failures(status, previous, current)
+        if not args.dry_run:
+            atomic_write_json(db_dir / "health_failures.json", counters)
+            os.chmod(db_dir / "health_failures.json", 0o600)
         failures = previous.setdefault("failures", {})
         gateway_result = next((item for item in status.get("results", []) if item.get("service") == "gateway"), {})
         gateway_key = str(gateway_result.get("msg", "unknown"))
@@ -200,7 +302,8 @@ def main() -> int:
             previous=previous,
             gateway_failures=gateway_count,
         )
-        print(json.dumps({"dry_run": args.dry_run, "actions": actions}, ensure_ascii=False))
+        alert_results = []
+        print(json.dumps({"dry_run": args.dry_run, "actions": actions, "health_failures": counters}, ensure_ascii=False))
         for action in actions:
             argv = [part for part in action["argv"] if part]
             entry = {
@@ -223,6 +326,28 @@ def main() -> int:
                 entry["exit_code"] = -1
                 entry["error"] = str(exc)[:300]
             append_audit(db_dir / "sre-actions.jsonl", entry)
+
+        for alert in pending_alerts:
+            if args.dry_run:
+                alert_results.append({"service": alert["service"], "status": "dry-run"})
+                continue
+            sent, detail = send_health_alert(alert)
+            alert_results.append({"service": alert["service"], "status": "sent" if sent else "failed", "detail": detail})
+            if sent:
+                previous["health_failures"][alert["service"]]["alerted"] = True
+            append_audit(
+                db_dir / "sre-actions.jsonl",
+                {
+                    "at": current.isoformat(timespec="seconds"),
+                    "kind": "health_alert",
+                    "label": alert["service"],
+                    "reason": detail,
+                    "dry_run": args.dry_run,
+                },
+            )
+
+        if alert_results:
+            print(json.dumps({"health_alerts": alert_results}, ensure_ascii=False))
 
         if not args.dry_run:
             atomic_write_json(state_path, previous)
