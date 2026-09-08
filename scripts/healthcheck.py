@@ -207,13 +207,10 @@ for spec in JOB_SPECS:
     # recorded with a precise timestamp by cron_runner.sh.
     if launchd_info.last_exit_code not in (None, 0):
         historical_failures.append(f"{label} launchd last exit {launchd_info.last_exit_code} (legacy state)")
-    elif (
-        spec.kind == "calendar"
-        and launchd_info.runs in (None, 0)
-        and latest_due
-        and latest_due < now_utc - timedelta(seconds=spec.max_runtime_seconds)
-    ):
-        active_failures.append(f"{label} has no recorded run for its latest scheduled occurrence")
+    # No execution record is neutral immediately after installation or a
+    # launchd reload: launchd resets its run counter and calendar jobs may not
+    # run again for several days. Once cron_runner has written state, the
+    # successful/failed/stale branches above provide precise freshness checks.
 
 if missing_jobs:
     critical("scheduler", f"Missing launchd jobs: {', '.join(missing_jobs)}")
