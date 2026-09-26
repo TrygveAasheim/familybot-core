@@ -21,6 +21,7 @@ from reliability import connect_db, database_path, workspace_path
 
 
 OPENCLAW = "/opt/homebrew/bin/openclaw"
+OPENCLAW_MODEL = os.environ.get("FAMILYBOT_UKEPLAN_MODEL", "openai/gpt-5.5")
 INTERPRETER_VERSION = "ukeplan-llm-v3-extract-review"
 WEEKDAYS = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag"]
 CATEGORIES = {"homework", "bring", "event", "subject", "notice", "general"}
@@ -288,8 +289,17 @@ Return JSON only, exactly the same shape:
 
 
 def invoke_model(prompt: str) -> str:
+    if not OPENCLAW_MODEL.startswith("openai/"):
+        raise RuntimeError(f"Ukeplan interpreter requires an OpenAI model, got {OPENCLAW_MODEL!r}")
     result = subprocess.run(
-        [OPENCLAW, "agent", "--agent", "main", "--thinking", "low", "--message", prompt, "--json"],
+        [
+            OPENCLAW, "agent",
+            "--agent", "main",
+            "--model", OPENCLAW_MODEL,
+            "--thinking", "low",
+            "--message", prompt,
+            "--json",
+        ],
         capture_output=True,
         text=True,
         timeout=90,
@@ -335,9 +345,9 @@ def interpret_one(db_path: Path, row: Any) -> bool:
         with connect_db(db_path) as connection:
             connection.execute(
                 """UPDATE week_plan_interpretations
-                   SET status='accepted', model='openclaw', structured_json=?, last_error=NULL,
+                   SET status='accepted', model=?, structured_json=?, last_error=NULL,
                        updated_at=? WHERE id=?""",
-                (json.dumps(normalized, ensure_ascii=False, separators=(",", ":")), now_text(), interpretation_id),
+                (OPENCLAW_MODEL, json.dumps(normalized, ensure_ascii=False, separators=(",", ":")), now_text(), interpretation_id),
             )
         print(f"[UKEPLAN] Accepted interpretation for plan {plan_id}")
         return True
@@ -386,7 +396,7 @@ def run(limit: int = 1, plan_id: int | None = None) -> int:
                 )
                 interpretation_id = cursor.lastrowid
                 status = "pending"
-            elif item[5] != current_hash or item[6] == "failed":
+            elif item[5] != current_hash or (item[6] == "failed" and plan_id is not None):
                 connection.execute(
                     """UPDATE week_plan_interpretations
                        SET status='pending',source_hash=?,parser_version=?,structured_json='{}',last_error=NULL,updated_at=?
@@ -398,7 +408,7 @@ def run(limit: int = 1, plan_id: int | None = None) -> int:
             else:
                 interpretation_id = item[4]
                 status = item[6]
-            if status in {"pending", "failed"} and len(work) < limit:
+            if status == "pending" and len(work) < limit:
                 connection.execute(
                     "UPDATE week_plan_interpretations SET status='processing',attempts=attempts+1,updated_at=? WHERE id=?",
                     (now_text(), interpretation_id),

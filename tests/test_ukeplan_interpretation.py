@@ -86,6 +86,18 @@ class UkeplanInterpretationTests(unittest.TestCase):
         self.assertIn("weekly_tasks", prompt)
         self.assertIn("general_info", prompt)
 
+    def test_model_invocation_forces_openai_model(self):
+        completed = mock.Mock(
+            returncode=0,
+            stdout=json.dumps({"result": {"payloads": [{"text": "{\"days\": []}"}]}}),
+            stderr="",
+        )
+        with mock.patch.object(interpret_ukeplan.subprocess, "run", return_value=completed) as run:
+            self.assertEqual(interpret_ukeplan.invoke_model("prompt"), "{\"days\": []}")
+        command = run.call_args.args[0]
+        self.assertIn("--model", command)
+        self.assertEqual(command[command.index("--model") + 1], "openai/gpt-5.5")
+
     def test_validation_normalizes_structured_week_buckets(self):
         payload = {
             "days": [],
@@ -125,6 +137,40 @@ class UkeplanInterpretationTests(unittest.TestCase):
                 ).fetchone()
             self.assertEqual(status, "failed")
             self.assertEqual(plan_count, 1)
+
+    def test_automatic_run_does_not_retry_failed_interpretation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = Path(directory) / "family.db"
+            layout = {"version": 1, "source_blocks": self.blocks, "layout_text": ""}
+            layout_json = json.dumps(layout)
+            source_hash = interpret_ukeplan.source_hash(layout_json)
+            with sqlite3.connect(db_path) as connection:
+                connection.execute(
+                    """CREATE TABLE week_plans(
+                       id INTEGER PRIMARY KEY, week_number INTEGER, year INTEGER,
+                       layout_json TEXT, created_at TEXT)"""
+                )
+                connection.execute(
+                    "INSERT INTO week_plans(id,week_number,year,layout_json,created_at) VALUES(1,34,2026,?,?)",
+                    (layout_json, "2026-08-17T08:00:00+02:00"),
+                )
+                interpret_ukeplan.ensure_schema(connection)
+                connection.execute(
+                    """INSERT INTO week_plan_interpretations(
+                       week_plan_id,status,source_hash,parser_version,structured_json,attempts,updated_at
+                    ) VALUES(?,?,?,?,?,?,?)""",
+                    (1, "failed", source_hash, interpret_ukeplan.INTERPRETER_VERSION, "{}", 4, "2026-08-17T08:10:00+02:00"),
+                )
+            with mock.patch.object(interpret_ukeplan, "database_path", return_value=db_path), \
+                    mock.patch.object(interpret_ukeplan, "invoke_model") as invoke:
+                self.assertEqual(interpret_ukeplan.run(limit=1), 0)
+            invoke.assert_not_called()
+            with sqlite3.connect(db_path) as connection:
+                status, attempts = connection.execute(
+                    "SELECT status,attempts FROM week_plan_interpretations"
+                ).fetchone()
+            self.assertEqual(status, "failed")
+            self.assertEqual(attempts, 4)
 
 
 if __name__ == "__main__":
