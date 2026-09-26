@@ -22,9 +22,12 @@ from reliability import connect_db, database_path, workspace_path
 
 OPENCLAW = "/opt/homebrew/bin/openclaw"
 OPENCLAW_MODEL = os.environ.get("FAMILYBOT_UKEPLAN_MODEL", "openai/gpt-5.5")
+OPENCLAW_TIMEOUT_SECONDS = int(os.environ.get("FAMILYBOT_UKEPLAN_TIMEOUT_SECONDS", "240"))
 INTERPRETER_VERSION = "ukeplan-llm-v3-extract-review"
 WEEKDAYS = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag"]
 CATEGORIES = {"homework", "bring", "event", "subject", "notice", "general"}
+MAX_DAY_ITEM_TEXT = 600
+MAX_NOTE_TEXT = 5000
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS week_plan_interpretations (
@@ -112,7 +115,9 @@ def normalize_notes(notes: Any, label: str, block_text: dict[str, str]) -> list[
         if not isinstance(note, dict):
             raise ValueError(f"each {label} entry must be an object")
         text = str(note.get("text") or "").strip()
-        if not text or len(text) > 600:
+        if not text and not note.get("source_blocks"):
+            continue
+        if not text or len(text) > MAX_NOTE_TEXT:
             raise ValueError(f"{label} entries need text and source_blocks")
         normalized.append({
             "text": text,
@@ -162,7 +167,7 @@ def validate_interpretation(payload: dict[str, Any], *, year: int, week: int, bl
             text = str(item.get("text") or "").strip()
             references = item.get("source_blocks")
             confidence = item.get("confidence")
-            if category not in CATEGORIES or not text or len(text) > 600:
+            if category not in CATEGORIES or not text or len(text) > MAX_DAY_ITEM_TEXT:
                 raise ValueError("invalid day item category or text")
             normalized_references = grounded_references(text, references, block_text)
             try:
@@ -302,7 +307,7 @@ def invoke_model(prompt: str) -> str:
         ],
         capture_output=True,
         text=True,
-        timeout=90,
+        timeout=OPENCLAW_TIMEOUT_SECONDS,
     )
     if result.returncode != 0:
         raise RuntimeError(f"OpenClaw failed: {(result.stderr or result.stdout)[:240]}")

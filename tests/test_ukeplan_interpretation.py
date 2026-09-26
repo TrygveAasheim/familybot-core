@@ -97,6 +97,7 @@ class UkeplanInterpretationTests(unittest.TestCase):
         command = run.call_args.args[0]
         self.assertIn("--model", command)
         self.assertEqual(command[command.index("--model") + 1], "openai/gpt-5.5")
+        self.assertEqual(run.call_args.kwargs["timeout"], interpret_ukeplan.OPENCLAW_TIMEOUT_SECONDS)
 
     def test_validation_normalizes_structured_week_buckets(self):
         payload = {
@@ -112,6 +113,30 @@ class UkeplanInterpretationTests(unittest.TestCase):
         )
         self.assertEqual(result["version"], 2)
         self.assertEqual(result["weekly_tasks"][0]["text"], "Les side 10 til torsdag.")
+        self.assertEqual(result["general_info"], [])
+
+    def test_validation_allows_long_source_backed_general_info(self):
+        text = " ".join(f"Info{i}" for i in range(90))
+        blocks = [{"id": "page1-block1", "text": text}]
+        payload = {
+            "days": [],
+            "weekly_tasks": [],
+            "general_info": [{"text": text, "source_blocks": ["page1-block1"]}],
+        }
+        result = interpret_ukeplan.validate_interpretation(
+            payload, year=2026, week=34, blocks=blocks
+        )
+        self.assertEqual(result["general_info"][0]["text"], text)
+
+    def test_validation_ignores_empty_general_info_placeholders(self):
+        payload = {
+            "days": [],
+            "weekly_tasks": [],
+            "general_info": [{}],
+        }
+        result = interpret_ukeplan.validate_interpretation(
+            payload, year=2026, week=34, blocks=self.blocks
+        )
         self.assertEqual(result["general_info"], [])
 
     def test_model_failure_is_durable_and_does_not_remove_plan(self):
