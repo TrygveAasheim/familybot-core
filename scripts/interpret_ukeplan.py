@@ -335,6 +335,9 @@ def interpret_one(db_path: Path, row: Any) -> bool:
     plan_id, week, year, layout_json, interpretation_id = row
     try:
         layout = json.loads(layout_json)
+        attribution = layout.get("attribution", {})
+        if attribution and (attribution.get("year"), attribution.get("week")) != (year, week):
+            raise ValueError("Stored attribution conflicts with plan period")
         pdf_path = str(layout.get("source_pdf") or "").strip() or None
         blocks = pdf_page_blocks(pdf_path) if pdf_path else (layout.get("source_blocks") or [])
         if not blocks:
@@ -424,10 +427,12 @@ def run(limit: int = 1, plan_id: int | None = None) -> int:
                 )
                 work.append((item[0], item[1], item[2], item[3], interpretation_id))
 
+    failures = 0
     for row in work:
-        interpret_one(db_path, row)
+        if not interpret_one(db_path, row):
+            failures += 1
     print(f"[UKEPLAN] Interpretation candidates processed: {len(work)}")
-    return 0
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

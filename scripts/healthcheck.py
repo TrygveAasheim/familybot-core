@@ -16,6 +16,7 @@ import zoneinfo
 sys.path.insert(0, os.path.dirname(__file__))
 from reliability import connect_db, database_path, workspace_path
 from family_config import integration
+from outcome_health import briefing_health, interpretation_health
 from sre import (
     JOB_SPECS,
     latest_calendar_due,
@@ -141,12 +142,20 @@ try:
             ok("email_pipeline", "No failed email processing records")
     else:
         warn("email_pipeline", "Email processing ledger has not been initialized")
+    outcome = interpretation_health(conn, datetime.now(OSLO).date())
+    results.append(outcome)
+    if outcome["status"] == "warn":
+        exit_code = max(exit_code, 1)
     conn.close()
 except Exception as e:
     critical("database", f"Cannot open database: {e}",
              fix=f"Check {DB_PATH}")
 
 # ── 5. Email processing freshness ─────────────────────────────────────────────
+outcome = briefing_health()
+results.append(outcome)
+if outcome["status"] == "warn":
+    exit_code = max(exit_code, 1)
 
 # ── 6. Cron jobs and freshness ───────────────────────────────────────────────
 now_utc = datetime.now(timezone.utc)

@@ -14,6 +14,7 @@ Usage:
 import sys
 import json
 import os
+import re
 import subprocess
 from datetime import datetime, timedelta
 from typing import Optional
@@ -23,8 +24,9 @@ OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 
 sys.path.insert(0, os.path.dirname(__file__))
 from briefing_data import collect_daily, collect_weekly
-from family_config import children, family_prompt_context, integration, telegram_recipients
+from family_config import children, parents, family_prompt_context, integration, telegram_recipients
 from reliability import DeliveryOutbox, database_path, workspace_path
+from outcome_health import record_briefing
 
 RECIPIENTS = telegram_recipients()
 FAMILY_CONTEXT = family_prompt_context()
@@ -32,13 +34,15 @@ TRANSPORT_CONTEXT = str(integration("transport").get("route_description") or "ko
 CABIN_CONTEXT = str(integration("weather").get("cabin_label") or "sekundær lokasjon")
 CHILD_NAMES = {str(profile.get("slug") or f"child_{index + 1}"): str(profile["name"])
                for index, profile in enumerate(children())}
+PARENT_NAMES = {str(profile.get("slug") or f"parent_{index + 1}"): str(profile["name"])
+                for index, profile in enumerate(parents())}
 
 DAILY_PROMPT = """\
 Du er FamilyBot, en familieassistent for {family_context}.
 Skriv en kort, vennlig morgenbriefing på norsk basert på dataene under.
 
 Retningslinjer:
-- Maks 15 linjer totalt
+- Sikt mot 15 linjer, men ikke utelat viktige oppgaver eller svarfrister for å nå dette
 - Ingen emojis, ingen markdown-overskrifter
 - Naturlig, direkte språk — ikke stivt eller formelt
 - Inkluder bare seksjoner som har innhold (utelat tomme seksjoner helt)
@@ -50,6 +54,7 @@ Data-seksjoner som alltid skal med:
 - Sekundær lokasjon: hvis cabin_weather ikke er null, ta med helgevarsel for {cabin_context}.
 - Ukeplaner: ta med korte, praktiske punkter for barna hvis ukeplaner finnes (lekser, ta med, viktige beskjeder). Bruk alltid barnets konfigurerte navn, aldri interne nøkler som child_1. Fullfør setningene. Hvis en mangler, ikke nevn det i morgenbriefingen.
 - For kanban: bare vis must-do og important, ikke nice-to med mindre listen er tom
+- Gjengi titlene på alle must-do/important-oppgaver og RSVP-er ordrett.
 - Hvis det er en fridag, nevn det kort øverst
 - Avslutt IKKE med "Ha en fin dag" eller lignende fraser
 - Ukeplanens member_name, week_number og year er autoritative metadata. Ignorer utdaterte navn/ukeoverskrifter i raw_text.
@@ -69,7 +74,8 @@ Retningslinjer:
 - Ukeplaner: oppsummer de viktigste tingene for hver unge (lekser, ta med, beskjeder)
 - Hvis en ukeplan mangler, nevn det kort og bruk barnets konfigurerte navn
 - Dager uten noe å si kan utelates
-- For kanban: bare must-do og important, maks 3 per person
+- For kanban: ta med alle must-do og important, og gjengi titlene ordrett
+- Gjengi RSVP-titler ordrett.
 - RSVP: vis tydelig hvis noe krever svar
 - Avslutt med én setning om uken som venter — naturlig, ikke klisjé
 - Bruk alltid member_name fra ukeplanen. Dens week_number og year gjelder selv om raw_text har en utdatert overskrift.
@@ -118,8 +124,8 @@ def generate_text(prompt: str) -> str:
             text=True,
             timeout=90,
         )
-    except subprocess.TimeoutExpired:
-        print("[briefing] OpenClaw agent timed out")
+    except (subprocess.TimeoutExpired, OSError):
+        print("[briefing] OpenClaw agent unavailable")
         return ""
     if result.returncode == 0:
         try:
@@ -131,7 +137,7 @@ def generate_text(prompt: str) -> str:
         except Exception:
             pass
     else:
-        print(f"[briefing] OpenClaw agent failed: {result.stderr[:200]}")
+        print("[briefing] OpenClaw agent failed")
     return ""
 
 
@@ -144,6 +150,12 @@ def render_daily_fallback(data: dict) -> str:
     lines.append(f"{data.get('date')}: {weather.get('summary', 'Vær ukjent')}. Luft: {aqi.get('label', 'ukjent')}. Pollen: {pollen_text}.")
     if weather.get("clothing_advice"):
         lines.append(f"Klær: {weather['clothing_advice']}")
+    if weather.get("evening_note"):
+        lines.append(f"Kveld: {weather['evening_note']}")
+    if data.get("holiday"):
+        lines.append(str(data["holiday"]))
+    for forecast in data.get("cabin_weather") or []:
+        lines.append(f"{CABIN_CONTEXT}: {forecast}")
     for item in data.get("tbane", []):
         lines.append(f"T-bane linje {item.get('line')}: {item.get('summary')}")
 
@@ -161,7 +173,24 @@ def render_daily_fallback(data: dict) -> str:
         if plan and (plan.get("raw_text") or plan.get("summary")):
             lines.append(f"Ukeplan {CHILD_NAMES.get(child, child)}: {plan.get('raw_text') or plan['summary']}")
 
+    lines.extend(action_lines(data))
     return "\n".join(lines)
+
+
+def action_lines(data):
+    lines = []
+    for day in data.get("upcoming", []):
+        for event in day.get("events", []):
+            lines.append(f"{day.get('date')}: {event.get('member') or ''} {event.get('title') or ''}".strip())
+        for event in day.get("recurring", []):
+            lines.append(f"{day.get('date')}: {event.get('member') or ''} {event.get('activity') or ''}".strip())
+    for parent, items in data.get("kanban", {}).items():
+        for item in items:
+            if item.get("priority") in {"must-do", "important"}:
+                lines.append(f"Oppgaver {PARENT_NAMES.get(parent, parent)}: {item.get('title')}")
+    for item in data.get("pending_rsvp", []):
+        lines.append(f"Svar ønskes: {item.get('member') or ''} {item.get('title')} {item.get('date') or ''}".strip())
+    return lines
 
 
 def render_weekly_fallback(data: dict) -> str:
@@ -180,6 +209,7 @@ def render_weekly_fallback(data: dict) -> str:
             lines.append(f"Ukeplan {CHILD_NAMES.get(child, child)}: {plan.get('raw_text') or plan['summary']}")
         else:
             lines.append(f"Ukeplan for {CHILD_NAMES.get(child, child)} er ikke mottatt ennå.")
+    lines.extend(action_lines(data))
     return "\n".join(lines)
 
 
@@ -260,13 +290,39 @@ def deliver_briefing(kind: str, text: str, now: Optional[datetime] = None) -> bo
     return result.ok and counts["pending"] == 0 and counts["sending"] == 0
 
 
+def valid_briefing(text, data):
+    """Reject structural defects; this is not a semantic completeness proof."""
+    if not text.strip() or re.search(r"\b(?:child|parent)_\d+\b", text, re.I):
+        return False
+    for child, plan in data.get("ukeplaner", {}).items():
+        if plan and CHILD_NAMES.get(child, child).casefold() not in text.casefold():
+            return False
+    # Exact action titles prevent important tasks/RSVPs disappearing in prose.
+    required = [item["title"] for items in data.get("kanban", {}).values()
+                for item in items if item.get("title") and item.get("priority") in {"must-do", "important"}]
+    required += [item["title"] for item in data.get("pending_rsvp", []) if item.get("title")]
+    if any(title.casefold() not in text.casefold() for title in required):
+        return False
+    return True
+
+
+def select_briefing(kind, text, data, render):
+    fallback = not valid_briefing(text, data)
+    if fallback:
+        text = render(data)
+    try:
+        record_briefing(kind, fallback)
+    except OSError:
+        # Observability failure must never prevent durable delivery.
+        print("[briefing] Unable to persist quality observation")
+    return text
+
+
 def run_daily():
     data = collect_daily()
     prompt = DAILY_PROMPT.format(family_context=FAMILY_CONTEXT, transport_context=TRANSPORT_CONTEXT, cabin_context=CABIN_CONTEXT, data=json.dumps(data, ensure_ascii=False, indent=2))
     text = generate_text(prompt)
-    if not text:
-        print("LLM returned empty response; using fallback.")
-        text = render_daily_fallback(data)
+    text = select_briefing("daily", text, data, render_daily_fallback)
     return deliver_briefing("daily", text)
 
 
@@ -274,9 +330,7 @@ def run_weekly():
     data = collect_weekly()
     prompt = WEEKLY_PROMPT.format(family_context=FAMILY_CONTEXT, data=json.dumps(data, ensure_ascii=False, indent=2))
     text = generate_text(prompt)
-    if not text:
-        print("LLM returned empty response; using fallback.")
-        text = render_weekly_fallback(data)
+    text = select_briefing("weekly", text, data, render_weekly_fallback)
     return deliver_briefing("weekly", text)
 
 

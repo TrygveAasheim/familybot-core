@@ -106,6 +106,7 @@ class CompleteBriefingTests(unittest.TestCase):
         content = "Viktig beskjed. " * 100 + "Avslutning."
         data = {"ukeplaner":{"child_1":{"raw_text":content}}}
         with mock.patch.object(briefing,"collect_daily",return_value=data), \
+             mock.patch.object(briefing,"record_briefing"), \
              mock.patch.object(briefing,"generate_text",return_value=""), \
              mock.patch.object(briefing,"deliver_briefing",return_value=True) as deliver:
             self.assertTrue(briefing.run_daily())

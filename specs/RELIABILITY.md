@@ -81,7 +81,9 @@ structured result separately from deterministic `week_plan_days` facts.
 - Ukeplan interpretation runs asynchronously after ingestion. An LLM may only
   produce accepted items whose text is present in stored PDF evidence and whose
   dates are in the plan's Monday–Friday ISO week. A timeout, malformed response,
-  or validation failure leaves deterministic plan data available and is retried.
+  or validation failure leaves deterministic plan data available. A run with a
+  failed attempt exits non-zero; failed interpretations require an explicit
+  retry rather than an unbounded scheduled model-call loop.
 - A recent ukeplan was logged before a class mapping update: the bounded backfill
   resolves current 3A/6A content, repairs its member mapping and stores the plan.
 - A Saturday/Sunday daily briefing: week-plan lookup rolls forward to Monday's
@@ -94,6 +96,27 @@ structured result separately from deterministic `week_plan_days` facts.
   only unsent parts, never already delivered parts.
 
 ## Promotion checklist
+
+Outcome acceptance contract:
+
+- Before persistence, parsed day dates must belong to the resolved ISO period;
+  an explicit parent-subject period must match the parser result.
+- Interpretation rejects stored attribution that conflicts with the row period.
+- Generated briefings with internal person keys, missing plan-child display
+  names, or omitted important task/RSVP titles use deterministic fallback.
+- Fallback preserves important tasks, RSVP titles, upcoming events, evening
+  advice and cabin forecasts when present, in addition to complete plan text.
+- Briefing quality records contain only a timestamp and fallback boolean and
+  are owner-only. A telemetry write failure never prevents message delivery.
+- Health checks report current/next-week failed interpretations or work pending
+  over one hour. Recent fallback observations remain visible independently of
+  successful delivery/job exits. Historical interpretation failures do not page.
+- Existing SRE consecutive-observation thresholds and alert deduplication apply
+  to these quality checks. They never authorize model switching, resending sent
+  messages, rewriting attribution, or unlimited inference retries.
+
+See [outcome safeguards](../docs/OUTCOME_SAFEGUARDS.md) for acceptance tests,
+staged follow-ups and operational limitations.
 
 1. Make a verified SQLite backup and a source snapshot.
 2. Run the full unit suite against Python 3.9.

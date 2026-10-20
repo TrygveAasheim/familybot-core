@@ -25,6 +25,8 @@ COOLDOWN = timedelta(minutes=15)
 GATEWAY_FAILURE_THRESHOLD = 2
 HEALTH_ALERT_THRESHOLD = 3
 HEALTH_FAILURE_KEYS = {
+    "briefing_quality",
+    "ukeplan_quality",
     "gateway",
     "telegram",
     "email",
