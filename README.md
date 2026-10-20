@@ -38,6 +38,8 @@ controls.
 - complete, child-named fallback briefings with durable multipart delivery;
 - launchd-compatible scheduled jobs, health and status reporting;
 - schedule-aware health monitoring with bounded, auditable SRE recovery;
+- outcome-based alerts for blocked current/next-week interpretations and
+  degraded briefing generation; see [outcome safeguards](docs/OUTCOME_SAFEGUARDS.md);
 - source-controlled LaunchAgent templates with schedule validation and an
   explicit installer;
 - the **one canonical family configuration template**.

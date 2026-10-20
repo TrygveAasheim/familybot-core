@@ -111,6 +111,14 @@ def save_ukeplan(pdf_path, member_id, email_id, year=None, subject=""):
         print(f"  [UKEPLAN] Could not determine week number from {pdf_path}")
         return False
 
+    # Validate the normalized output before touching historical database rows.
+    if week_override is not None and int(week) != week_override:
+        raise ValueError("Parsed period conflicts with parent subject")
+    for day in data.get("days", {}):
+        parsed_year, parsed_week, _ = date.fromisoformat(day).isocalendar()
+        if (parsed_year, parsed_week) != (year, int(week)):
+            raise ValueError("Parsed day conflicts with authoritative ISO period")
+
     summary_parts = []
     if data.get("theme"):
         summary_parts.append(f"Tema: {data['theme']}")
@@ -126,7 +134,7 @@ def save_ukeplan(pdf_path, member_id, email_id, year=None, subject=""):
         "layout_text": data.get("layout_text") or "",
         "source_blocks": data.get("source_blocks") or [],
         "source_pdf": str(Path(pdf_path).resolve()),
-        "attribution": {"week": week, "year": year, "period_source": "parent_subject" if week_override is not None else "pdf"},
+        "attribution": {"member_id": member_id, "week": week, "year": year, "period_source": "parent_subject" if week_override is not None else "pdf"},
     }, ensure_ascii=False, separators=(",", ":"))
     if not summary:
         summary = raw_text[:900]
