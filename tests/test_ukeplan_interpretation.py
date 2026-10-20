@@ -96,7 +96,7 @@ class UkeplanInterpretationTests(unittest.TestCase):
             self.assertEqual(interpret_ukeplan.invoke_model("prompt"), "{\"days\": []}")
         command = run.call_args.args[0]
         self.assertIn("--model", command)
-        self.assertEqual(command[command.index("--model") + 1], "openai/gpt-5.5")
+        self.assertEqual(command[command.index("--model") + 1], "openai/gpt-5.6-sol")
         self.assertEqual(run.call_args.kwargs["timeout"], interpret_ukeplan.OPENCLAW_TIMEOUT_SECONDS)
 
     def test_validation_normalizes_structured_week_buckets(self):

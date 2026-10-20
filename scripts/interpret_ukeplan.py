@@ -21,7 +21,7 @@ from reliability import connect_db, database_path, workspace_path
 
 
 OPENCLAW = "/opt/homebrew/bin/openclaw"
-OPENCLAW_MODEL = os.environ.get("FAMILYBOT_UKEPLAN_MODEL", "openai/gpt-5.5")
+OPENCLAW_MODEL = os.environ.get("FAMILYBOT_UKEPLAN_MODEL", "openai/gpt-5.6-sol")
 OPENCLAW_TIMEOUT_SECONDS = int(os.environ.get("FAMILYBOT_UKEPLAN_TIMEOUT_SECONDS", "240"))
 INTERPRETER_VERSION = "ukeplan-llm-v3-extract-review"
 WEEKDAYS = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag"]
@@ -211,6 +211,8 @@ Read every page of this local PDF with the PDF-reading capability:
 The PDF is the only source of truth. Read every page before answering. Do not
 use email text, filenames, memory, or a previous parser result. This is ISO
 week {week}/{year}; valid weekday dates are {', '.join(dates)}.
+This supplied ISO week overrides any stale week/date heading in the PDF.
+Map weekday columns to these supplied dates; preserve the PDF's task content.
 
 Put information tied to a specific weekday under that day's items. Put actions
 that apply to the whole week or have no single day (reading, homework,
@@ -280,6 +282,8 @@ Non-action notices and practical information belong in general_info. Do not
 duplicate a point. Preserve Norwegian wording and cite the supporting page as
 source_blocks using pdf-page-N. Do not use filenames, email text, memory, or
 anything outside the PDF. Valid dates are {', '.join(dates)}.
+These supplied dates override stale PDF week/date headings. Map weekday
+columns to these dates while preserving the PDF's task content.
 
 PROPOSED EXTRACTION:
 {extraction_json}

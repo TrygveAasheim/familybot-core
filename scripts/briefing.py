@@ -23,13 +23,15 @@ OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 
 sys.path.insert(0, os.path.dirname(__file__))
 from briefing_data import collect_daily, collect_weekly
-from family_config import family_prompt_context, integration, telegram_recipients
+from family_config import children, family_prompt_context, integration, telegram_recipients
 from reliability import DeliveryOutbox, database_path, workspace_path
 
 RECIPIENTS = telegram_recipients()
 FAMILY_CONTEXT = family_prompt_context()
 TRANSPORT_CONTEXT = str(integration("transport").get("route_description") or "konfigurert strekning")
 CABIN_CONTEXT = str(integration("weather").get("cabin_label") or "sekundær lokasjon")
+CHILD_NAMES = {str(profile.get("slug") or f"child_{index + 1}"): str(profile["name"])
+               for index, profile in enumerate(children())}
 
 DAILY_PROMPT = """\
 Du er FamilyBot, en familieassistent for {family_context}.
@@ -46,10 +48,11 @@ Data-seksjoner som alltid skal med:
 - Klær: bruk weather.clothing_advice ordrett; den gjelder barnas dag fram til ca. 19. Hvis weather.evening_note finnes, ta den med som en separat kort kveldsadvarsel.
 - T-bane (tbane): familien bruker {transport_context}. Ta status med i morgenrapporten og beskriv avvik kort.
 - Sekundær lokasjon: hvis cabin_weather ikke er null, ta med helgevarsel for {cabin_context}.
-- Ukeplaner: ta med korte, praktiske punkter for barna hvis ukeplaner finnes (lekser, ta med, viktige beskjeder). Hvis en mangler, ikke nevn det i morgenbriefingen.
+- Ukeplaner: ta med korte, praktiske punkter for barna hvis ukeplaner finnes (lekser, ta med, viktige beskjeder). Bruk alltid barnets konfigurerte navn, aldri interne nøkler som child_1. Fullfør setningene. Hvis en mangler, ikke nevn det i morgenbriefingen.
 - For kanban: bare vis must-do og important, ikke nice-to med mindre listen er tom
 - Hvis det er en fridag, nevn det kort øverst
 - Avslutt IKKE med "Ha en fin dag" eller lignende fraser
+- Ukeplanens member_name, week_number og year er autoritative metadata. Ignorer utdaterte navn/ukeoverskrifter i raw_text.
 
 DATA:
 {data}
@@ -69,6 +72,7 @@ Retningslinjer:
 - For kanban: bare must-do og important, maks 3 per person
 - RSVP: vis tydelig hvis noe krever svar
 - Avslutt med én setning om uken som venter — naturlig, ikke klisjé
+- Bruk alltid member_name fra ukeplanen. Dens week_number og year gjelder selv om raw_text har en utdatert overskrift.
 
 DATA:
 {data}
@@ -76,6 +80,7 @@ DATA:
 
 
 OPENCLAW = "/opt/homebrew/bin/openclaw"
+OPENCLAW_MODEL = os.environ.get("FAMILYBOT_BRIEFING_MODEL", "openai/gpt-5.6-sol")
 VACATION_MODE_FILE = str(workspace_path() / "memory" / "vacation-mode.json")
 
 
@@ -92,6 +97,8 @@ def generate_text(prompt: str) -> str:
     """
     Generate briefing text via the OpenClaw Codex/OpenAI runtime.
     """
+    if not OPENCLAW_MODEL.startswith("openai/"):
+        return ""
     try:
         result = subprocess.run(
             [
@@ -99,6 +106,8 @@ def generate_text(prompt: str) -> str:
                 "agent",
                 "--agent",
                 "main",
+                "--model",
+                OPENCLAW_MODEL,
                 "--thinking",
                 "low",
                 "--message",
@@ -117,7 +126,8 @@ def generate_text(prompt: str) -> str:
             data = json.loads(result.stdout)
             payloads = data.get("result", {}).get("payloads", [])
             if payloads:
-                return payloads[0].get("text", "").strip()
+                return "\n\n".join(p["text"].strip() for p in payloads
+                                   if isinstance(p.get("text"), str) and p["text"].strip())
         except Exception:
             pass
     else:
@@ -148,10 +158,10 @@ def render_daily_fallback(data: dict) -> str:
 
     plans = data.get("ukeplaner", {})
     for child, plan in plans.items():
-        if plan and plan.get("summary"):
-            lines.append(f"Ukeplan {child.capitalize()}: {plan['summary'][:350]}")
+        if plan and (plan.get("raw_text") or plan.get("summary")):
+            lines.append(f"Ukeplan {CHILD_NAMES.get(child, child)}: {plan.get('raw_text') or plan['summary']}")
 
-    return "\n".join(lines[:15])
+    return "\n".join(lines)
 
 
 def render_weekly_fallback(data: dict) -> str:
@@ -160,16 +170,30 @@ def render_weekly_fallback(data: dict) -> str:
         bits = []
         if day.get("holiday"):
             bits.append(day["holiday"])
-        bits += [e.get("title", "") for e in day.get("events", []) if e.get("title")]
+        bits += [f"{e.get('member') + ': ' if e.get('member') else ''}{e['title']}"
+                 for e in day.get("events", []) if e.get("title")]
         bits += [f"{r.get('member')}: {r.get('activity')}" for r in day.get("recurring", [])]
         if bits:
             lines.append(f"{day.get('date')}: " + "; ".join(bits))
     for child, plan in data.get("ukeplaner", {}).items():
-        if plan and plan.get("summary"):
-            lines.append(f"Ukeplan {child.capitalize()}: {plan['summary'][:500]}")
+        if plan and (plan.get("raw_text") or plan.get("summary")):
+            lines.append(f"Ukeplan {CHILD_NAMES.get(child, child)}: {plan.get('raw_text') or plan['summary']}")
         else:
-            lines.append(f"{child.capitalize()}s ukeplan er ikke mottatt ennå.")
+            lines.append(f"Ukeplan for {CHILD_NAMES.get(child, child)} er ikke mottatt ennå.")
     return "\n".join(lines)
+
+
+def message_parts(text: str) -> list[str]:
+    """Lossless parts, at most 3600 UTF-16 units even for all-emoji input."""
+    parts = []
+    while len(text) > 1800:
+        boundary = max(text.rfind("\n", 0, 1800), text.rfind(" ", 0, 1800))
+        end = boundary + 1 if boundary >= 900 else 1800
+        parts.append(text[:end])
+        text = text[end:]
+    if text:
+        parts.append(text)
+    return parts
 
 
 def send_telegram(target: str, message: str) -> bool:
@@ -216,14 +240,14 @@ def deliver_briefing(kind: str, text: str, now: Optional[datetime] = None) -> bo
         raise ValueError(f"Unknown briefing kind: {kind}")
 
     outbox = DeliveryOutbox(database_path())
+    parts = message_parts(text)
     for name, target in RECIPIENTS:
         key = f"briefing:{kind}:{period}:{target}"
-        outbox.enqueue(
-            idempotency_key=key,
-            target=target,
-            payload=text,
-            kind=f"briefing-{kind}",
-            expires_at=expires_at,
+        outbox.enqueue_parts(
+            idempotency_key=key, target=target,
+            parts=[part if len(parts) == 1 else f"({index}/{len(parts)})\n{part}"
+                   for index, part in enumerate(parts, start=1)],
+            kind=f"briefing-{kind}", expires_at=expires_at,
         )
         print(f"  Queued {kind} for {name}")
 

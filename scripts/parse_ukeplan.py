@@ -110,7 +110,7 @@ def _layout_blocks(words: list, page_number: int, boundaries: list = None) -> li
     return result
 
 
-def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026) -> dict:
+def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026, week_override=None) -> dict:
     result = {
         "week": None, "year": year, "class": None, "teacher": None,
         "theme": None, "homework": {}, "days": {}, "info": "", "raw_text": "",
@@ -144,6 +144,9 @@ def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026) -> dict:
     m = re.search(r'uke\s*(\d+)', full_text, re.IGNORECASE)
     if m:
         result["week"] = int(m.group(1))
+    if week_override is not None:
+        date.fromisocalendar(year, week_override, 1)
+        result["week"] = week_override
 
     m = re.search(r'for\s+(\d[AB])\s+uke', full_text, re.IGNORECASE)
     if m:
@@ -172,7 +175,10 @@ def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026) -> dict:
     week_dates = []
     seen_dates = set()
     for day_str, month_str in date_pattern.findall(full_text):
-        d = date(year, MONTHS_NO[month_str.lower()], int(day_str))
+        try:
+            d = date(year, MONTHS_NO[month_str.lower()], int(day_str))
+        except ValueError:
+            continue
         if d not in seen_dates:
             seen_dates.add(d)
             week_dates.append(d)
@@ -183,7 +189,7 @@ def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026) -> dict:
         week_dates = [d for d in week_dates if d.isocalendar().week == result["week"]]
         # Some school templates state only the ISO week number. Derive the
         # Monday-Friday range so the child overview still has day rows.
-        if not week_dates:
+        if week_override is not None or not week_dates:
             try:
                 week_dates = [
                     date.fromisocalendar(year, result["week"], weekday)

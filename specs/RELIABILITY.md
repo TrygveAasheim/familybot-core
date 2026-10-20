@@ -75,7 +75,9 @@ structured result separately from deterministic `week_plan_days` facts.
   email remains retryable.
 - When an ukeplan PDF is present, only parsed PDF text may populate `week_plans`;
   the email body, headers, addresses and attachment metadata are never a
-  fallback source.
+  fallback content source. Explicit child and valid ISO week/year metadata in
+  a configured parent's subject overrides stale PDF headings. The resolved
+  period controls deterministic day dates and interpretation validation.
 - Ukeplan interpretation runs asynchronously after ingestion. An LLM may only
   produce accepted items whose text is present in stored PDF evidence and whose
   dates are in the plan's Monday–Friday ISO week. A timeout, malformed response,
@@ -84,6 +86,12 @@ structured result separately from deterministic `week_plan_days` facts.
   resolves current 3A/6A content, repairs its member mapping and stores the plan.
 - A Saturday/Sunday daily briefing: week-plan lookup rolls forward to Monday's
   ISO week while the displayed calendar date remains the current day.
+- Briefing fallback uses configured child display names, preserves full stored
+  PDF text rather than a character-truncated summary, and does not drop trailing
+  sections to satisfy a line cap. Long text is split losslessly into numbered
+  Telegram parts. All parts for each recipient are queued atomically and remain
+  immutable on retry; both recipients are queued before sending. Retries send
+  only unsent parts, never already delivered parts.
 
 ## Promotion checklist
 

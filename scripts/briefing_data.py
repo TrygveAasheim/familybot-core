@@ -377,7 +377,8 @@ def week_plan(member_id: int, week: int, year: int, c):
         WHERE member_id=? AND week_number=? AND year=?
         ORDER BY created_at DESC LIMIT 1
     """, (member_id, week, year)).fetchone()
-    return {"summary": row[0], "teacher": row[1], "raw_text": row[2]} if row else None
+    return {"member_name": MEMBER_NAMES.get(member_id), "week_number": week, "year": year, "summary": row[0],
+            "teacher": row[1], "raw_text": row[2]} if row else None
 
 
 def kanban_items(assigned_to: str, c) -> list:
@@ -445,7 +446,7 @@ def collect_daily(today: date = None) -> dict:
     if today.isoweekday() >= 6:
         plan_date = today + timedelta(days=8 - today.isoweekday())
     plan_week = plan_date.isocalendar().week
-    plan_year = plan_date.year
+    plan_year = plan_date.isocalendar().year
     plans = {
         str(profile.get("slug") or f"child_{index + 1}"): week_plan(int(profile["member_id"]), plan_week, plan_year, c)
         for index, profile in enumerate(CHILD_PROFILES)

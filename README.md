@@ -30,10 +30,12 @@ controls.
 ## What is in this repository
 
 - deterministic email/PDF routing and weekly-plan extraction, with optional
-  validated LLM enrichment for readable day/category structure;
+  validated LLM enrichment for readable day/category structure and parent
+  subject precedence over stale PDF child/week headings;
 - Spond synchronization through an unofficial community client;
 - Norwegian calendar, weather and transport inputs;
 - SQLite reliability primitives, ingestion ledger and delivery outbox;
+- complete, child-named fallback briefings with durable multipart delivery;
 - launchd-compatible scheduled jobs, health and status reporting;
 - schedule-aware health monitoring with bounded, auditable SRE recovery;
 - source-controlled LaunchAgent templates with schedule validation and an
