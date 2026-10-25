@@ -16,7 +16,6 @@ State tracking: db/tbane_alert_state.json
 
 import json
 import subprocess
-import re
 import os
 import sys
 from datetime import datetime
@@ -25,6 +24,7 @@ import zoneinfo
 sys.path.insert(0, os.path.dirname(__file__))
 from reliability import atomic_write_json, workspace_path
 from family_config import integration, telegram_recipients
+from transport_relevance import classify_for_corridor, parse_siri_disruptions
 
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 # No persistent status file needed — briefing fetches live at report time
@@ -34,13 +34,10 @@ VACATION_MODE_FILE = workspace_path() / "memory" / "vacation-mode.json"
 TRANSPORT_CONFIG = integration("transport")
 CONFIGURED_LINE = str(TRANSPORT_CONFIG.get("line") or "2")
 ROUTE_DESCRIPTION = str(TRANSPORT_CONFIG.get("route_description") or f"linje {CONFIGURED_LINE}")
-TBANE_LINE_2   = {CONFIGURED_LINE}
+ALERT_STOPS = tuple(str(value) for value in TRANSPORT_CONFIG.get("alert_stops", []) if str(value).strip())
+ALERT_STOP_IDS = tuple(str(value) for value in TRANSPORT_CONFIG.get("alert_stop_ids", []) if str(value).strip())
 ALL_TBANE      = {'1', '2', '3', '4', '5', '6'}
 SYSTEM_THRESHOLD = 4  # 4+ lines = system-wide
-
-SKIP_KEYWORDS = ('forsinkels', 'delay', 'noe forsinket', 'minor delay',
-                 'ikke egnet for rullestol', 'not suitable for wheelchair',
-                 'stengt holdeplass', 'closed stop')
 
 RECIPIENTS = [target for _, target in telegram_recipients()]
 ENTUR_CLIENT = str(integration("entur").get("client_name") or "familybot-local")
@@ -67,36 +64,7 @@ def fetch_disruptions() -> list[dict]:
         if r.returncode != 0 or not r.stdout.strip():
             return []
 
-        data = r.stdout
-        situations = re.findall(r'<PtSituationElement>(.*?)</PtSituationElement>', data, re.DOTALL)
-        disruptions = []
-
-        for sit in situations:
-            lines = set(re.findall(r'<LineRef>RUT:Line:(\d+)</LineRef>', sit))
-            summaries_no = re.findall(r'<Summary[^>]*lang=["\']NO["\'][^>]*>([^<]+)</Summary>', sit)
-            if not summaries_no:
-                all_sum = re.findall(r'<Summary>([^<]+)</Summary>', sit)
-                summaries_no = all_sum[::2] if len(all_sum) > 1 else all_sum
-
-            summary = summaries_no[0].strip() if summaries_no else None
-            if not summary:
-                continue
-
-            # Skip noise
-            if any(kw in summary.lower() for kw in SKIP_KEYWORDS):
-                continue
-
-            tbane_lines = lines & ALL_TBANE
-            if not tbane_lines:
-                continue
-
-            disruptions.append({
-                "lines": sorted(tbane_lines),
-                "summary": summary,
-                "key": f"{','.join(sorted(tbane_lines))}:{summary[:50]}"
-            })
-
-        return disruptions
+        return parse_siri_disruptions(r.stdout, ALL_TBANE)
 
     except Exception as e:
         print(f"[tbane_monitor] fetch error: {e}")
@@ -112,20 +80,15 @@ def classify(disruptions: list[dict]) -> dict:
         "all_clear": bool
       }
     """
-    line2 = []
-    system = []
-
-    for d in disruptions:
-        lines = set(d["lines"])
-        if len(lines & ALL_TBANE) >= SYSTEM_THRESHOLD:
-            system.append(d)
-        elif CONFIGURED_LINE in lines:
-            line2.append(d)
+    relevant = classify_for_corridor(
+        disruptions, CONFIGURED_LINE, ALERT_STOPS, ALERT_STOP_IDS,
+        all_lines=ALL_TBANE, system_threshold=SYSTEM_THRESHOLD,
+    )
 
     return {
-        "line2": line2,
-        "system": system,
-        "all_clear": not line2 and not system,
+        "line2": relevant["route"],
+        "system": relevant["system"],
+        "all_clear": not relevant["route"] and not relevant["system"],
     }
 
 

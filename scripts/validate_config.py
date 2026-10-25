@@ -222,6 +222,20 @@ def validate_integrations(report: Report, raw: Any, member_ids: set[int], *, pla
         report.warn("integrations.transport.stop_id", "does not look like an Entur StopPlace ID")
     if quay and not placeholders and not str(quay).startswith("NSR:Quay:"):
         report.warn("integrations.transport.direction_quay_id", "does not look like an Entur Quay ID")
+    for field in ("alert_stops", "alert_stop_ids"):
+        values = transport.get(field)
+        if values is None:
+            continue
+        if not isinstance(values, list) or not values:
+            report.error(f"integrations.transport.{field}", "must be a non-empty list when supplied")
+            continue
+        seen_values = set()
+        for index, value in enumerate(values):
+            item = require_text(report, value, f"integrations.transport.{field}[{index}]", placeholders=placeholders)
+            normalized = item.casefold()
+            if normalized in seen_values:
+                report.error(f"integrations.transport.{field}[{index}]", "must be unique")
+            seen_values.add(normalized)
     weather = require_dict(report, integrations.get("weather"), "integrations.weather")
     user_agent = require_text(report, weather.get("user_agent"), "integrations.weather.user_agent", placeholders=placeholders)
     if user_agent and not placeholders and "@" not in user_agent:

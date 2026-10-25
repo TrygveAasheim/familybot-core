@@ -102,12 +102,20 @@ fields into the local configuration:
 | `line` | Public line number/name shown by Entur |
 | `route_description` | Plain description, for example “line 2 from the local station toward the city” |
 | `direction_label` | Dashboard label, for example “Next toward the city centre” |
+| `alert_stops` | Ordered station names in the part of the route the household actually uses |
+| `alert_stop_ids` | Optional Entur stop/quay IDs for stricter matching when they are known |
 | `client_name` | Identifiable Entur client name, normally `surname-familybot` |
 
 `centre_quay_id` remains accepted as a compatibility alias for older local
 files; new configurations should use `direction_quay_id`. The current dashboard
 card follows one configured mode/line/direction. Multiple independent commuter
 routes require an additional adapter/card rather than comma-separated IDs.
+
+The disruption monitor applies the line filter first and then the configured
+station corridor. Station-scoped notices outside `alert_stops` are ignored;
+line-wide operational notices without a station scope are retained. This same
+filter is used for Telegram alerts and morning briefings. List every station
+between the household's start and destination, including both endpoints.
 
 After editing, run `python3 scripts/validate_config.py`, deploy, and confirm that
 the displayed destinations and platform are correct before relying on the

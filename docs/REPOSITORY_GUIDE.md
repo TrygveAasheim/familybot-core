@@ -91,7 +91,7 @@ core jobs depend on its availability.
 | Weekly-plan parsing | `scripts/parse_ukeplan.py` |
 | Calendar validation and school dates | `scripts/calendar_guard.py`, `scripts/calendar_seed.py` |
 | Spond adapter | `scripts/spond_sync.py` |
-| Fact aggregation and external weather/transport | `scripts/briefing_data.py` |
+| Fact aggregation and external weather/transport | `scripts/briefing_data.py`, `scripts/transport_relevance.py` |
 | Rendering, queuing and preview | `scripts/briefing.py` |
 | Delivery worker | `scripts/flush_outbox.py` |
 | Health/status/SRE | `scripts/healthcheck.py`, `scripts/update_status.py`, `scripts/job_state.py`, `scripts/sre.py`, `scripts/sre_reconcile.py` |

@@ -146,6 +146,10 @@ replayed because an external send cannot provide exactly-once delivery.
 Consecutive health counters and owner alerts are also SRE-owned; the OpenClaw
 conversation scheduler is not an independent monitoring authority.
 
+Entur disruption alerts can be constrained to the station corridor the
+household actually uses. See [transport alert filtering](docs/TRANSPORT_ALERT_FILTERING.md)
+and the `alert_stops` configuration in [CONFIGURATION.md](CONFIGURATION.md).
+
 ## Development and release
 
 `dev` is the working and deployment branch. `main` is the public release and
