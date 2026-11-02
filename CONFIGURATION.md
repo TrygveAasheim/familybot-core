@@ -33,6 +33,7 @@ broken references and malformed portal origins.
 | `portal.web_port`, `api_port` | yes | Local web and curated API ports |
 | `portal.bonjour_name` | yes | Service name advertised by DNS-SD |
 | `portal.allowed_origins[]` | yes | Exact browser origins allowed to call the API |
+| `portal.features.hellofresh` | optional | Boolean, off by default; exposes only Portal's experimental public Norwegian HelloFresh menu |
 | `members[].member_id` | yes | Stable positive integer matching `family_members.id` |
 | `members[].role` | yes | `parent` or `child` |
 | `members[].name`, `slug` | yes | Local display name and durable lowercase key |

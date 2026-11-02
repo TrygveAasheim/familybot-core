@@ -51,6 +51,16 @@ class ValidateConfigTests(unittest.TestCase):
         self.assertIn("exact http origin", combined)
         self.assertIn("supplied together", combined)
 
+    def test_portal_feature_flags_must_be_boolean(self):
+        value = copy.deepcopy(self.load_fixture())
+        value["portal"]["features"] = {"hellofresh": "yes"}
+        report = self.validate_value(value)
+        self.assertIn("portal.features.hellofresh", "\n".join(report.errors))
+
+        value["portal"]["features"]["hellofresh"] = True
+        report = self.validate_value(value)
+        self.assertEqual(report.errors, [])
+
     def test_secret_fields_are_rejected_without_printing_values(self):
         value = self.load_fixture()
         value["integrations"]["email"]["api_token"] = "do-not-print-this"
