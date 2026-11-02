@@ -14,9 +14,9 @@ import tempfile
 import re
 import html
 from pathlib import Path
-from datetime import datetime
+from datetime import date, datetime
 sys.path.insert(0, os.path.dirname(__file__))
-from email_routing import resolve_sender, assert_no_member_mix, get_quarantined, _resolve_member_from_body
+from email_routing import resolve_sender, assert_no_member_mix, get_quarantined, _resolve_member_from_body, PARENT_FORWARD_ADDRESSES
 from parse_ukeplan import parse_ukeplan_pdf
 from reliability import (
     EmailProcessingLedger,
@@ -59,6 +59,16 @@ def already_processed(message_id):
     conn.close()
     return row is not None
 
+
+def is_ukeplan_message(subject, content=""):
+    """Identify ukeplan mail from metadata or message contents.
+
+    Parent-sent messages can arrive from Gmail with an empty IMAP subject;
+    the plan name and attachment declaration are still present in the body.
+    """
+    searchable = f"{subject or ''}\n{content or ''}".lower()
+    return any(keyword in searchable for keyword in ("ukeplan", "week plan", "ukeplanen"))
+
 def log_email(message_id, subject, sender, received_at, category, has_pdf, summary, member_id=None):
     conn = get_db()
     c = conn.cursor()
@@ -71,12 +81,27 @@ def log_email(message_id, subject, sender, received_at, category, has_pdf, summa
     conn.commit()
     conn.close()
 
-def save_ukeplan(pdf_path, member_id, email_id, year=None):
+def subject_period(subject, year):
+    """Parse explicit parent metadata; ambiguous/invalid weeks remain retryable."""
+    weeks = {int(value) for value in re.findall(r"\buke(?:plan)?\s*[-:]?\s*(\d+)", subject or "", re.I)}
+    if not weeks:
+        return None, year
+    years = {int(value) for value in re.findall(r"\b20\d{2}\b", subject)}
+    if len(weeks) != 1 or len(years) > 1:
+        raise ValueError("Ambiguous ukeplan subject period")
+    week = weeks.pop()
+    year = years.pop() if years else year
+    date.fromisocalendar(year, week, 1)
+    return week, year
+
+
+def save_ukeplan(pdf_path, member_id, email_id, year=None, subject=""):
     """Parse a ukeplan PDF and store it in week_plans + week_plan_days."""
     if year is None:
         year = datetime.now().year
+    week_override, year = subject_period(subject, year)
     try:
-        data = parse_ukeplan_pdf(pdf_path, member_id=member_id, year=year)
+        data = parse_ukeplan_pdf(pdf_path, member_id=member_id, year=year, week_override=week_override)
     except Exception as e:
         print(f"  [UKEPLAN] Parse error: {e}")
         return False
@@ -101,6 +126,7 @@ def save_ukeplan(pdf_path, member_id, email_id, year=None):
         "layout_text": data.get("layout_text") or "",
         "source_blocks": data.get("source_blocks") or [],
         "source_pdf": str(Path(pdf_path).resolve()),
+        "attribution": {"week": week, "year": year, "period_source": "parent_subject" if week_override is not None else "pdf"},
     }, ensure_ascii=False, separators=(",", ":"))
     if not summary:
         summary = raw_text[:900]
@@ -135,6 +161,10 @@ def save_ukeplan(pdf_path, member_id, email_id, year=None):
             WHERE id=?
         """, (raw_text, summary, str(email_id), teacher, layout_json, plan_id))
         c.execute("DELETE FROM week_plan_days WHERE week_plan_id=?", (plan_id,))
+        if c.execute("SELECT 1 FROM sqlite_master WHERE name='week_plan_interpretations'").fetchone():
+            c.execute("""UPDATE week_plan_interpretations
+                         SET status='pending',structured_json='{}',last_error=NULL
+                         WHERE week_plan_id=?""", (plan_id,))
     else:
         c.execute("""
             INSERT INTO week_plans (member_id, week_number, year, raw_text, summary, source_email_id, teacher, layout_json)
@@ -207,7 +237,7 @@ def save_ukeplan_attachments(paths, member_id, email_id, subject="", year=None):
     if pdf_paths:
         saved = False
         for path in pdf_paths:
-            saved = save_ukeplan(path, member_id, email_id, year=year) or saved
+            saved = save_ukeplan(path, member_id, email_id, year=year, subject=subject) or saved
         if not saved:
             raise RuntimeError("ukeplan PDF was present but could not be parsed")
         return True
@@ -225,10 +255,13 @@ def save_ukeplan_text(raw_text, member_id, email_id, subject="", year=None):
         year = datetime.now().year
 
     text = clean_text(raw_text)
-    m = re.search(r"uke\s*(\d+)", f"{subject} {text}", re.I)
-    if not m:
-        return False
-    week = int(m.group(1))
+    week, year = subject_period(subject, year)
+    if week is None:
+        m = re.search(r"uke\s*(\d+)", text, re.I)
+        if not m:
+            return False
+        week = int(m.group(1))
+    date.fromisocalendar(year, week, 1)
 
     teacher = ""
     m = re.search(r"Av:\s*([^,]+),\s*Dato:", text, re.I)
@@ -283,21 +316,25 @@ def save_ukeplan_text(raw_text, member_id, email_id, subject="", year=None):
 
 
 def backfill_weekplans_from_email_log():
-    """Recover recent ukeplans stranded before a class mapping update."""
+    """Recover recent ukeplans stranded by an incomplete ingestion run."""
     conn = get_db()
     rows = conn.execute("""
-        SELECT message_id, subject, member_id, summary
-        FROM email_log
-        WHERE category='school'
-          AND member_id IS NULL
-          AND lower(subject) LIKE '%ukeplan%'
-          AND date(processed_at) >= date('now', '-45 days')
+        SELECT e.message_id, e.subject, e.member_id, e.summary, e.sender, e.received_at
+        FROM email_log e
+        WHERE e.category='school'
+          AND lower(COALESCE(e.subject,'') || ' ' || COALESCE(e.summary,'')) LIKE '%ukeplan%'
+          AND date(e.processed_at) >= date('now', '-45 days')
+          AND NOT EXISTS (
+              SELECT 1 FROM week_plans w
+              WHERE w.source_email_id = e.message_id
+          )
         ORDER BY id
     """).fetchall()
     conn.close()
 
     count = 0
-    for message_id, subject, member_id, summary in rows:
+    for message_id, subject, member_id, summary, sender, received_at in rows:
+        subject = subject if (sender or "").lower().strip() in PARENT_FORWARD_ADDRESSES else ""
         resolved_member = member_id or _resolve_member_from_body(f"{subject} {summary or ''}")
         if not resolved_member:
             continue
@@ -326,7 +363,8 @@ def backfill_weekplans_from_email_log():
             attachment_paths.append(path)
         try:
             saved = save_ukeplan_attachments(
-                attachment_paths, resolved_member, message_id, subject=subject
+                attachment_paths, resolved_member, message_id, subject=subject,
+                year=datetime.fromisoformat(received_at).year if received_at else None,
             )
         except RuntimeError as exc:
             print(f"  [UKEPLAN] {exc}")
@@ -475,15 +513,16 @@ def process_new_emails():
 
             # A ukeplan is only terminal after it has produced a week_plan row.
             if category == "school" and member_id:
-                ukeplan_keywords = ["ukeplan", "week plan", "ukeplanen"]
-                if any(kw in subject.lower() for kw in ukeplan_keywords):
+                if is_ukeplan_message(subject, full_text):
                     attachment_paths = []
                     likely_plans = [p for p in fresh_ukeplan_files if "ukeplan" in os.path.basename(p).lower()]
                     candidates = likely_plans or fresh_ukeplan_files
                     attachment_paths.extend(candidates)
                     try:
                         saved = save_ukeplan_attachments(
-                            attachment_paths, member_id, msg_id, subject=subject
+                            attachment_paths, member_id, msg_id,
+                            subject=subject if sender_str.lower().strip() in PARENT_FORWARD_ADDRESSES else "",
+                            year=datetime.fromisoformat(date_str).year if date_str else None,
                         )
                     except RuntimeError as exc:
                         print(f"  [UKEPLAN] {exc}")

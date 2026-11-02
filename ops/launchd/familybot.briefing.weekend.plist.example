@@ -12,6 +12,8 @@
   <dict>
     <key>FAMILYBOT_WORKSPACE</key>
     <string>__FAMILYBOT_WORKSPACE__</string>
+    <key>FAMILYBOT_JOB_LABEL</key>
+    <string>familybot.briefing.weekend</string>
   </dict>
   <key>StartCalendarInterval</key>
   <array>

@@ -166,6 +166,24 @@ class DeliveryOutbox:
             ).fetchone()
             return int(row["id"])
 
+    def enqueue_parts(self, *, idempotency_key: str, target: str,
+                      parts: list[str], kind: str, expires_at: Optional[datetime] = None) -> None:
+        """Freeze all parts of one message atomically; retries cannot change them."""
+        if not idempotency_key.strip() or not target.strip() or not parts or any(not p.strip() for p in parts):
+            raise ValueError("Message key, target and parts must be non-empty")
+        now = iso_utc(self.clock())
+        expiry = iso_utc(expires_at) if expires_at else None
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            if conn.execute("SELECT 1 FROM delivery_outbox WHERE idempotency_key=?", (idempotency_key,)).fetchone():
+                return
+            for index, part in enumerate(parts, start=1):
+                key = idempotency_key if index == 1 else f"{idempotency_key}:part:{index}"
+                conn.execute("""INSERT INTO delivery_outbox
+                    (idempotency_key,channel,target,kind,payload,status,created_at,updated_at,next_attempt_at,expires_at)
+                    VALUES (?,'telegram',?,?,?,'pending',?,?,?,?)""",
+                    (key, target, kind, part, now, now, now, expiry))
+
     def deliver_pending(self, sender: Callable[[str, str], bool], limit: int = 20) -> DeliveryResult:
         """Attempt due messages; keep failures queued with bounded backoff."""
         now_dt = self.clock()

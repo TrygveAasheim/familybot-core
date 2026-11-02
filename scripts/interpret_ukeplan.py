@@ -21,9 +21,13 @@ from reliability import connect_db, database_path, workspace_path
 
 
 OPENCLAW = "/opt/homebrew/bin/openclaw"
+OPENCLAW_MODEL = os.environ.get("FAMILYBOT_UKEPLAN_MODEL", "openai/gpt-5.6-sol")
+OPENCLAW_TIMEOUT_SECONDS = int(os.environ.get("FAMILYBOT_UKEPLAN_TIMEOUT_SECONDS", "240"))
 INTERPRETER_VERSION = "ukeplan-llm-v3-extract-review"
 WEEKDAYS = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag"]
 CATEGORIES = {"homework", "bring", "event", "subject", "notice", "general"}
+MAX_DAY_ITEM_TEXT = 600
+MAX_NOTE_TEXT = 5000
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS week_plan_interpretations (
@@ -111,7 +115,9 @@ def normalize_notes(notes: Any, label: str, block_text: dict[str, str]) -> list[
         if not isinstance(note, dict):
             raise ValueError(f"each {label} entry must be an object")
         text = str(note.get("text") or "").strip()
-        if not text or len(text) > 600:
+        if not text and not note.get("source_blocks"):
+            continue
+        if not text or len(text) > MAX_NOTE_TEXT:
             raise ValueError(f"{label} entries need text and source_blocks")
         normalized.append({
             "text": text,
@@ -161,7 +167,7 @@ def validate_interpretation(payload: dict[str, Any], *, year: int, week: int, bl
             text = str(item.get("text") or "").strip()
             references = item.get("source_blocks")
             confidence = item.get("confidence")
-            if category not in CATEGORIES or not text or len(text) > 600:
+            if category not in CATEGORIES or not text or len(text) > MAX_DAY_ITEM_TEXT:
                 raise ValueError("invalid day item category or text")
             normalized_references = grounded_references(text, references, block_text)
             try:
@@ -205,6 +211,8 @@ Read every page of this local PDF with the PDF-reading capability:
 The PDF is the only source of truth. Read every page before answering. Do not
 use email text, filenames, memory, or a previous parser result. This is ISO
 week {week}/{year}; valid weekday dates are {', '.join(dates)}.
+This supplied ISO week overrides any stale week/date heading in the PDF.
+Map weekday columns to these supplied dates; preserve the PDF's task content.
 
 Put information tied to a specific weekday under that day's items. Put actions
 that apply to the whole week or have no single day (reading, homework,
@@ -274,6 +282,8 @@ Non-action notices and practical information belong in general_info. Do not
 duplicate a point. Preserve Norwegian wording and cite the supporting page as
 source_blocks using pdf-page-N. Do not use filenames, email text, memory, or
 anything outside the PDF. Valid dates are {', '.join(dates)}.
+These supplied dates override stale PDF week/date headings. Map weekday
+columns to these dates while preserving the PDF's task content.
 
 PROPOSED EXTRACTION:
 {extraction_json}
@@ -288,11 +298,20 @@ Return JSON only, exactly the same shape:
 
 
 def invoke_model(prompt: str) -> str:
+    if not OPENCLAW_MODEL.startswith("openai/"):
+        raise RuntimeError(f"Ukeplan interpreter requires an OpenAI model, got {OPENCLAW_MODEL!r}")
     result = subprocess.run(
-        [OPENCLAW, "agent", "--agent", "main", "--thinking", "low", "--message", prompt, "--json"],
+        [
+            OPENCLAW, "agent",
+            "--agent", "main",
+            "--model", OPENCLAW_MODEL,
+            "--thinking", "low",
+            "--message", prompt,
+            "--json",
+        ],
         capture_output=True,
         text=True,
-        timeout=90,
+        timeout=OPENCLAW_TIMEOUT_SECONDS,
     )
     if result.returncode != 0:
         raise RuntimeError(f"OpenClaw failed: {(result.stderr or result.stdout)[:240]}")
@@ -335,9 +354,9 @@ def interpret_one(db_path: Path, row: Any) -> bool:
         with connect_db(db_path) as connection:
             connection.execute(
                 """UPDATE week_plan_interpretations
-                   SET status='accepted', model='openclaw', structured_json=?, last_error=NULL,
+                   SET status='accepted', model=?, structured_json=?, last_error=NULL,
                        updated_at=? WHERE id=?""",
-                (json.dumps(normalized, ensure_ascii=False, separators=(",", ":")), now_text(), interpretation_id),
+                (OPENCLAW_MODEL, json.dumps(normalized, ensure_ascii=False, separators=(",", ":")), now_text(), interpretation_id),
             )
         print(f"[UKEPLAN] Accepted interpretation for plan {plan_id}")
         return True
@@ -386,7 +405,7 @@ def run(limit: int = 1, plan_id: int | None = None) -> int:
                 )
                 interpretation_id = cursor.lastrowid
                 status = "pending"
-            elif item[5] != current_hash or item[6] == "failed":
+            elif item[5] != current_hash or (item[6] == "failed" and plan_id is not None):
                 connection.execute(
                     """UPDATE week_plan_interpretations
                        SET status='pending',source_hash=?,parser_version=?,structured_json='{}',last_error=NULL,updated_at=?
@@ -398,7 +417,7 @@ def run(limit: int = 1, plan_id: int | None = None) -> int:
             else:
                 interpretation_id = item[4]
                 status = item[6]
-            if status in {"pending", "failed"} and len(work) < limit:
+            if status == "pending" and len(work) < limit:
                 connection.execute(
                     "UPDATE week_plan_interpretations SET status='processing',attempts=attempts+1,updated_at=? WHERE id=?",
                     (now_text(), interpretation_id),

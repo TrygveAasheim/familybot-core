@@ -20,6 +20,9 @@ if [ "${1:-}" != "" ] && [ "${1:-}" != "--reload" ]; then
 fi
 
 python3 "$SCRIPT_DIR/validate_launchd.py" --templates "$REPO_ROOT/ops/launchd"
+if command -v openclaw >/dev/null 2>&1; then
+  python3 "$SCRIPT_DIR/configure_openclaw_model.py" --check
+fi
 install -d -m 700 "$WORKSPACE_DIR/scripts"
 
 for source in "$REPO_ROOT"/scripts/*.py; do

@@ -30,11 +30,14 @@ controls.
 ## What is in this repository
 
 - deterministic email/PDF routing and weekly-plan extraction, with optional
-  validated LLM enrichment for readable day/category structure;
+  validated LLM enrichment for readable day/category structure and parent
+  subject precedence over stale PDF child/week headings;
 - Spond synchronization through an unofficial community client;
 - Norwegian calendar, weather and transport inputs;
 - SQLite reliability primitives, ingestion ledger and delivery outbox;
+- complete, child-named fallback briefings with durable multipart delivery;
 - launchd-compatible scheduled jobs, health and status reporting;
+- schedule-aware health monitoring with bounded, auditable SRE recovery;
 - source-controlled LaunchAgent templates with schedule validation and an
   explicit installer;
 - the **one canonical family configuration template**.
@@ -99,6 +102,8 @@ For a coding agent or a session without prior context, begin with
 Smart Home is a documented add-on plan, not a current core capability. See
 [`specs/SMART_HOME.md`](specs/SMART_HOME.md). Documentation handoff quality is
 tested with [`docs/NEW_SESSION_VERIFICATION.md`](docs/NEW_SESSION_VERIFICATION.md).
+The Ukeplan source/interpretation contract and its incident safeguards are in
+[`docs/UKEPLAN_INTERPRETATION.md`](docs/UKEPLAN_INTERPRETATION.md).
 
 ## Canonical local configuration
 
@@ -132,6 +137,18 @@ bash -n scripts/*.sh
 Runtime SQLite, email attachments, credentials, OpenClaw memory, logs and
 backups are deliberately excluded from Git. Git is a source backup, not a
 household-state backup.
+
+The health layer is intentionally self-healing only within a safe allowlist. It
+records per-job execution state, recovers stale interval workers and missing
+owner-only LaunchAgents, retries the durable outbox and may restart the
+gateway after repeated failures. Calendar briefings are never automatically
+replayed because an external send cannot provide exactly-once delivery.
+Consecutive health counters and owner alerts are also SRE-owned; the OpenClaw
+conversation scheduler is not an independent monitoring authority.
+
+Entur disruption alerts can be constrained to the station corridor the
+household actually uses. See [transport alert filtering](docs/TRANSPORT_ALERT_FILTERING.md)
+and the `alert_stops` configuration in [CONFIGURATION.md](CONFIGURATION.md).
 
 ## Development and release
 

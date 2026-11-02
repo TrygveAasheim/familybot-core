@@ -97,7 +97,16 @@ def resolve_sender(
     effective_name = raw_sender_name.strip()
     if effective_email in PARENT_FORWARD_ADDRESSES:
         fwd_name, fwd_email = extract_forwarded_sender(body_text)
-        if fwd_email:
+        subject_member = _resolve_member_from_body(subject)
+        if subject_member:
+            result = RoutingResult(
+                member_id=subject_member,
+                member_name=MEMBER_NAMES.get(subject_member),
+                category="school", confidence="exact", rule_id=None,
+                notes="Configured parent subject overrides forwarded content.",
+                quarantine=False,
+            )
+        elif fwd_email:
             # Classic forwarded message — route on original sender
             effective_email = fwd_email
             effective_name = fwd_name or fwd_email

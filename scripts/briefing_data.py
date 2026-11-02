@@ -15,6 +15,7 @@ import zoneinfo
 sys.path.insert(0, os.path.dirname(__file__))
 from reliability import connect_db, database_path
 from family_config import children, integration, member_names, parents
+from transport_relevance import classify_for_corridor, parse_siri_disruptions
 
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 DB_PATH = str(database_path())
@@ -26,6 +27,10 @@ MEMBER_NAMES = member_names()
 PARENT_PROFILES = parents()
 CHILD_PROFILES = children()
 ENTUR_CLIENT = str(integration("entur").get("client_name") or "familybot-local")
+TRANSPORT_CONFIG = integration("transport")
+TRANSPORT_LINE = str(TRANSPORT_CONFIG.get("line") or "2")
+TRANSPORT_ALERT_STOPS = tuple(str(value) for value in TRANSPORT_CONFIG.get("alert_stops", []) if str(value).strip())
+TRANSPORT_ALERT_STOP_IDS = tuple(str(value) for value in TRANSPORT_CONFIG.get("alert_stop_ids", []) if str(value).strip())
 WEATHER_USER_AGENT = str(integration("weather").get("user_agent") or "FamilyBot-local/1.0")
 WEATHER_CONFIG = integration("weather")
 HOME_LAT = float(WEATHER_CONFIG.get("home_lat") or 0)
@@ -139,7 +144,6 @@ def fetch_tbane_status() -> list:
     """
     # Always fetch live at briefing time — this is a point-in-time snapshot
     try:
-        import re as _re
         r = subprocess.run(
             ["curl", "-s", "--max-time", "8",
              "-H", f"ET-Client-Name: {ENTUR_CLIENT}",
@@ -147,44 +151,26 @@ def fetch_tbane_status() -> list:
             capture_output=True, text=True, timeout=10
         )
         if r.returncode != 0 or not r.stdout.strip():
-            return [{"line": "2", "summary": "status ukjent"}]
+            return [{"line": TRANSPORT_LINE, "summary": "status ukjent"}]
 
-        data = r.stdout
-        TBANE_LINE2 = {'2'}
         ALL_TBANE = {'1', '2', '3', '4', '5', '6'}
-        SKIP = ('forsinkels', 'delay', 'noe forsinket', 'minor delay',
-                'ikke egnet for rullestol', 'not suitable for wheelchair')
-
-        situations = _re.findall(r'<PtSituationElement>(.*?)</PtSituationElement>', data, _re.DOTALL)
+        disruptions = parse_siri_disruptions(r.stdout, ALL_TBANE)
+        classified = classify_for_corridor(
+            disruptions, TRANSPORT_LINE, TRANSPORT_ALERT_STOPS, TRANSPORT_ALERT_STOP_IDS,
+            all_lines=ALL_TBANE,
+        )
         issues = []
         seen = set()
-
-        for sit in situations:
-            lines = set(_re.findall(r'<LineRef>RUT:Line:(\d+)</LineRef>', sit))
-            summaries_no = _re.findall(r'<Summary[^>]*lang=["\'\']NO["\'\'][^>]*>([^<]+)</Summary>', sit)
-            if not summaries_no:
-                all_sum = _re.findall(r'<Summary>([^<]+)</Summary>', sit)
-                summaries_no = all_sum[::2] if len(all_sum) > 1 else all_sum
-            summary = summaries_no[0].strip() if summaries_no else None
-            if not summary or any(kw in summary.lower() for kw in SKIP):
-                continue
-            tbane = lines & ALL_TBANE
-            if not tbane:
-                continue
-            if len(tbane) >= 4:
-                key = ("all", summary[:40])
+        for label, records in ((TRANSPORT_LINE, classified["route"]), ("alle linjer", classified["system"])):
+            for disruption in records:
+                key = (label, disruption["summary"][:40])
                 if key not in seen:
                     seen.add(key)
-                    issues.append({"line": "alle linjer", "summary": summary})
-            elif tbane & TBANE_LINE2:
-                key = ("2", summary[:40])
-                if key not in seen:
-                    seen.add(key)
-                    issues.append({"line": "2", "summary": summary})
+                    issues.append({"line": label, "summary": disruption["summary"]})
 
-        return issues if issues else [{"line": "2", "summary": "normal drift"}]
+        return issues if issues else [{"line": TRANSPORT_LINE, "summary": "normal drift"}]
     except Exception:
-        return [{"line": "2", "summary": "status ukjent"}]
+        return [{"line": TRANSPORT_LINE, "summary": "status ukjent"}]
 
 def fetch_met_data(target_date) -> dict:
     """
@@ -377,7 +363,8 @@ def week_plan(member_id: int, week: int, year: int, c):
         WHERE member_id=? AND week_number=? AND year=?
         ORDER BY created_at DESC LIMIT 1
     """, (member_id, week, year)).fetchone()
-    return {"summary": row[0], "teacher": row[1], "raw_text": row[2]} if row else None
+    return {"member_name": MEMBER_NAMES.get(member_id), "week_number": week, "year": year, "summary": row[0],
+            "teacher": row[1], "raw_text": row[2]} if row else None
 
 
 def kanban_items(assigned_to: str, c) -> list:
@@ -445,7 +432,7 @@ def collect_daily(today: date = None) -> dict:
     if today.isoweekday() >= 6:
         plan_date = today + timedelta(days=8 - today.isoweekday())
     plan_week = plan_date.isocalendar().week
-    plan_year = plan_date.year
+    plan_year = plan_date.isocalendar().year
     plans = {
         str(profile.get("slug") or f"child_{index + 1}"): week_plan(int(profile["member_id"]), plan_week, plan_year, c)
         for index, profile in enumerate(CHILD_PROFILES)

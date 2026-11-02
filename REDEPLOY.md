@@ -37,13 +37,21 @@ Store runtime backup material encrypted and separately from Git.
    `python3 familybot-core/scripts/validate_config.py`.
 7. Restore credentials using [CREDENTIALS.md](CREDENTIALS.md). Test capability,
    never secret value.
-8. Run both repositories' unit/lint/build suites before installing services.
-9. Back up the restored database, then deploy reviewed core scripts and
+8. Audit and apply the OpenClaw default model before deployment:
+
+   ```bash
+   python3 familybot-core/scripts/configure_openclaw_model.py --apply --restart
+   ```
+
+   Prove access with one no-delivery agent turn; a configured catalog entry is
+   not sufficient.
+9. Run both repositories' unit/lint/build suites before installing services.
+10. Back up the restored database, then deploy reviewed core scripts and
    LaunchAgent templates with `bash scripts/deploy_core.sh --reload`.
-10. In `familybot-portal`, create/restore the parent PIN and run
+11. In `familybot-portal`, create/restore the parent PIN and run
     `bash scripts/deploy-local.sh`.
-11. Run `python3 tests/acceptance.py`; require every critical criterion to pass.
-12. Verify one email/ukeplan, one Spond poll if enabled, one deterministic
+12. Run `python3 tests/acceptance.py`; require every critical criterion to pass.
+13. Verify one email/ukeplan, one Spond poll if enabled, one deterministic
     briefing preview, one Telegram delivery to each parent, weather, Entur and
     an iPad child completion/parent rejection cycle.
 

@@ -89,6 +89,7 @@
       "line": "TRANSIT_LINE",
       "route_description": "TRANSIT_ROUTE_DESCRIPTION",
       "direction_label": "DIRECTION_LABEL",
+      "alert_stops": ["START_STATION", "INTERMEDIATE_STATION", "END_STATION"],
       "client_name": "familybot-local"
     },
     "weather": {

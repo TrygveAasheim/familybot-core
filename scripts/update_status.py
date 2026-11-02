@@ -8,6 +8,7 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from reliability import atomic_write_text, connect_db, workspace_path
 from family_config import integration, parents
+from sre import read_job_state
 
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 WORKSPACE = workspace_path()
@@ -42,6 +43,13 @@ def launchd_state(label):
         elif item.startswith("last exit code ="):
             try: last_exit = int(item.rsplit("=", 1)[1].strip())
             except ValueError: pass
+    execution = read_job_state(WORKSPACE, label)
+    if execution:
+        if execution.get("status") == "running":
+            state = "kjører"
+        recorded_exit = execution.get("last_exit_code")
+        if isinstance(recorded_exit, int):
+            last_exit = recorded_exit
     return state, last_exit
 
 def vacation_active():
