@@ -175,8 +175,9 @@ def validate_portal(report: Report, portal_raw: Any, *, placeholders: bool) -> N
     features = portal.get("features")
     if features is not None:
         features = require_dict(report, features, "portal.features")
-        if "hellofresh" in features and not isinstance(features.get("hellofresh"), bool):
-            report.error("portal.features.hellofresh", "must be true or false")
+        for feature in ("hellofresh", "hellofresh_account"):
+            if feature in features and not isinstance(features.get(feature), bool):
+                report.error(f"portal.features.{feature}", "must be true or false")
 
 
 def validate_integrations(report: Report, raw: Any, member_ids: set[int], *, placeholders: bool) -> None:

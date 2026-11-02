@@ -34,6 +34,7 @@ broken references and malformed portal origins.
 | `portal.bonjour_name` | yes | Service name advertised by DNS-SD |
 | `portal.allowed_origins[]` | yes | Exact browser origins allowed to call the API |
 | `portal.features.hellofresh` | optional | Boolean, off by default; exposes only Portal's experimental public Norwegian HelloFresh menu |
+| `portal.features.hellofresh_account` | optional | Boolean, off by default; enables Portal's popup-free, persistent, read-only HelloFresh account test when `hellofresh` is also enabled |
 | `members[].member_id` | yes | Stable positive integer matching `family_members.id` |
 | `members[].role` | yes | `parent` or `child` |
 | `members[].name`, `slug` | yes | Local display name and durable lowercase key |

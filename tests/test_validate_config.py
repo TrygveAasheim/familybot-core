@@ -58,6 +58,11 @@ class ValidateConfigTests(unittest.TestCase):
         self.assertIn("portal.features.hellofresh", "\n".join(report.errors))
 
         value["portal"]["features"]["hellofresh"] = True
+        value["portal"]["features"]["hellofresh_account"] = "yes"
+        report = self.validate_value(value)
+        self.assertIn("portal.features.hellofresh_account", "\n".join(report.errors))
+
+        value["portal"]["features"]["hellofresh_account"] = True
         report = self.validate_value(value)
         self.assertEqual(report.errors, [])
 
