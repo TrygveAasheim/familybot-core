@@ -9,6 +9,7 @@ import subprocess
 import sqlite3
 import os
 import json
+import shlex
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -71,6 +72,19 @@ else:
     critical("gateway", f"Gateway may be down: {out or err}",
              fix="openclaw gateway restart",
              auto_fix="restart")
+
+# A reachable gateway can still reject every conversational and scheduled turn
+# when its default or a cron override points at a retired provider model.
+model_check = Path(__file__).with_name("configure_openclaw_model.py")
+code, out, err = run(f"python3 {shlex.quote(str(model_check))} --check")
+if code == 0:
+    ok("openclaw_model", out or "OpenClaw model configuration is compatible")
+else:
+    critical(
+        "openclaw_model",
+        f"OpenClaw model configuration is incompatible: {err or out}",
+        fix=f"python3 {model_check} --apply --restart",
+    )
 
 # ── 2. Telegram channel ────────────────────────────────────────────────────────
 # Fast status intentionally reports SETUP/unknown. Deep status performs the

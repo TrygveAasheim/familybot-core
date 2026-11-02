@@ -31,6 +31,10 @@ running OpenClaw workspace and launchd; this document is not a live status file.
 10. SRE owns consecutive health-failure counters and transition-based Telegram
     alerts. The conversational cron layer must not interpret health snapshots,
     maintain a second counter or send duplicate alerts.
+11. OpenClaw model drift is deployment-blocking and health-visible. Scheduled
+    agent jobs inherit the reviewed default unless an intentional supported
+    override is documented; known-retired model pins are removed rather than
+    copied into every schedule.
 
 ## New durable state
 

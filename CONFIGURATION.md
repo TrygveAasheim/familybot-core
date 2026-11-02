@@ -132,15 +132,33 @@ arbitrary `.local` hosts or entire private ranges.
 - `OPENCLAW_WORKSPACE`: legacy core workspace override.
 - `FAMILYBOT_DB_PATH`: alternate SQLite database.
 - `FAMILYBOT_PORTAL_RUNTIME`: alternate deployed portal runtime.
+- `FAMILYBOT_OPENCLAW_MODEL`: expected default model for the Telegram agent and
+  scheduled agent jobs; default `openai/gpt-5.6-sol`.
 - `FAMILYBOT_UKEPLAN_MODEL`, `FAMILYBOT_BRIEFING_MODEL`: explicit OpenAI models
   for interpretation and briefing generation; default `openai/gpt-5.6-sol`.
   The model must be allowed in OpenClaw and available to its authenticated
   account. Both jobs refuse a non-OpenAI model. When using the Codex runtime,
   keep `agentRuntime.id=codex` on the model entry in OpenClaw's allowlist.
   Verify with a small no-delivery request after account/model changes; a catalog
-  entry alone does not establish live access. GPT-5.5 retired from Codex with
-  ChatGPT sign-in on October 14, 2026 (API-key access is separate); see
-  [OpenAI model availability](https://learn.chatgpt.com/docs/models).
+  entry alone does not establish live access.
+
+Audit the global default and every enabled or disabled OpenClaw cron job before
+deployment. Apply repairs deliberately, then run an actual no-delivery agent
+turn to prove account access:
+
+```bash
+python3 scripts/configure_openclaw_model.py --check
+python3 scripts/configure_openclaw_model.py --apply --restart
+openclaw agent --agent main --message "Reply exactly: MODEL_OK" --json
+```
+
+The repair changes the global default and clears only known-retired cron model
+pins so those jobs inherit the supported default. It preserves other explicit
+per-job overrides. Override the expected model with
+`FAMILYBOT_OPENCLAW_MODEL`; extend the comma-separated retired set with
+`FAMILYBOT_RETIRED_OPENCLAW_MODELS`. Model availability changes over time, so
+confirm the choice in the [OpenAI model catalog](https://developers.openai.com/api/docs/models)
+and with the authenticated smoke test.
 
 Set overrides explicitly in LaunchAgent plists; launchd does not inherit shell
 startup files.
