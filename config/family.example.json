@@ -14,7 +14,11 @@
       "http://familie.local:3000",
       "http://localhost:3000",
       "http://127.0.0.1:3000"
-    ]
+    ],
+    "features": {
+      "hellofresh": false,
+      "hellofresh_account": false
+    }
   },
   "members": [
     {

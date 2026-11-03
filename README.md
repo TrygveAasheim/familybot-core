@@ -8,7 +8,9 @@ family information service for households that want their planning data kept
 close to home.
 An always-on Mac mini processes school email and `ukeplan` PDFs, Spond,
 Norwegian calendar data, MET weather and Entur transport; OpenClaw provides the
-conversational/Telegram layer; Familieportalen provides the iPad-first touch UI.
+conversational/Telegram layer. The sibling Familieportalen repository provides
+the iPad-first touch UI, including optional **Oda grocery planning** and
+**HelloFresh weekly-box management** integrations.
 
 > **Built for local family life:** the reliability layer and dashboard model are
 > reusable, while the included school, calendar, transport and activity adapters

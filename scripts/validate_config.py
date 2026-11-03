@@ -172,6 +172,13 @@ def validate_portal(report: Report, portal_raw: Any, *, placeholders: bool) -> N
     if hostname and f"http://{hostname}:{expected_port}" not in normalized:
         report.error("portal.allowed_origins", "must include the configured portal hostname")
 
+    features = portal.get("features")
+    if features is not None:
+        features = require_dict(report, features, "portal.features")
+        for feature in ("hellofresh", "hellofresh_account"):
+            if feature in features and not isinstance(features.get(feature), bool):
+                report.error(f"portal.features.{feature}", "must be true or false")
+
 
 def validate_integrations(report: Report, raw: Any, member_ids: set[int], *, placeholders: bool) -> None:
     integrations = require_dict(report, raw, "integrations")
