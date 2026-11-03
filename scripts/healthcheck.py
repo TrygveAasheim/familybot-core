@@ -19,6 +19,7 @@ from reliability import connect_db, database_path, workspace_path
 from runtime_tools import executable
 from sre import (
     active_job_specs,
+    failed_job_is_active,
     latest_calendar_due,
     next_calendar_due,
     parse_launchctl_output,
@@ -206,8 +207,7 @@ for spec in ACTIVE_JOB_SPECS:
         # A failed calendar job is actionable near its failed occurrence. Once
         # its failure is old and the next run is not due, keep the evidence in
         # the snapshot without turning every health poll into another alert.
-        recent = bool(finished and (now_utc - finished).total_seconds() <= 36 * 3600)
-        if spec.kind == "interval" or recent:
+        if failed_job_is_active(spec, last_exit, finished, now_utc):
             active_failures.append(f"{label} last exited {last_exit}")
         else:
             historical_failures.append(f"{label} last exited {last_exit}")

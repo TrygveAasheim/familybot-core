@@ -22,6 +22,8 @@ Household data, credentials and operational identifiers are never included.
 - Hash-locked the resolved Python runtime and CI security-tool dependency sets.
 - Pinned and explicitly allowlisted the deployed Codex OpenClaw plugin; the
   plugin audit now reports no unpinned install record.
+- Prevented a warning exit from the health job from recursively appearing as a
+  new scheduler failure; crashes and other interval-job failures remain active.
 
 There is no database, credential or household-state migration. Roll back by
 redeploying the preceding source commit; private state remains compatible.

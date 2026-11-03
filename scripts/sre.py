@@ -118,6 +118,24 @@ def parse_timestamp(value: Optional[str]) -> Optional[datetime]:
     return parsed.astimezone(timezone.utc)
 
 
+def failed_job_is_active(
+    spec: JobSpec,
+    last_exit: Optional[int],
+    finished: Optional[datetime],
+    now: datetime,
+) -> bool:
+    """Return whether a recorded job failure should warn in this snapshot.
+
+    The health job deliberately exits 1 when it observes a warning elsewhere.
+    Treating that observation as another scheduler failure creates a recursive
+    warning between health runs. Exit 2 and unexpected failures remain active.
+    """
+    if spec.label == "familybot.health" and last_exit == 1:
+        return False
+    recent = bool(finished and (now - finished).total_seconds() <= 36 * 3600)
+    return spec.kind == "interval" or recent
+
+
 def latest_calendar_due(spec: JobSpec, now: datetime) -> Optional[datetime]:
     """Return the most recent configured local calendar time not after now."""
     local_now = now.astimezone(OSLO)

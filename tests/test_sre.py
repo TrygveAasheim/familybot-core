@@ -11,6 +11,7 @@ from sre import (  # noqa: E402
     JOB_BY_LABEL,
     LaunchdInfo,
     active_job_specs,
+    failed_job_is_active,
     latest_calendar_due,
     next_calendar_due,
 )
@@ -29,6 +30,15 @@ class ScheduleContractTests(unittest.TestCase):
         following = next_calendar_due(spec, tuesday)
         self.assertEqual(latest.weekday(), 6)  # Sunday, in UTC for this date
         self.assertEqual(following.weekday(), 5)  # Saturday, in UTC for this date
+
+    def test_health_warning_exit_does_not_recurse_as_scheduler_failure(self):
+        current = datetime(2026, 11, 3, 8, 30, tzinfo=timezone.utc)
+        finished = current - timedelta(minutes=15)
+        spec = JOB_BY_LABEL["familybot.health"]
+
+        self.assertFalse(failed_job_is_active(spec, 1, finished, current))
+        self.assertTrue(failed_job_is_active(spec, 2, finished, current))
+        self.assertTrue(failed_job_is_active(JOB_BY_LABEL["familybot.email"], 1, finished, current))
 
     def test_overdue_interval_job_is_recoverable(self):
         with tempfile.TemporaryDirectory() as directory:
