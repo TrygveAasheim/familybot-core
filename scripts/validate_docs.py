@@ -30,6 +30,7 @@ REQUIRED_FILES = {
 }
 
 REQUIRED_README_LINKS = {
+    "GETTING_STARTED.md",
     "docs/REPOSITORY_GUIDE.md",
     "docs/NEW_SESSION_VERIFICATION.md",
     "specs/SMART_HOME.md",
@@ -39,7 +40,8 @@ MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 
 
 def markdown_files(root: Path) -> list[Path]:
-    return sorted(path for path in root.rglob("*.md") if ".git" not in path.parts)
+    excluded = {".git", ".venv", "node_modules"}
+    return sorted(path for path in root.rglob("*.md") if excluded.isdisjoint(path.parts))
 
 
 def local_link_target(document: Path, raw_target: str) -> Path | None:
@@ -67,6 +69,25 @@ def validate_repository(root: Path) -> list[str]:
             if required_link not in content:
                 errors.append(f"README does not link to {required_link}")
 
+    getting_started = root / "GETTING_STARTED.md"
+    if getting_started.is_file():
+        content = getting_started.read_text(encoding="utf-8")
+        required_install_contract = {
+            "Current clean-install limitation": "does not disclose the clean database limitation",
+            "22.22.3": "does not pin the tested Node.js baseline",
+            "Python | `3.12`": "does not pin the Python 3.12 baseline",
+            "minimal OpenClaw footprint": "does not explain the minimal OpenClaw footprint",
+            "scripts/check_setup.py --mode source": "does not include the source readiness check",
+            "scripts/check_setup.py --mode runtime": "does not include the runtime readiness check",
+            "--profile dashboard": "does not explain the reduced dashboard readiness profile",
+            "himalaya account configure": "does not include guided mail setup",
+            "scripts/deploy_core.sh --reload": "does not include Core deployment",
+            "scripts/deploy-local.sh": "does not include Portal deployment",
+        }
+        for marker, message in required_install_contract.items():
+            if marker not in content:
+                errors.append(f"GETTING_STARTED.md {message}")
+
     for document in markdown_files(root):
         content = document.read_text(encoding="utf-8")
         relative_document = document.relative_to(root)
@@ -80,7 +101,7 @@ def validate_repository(root: Path) -> list[str]:
     public_templates = sorted(
         path.relative_to(root).as_posix()
         for path in root.rglob("family.example.json")
-        if ".git" not in path.parts
+        if {".git", ".venv", "node_modules"}.isdisjoint(path.parts)
     )
     if public_templates != ["config/family.example.json"]:
         errors.append(
@@ -92,6 +113,9 @@ def validate_repository(root: Path) -> list[str]:
         "not direct users yet": "vision still says children are not direct users",
         "external smart-home, menu and camera integrations are ideas":
             "getting-started guide has the obsolete Smart Home boundary",
+        "python 3.9+": "installation documentation still advertises unsupported Python 3.9",
+        "not yet a one-command installer for every historical schedule":
+            "installation documentation still describes the incomplete LaunchAgent set",
     }
     combined = "\n".join(path.read_text(encoding="utf-8").lower() for path in markdown_files(root))
     for phrase, message in legacy_phrases.items():

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>familybot.spond</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__FAMILYBOT_WORKSPACE__/scripts/cron_runner.sh</string>
+    <string>spond</string>
+  </array>
+  <key>StartInterval</key><integer>3600</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>FAMILYBOT_WORKSPACE</key><string>__FAMILYBOT_WORKSPACE__</string>
+    <key>FAMILYBOT_JOB_LABEL</key><string>familybot.spond</string>
+  </dict>
+  <key>StandardOutPath</key><string>__FAMILYBOT_WORKSPACE__/logs/spond.log</string>
+  <key>StandardErrorPath</key><string>__FAMILYBOT_WORKSPACE__/logs/spond-error.log</string>
+</dict></plist>

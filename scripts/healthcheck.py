@@ -6,19 +6,18 @@ Exit code 0 = all OK, 1 = warnings, 2 = critical failures.
 """
 
 import subprocess
-import sqlite3
 import os
 import json
 import shlex
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 import zoneinfo
 sys.path.insert(0, os.path.dirname(__file__))
 from reliability import connect_db, database_path, workspace_path
 from family_config import integration
 from sre import (
-    JOB_SPECS,
+    active_job_specs,
     latest_calendar_due,
     next_calendar_due,
     parse_launchctl_output,
@@ -31,6 +30,8 @@ DB_PATH = str(database_path())
 WORKSPACE = workspace_path()
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 EMAIL_ACCOUNT = str(integration("email").get("account") or "configured account")
+ACTIVE_JOB_SPECS = active_job_specs()
+SPOND_ENABLED = any(spec.label == "familybot.spond" for spec in ACTIVE_JOB_SPECS)
 
 results = []
 exit_code = 0
@@ -166,7 +167,7 @@ except Exception as e:
 now_utc = datetime.now(timezone.utc)
 missing_jobs, active_failures, historical_failures, schedule_errors = [], [], [], []
 job_details = []
-for spec in JOB_SPECS:
+for spec in ACTIVE_JOB_SPECS:
     label = spec.label
     code, out, err = run(f"launchctl print gui/{os.getuid()}/{label}")
     if code != 0:
@@ -245,21 +246,24 @@ else:
     results.append({
         "service": "scheduler",
         "status": "ok",
-        "msg": f"{len(JOB_SPECS)} launchd jobs loaded; no active freshness failures",
+        "msg": f"{len(ACTIVE_JOB_SPECS)} launchd jobs loaded; no active freshness failures",
         "jobs": job_details,
         "historical_failures": historical_failures,
     })
 
-try:
-    with open(WORKSPACE / "db" / "spond_sync_state.json") as handle:
-        spond_state = json.load(handle)
-    if spond_state.get("ok"):
-        ok("spond", f"Last sync OK at {spond_state.get('checked_at')}")
-    else:
-        warn("spond", f"Last sync failed at {spond_state.get('checked_at')}",
-             fix="Repair or replace the unofficial Spond API client")
-except (OSError, ValueError) as exc:
-    warn("spond", f"No valid Spond sync state: {exc}")
+if SPOND_ENABLED:
+    try:
+        with open(WORKSPACE / "db" / "spond_sync_state.json") as handle:
+            spond_state = json.load(handle)
+        if spond_state.get("ok"):
+            ok("spond", f"Last sync OK at {spond_state.get('checked_at')}")
+        else:
+            warn("spond", f"Last sync failed at {spond_state.get('checked_at')}",
+                 fix="Repair or replace the unofficial Spond API client")
+    except (OSError, ValueError) as exc:
+        warn("spond", f"No valid Spond sync state: {exc}")
+else:
+    ok("spond", "Optional Spond integration is not configured")
 
 # ── 7. Disk space ─────────────────────────────────────────────────────────────
 code, out, err = run(f"df -h {WORKSPACE} 2>/dev/null | tail -1")

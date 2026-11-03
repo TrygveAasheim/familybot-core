@@ -194,8 +194,8 @@ async def run_sync():
         password=os.environ["SPOND_PASSWORD"]
     )
     # Spond moved authentication from /login to /auth2/login in May 2026.
-    # The installed 1.1.1 client still supports Python 3.9, so patch only the
-    # login flow instead of replacing the system Python runtime.
+    # Keep the bounded compatibility patch even on the isolated Python 3.12
+    # runtime so an upstream login-path regression cannot break the full sync.
     s.login = types.MethodType(login_auth2, s)
 
     conn = get_db()

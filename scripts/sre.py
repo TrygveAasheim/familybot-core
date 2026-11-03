@@ -52,6 +52,25 @@ JOB_SPECS: tuple[JobSpec, ...] = (
 JOB_BY_LABEL = {spec.label: spec for spec in JOB_SPECS}
 
 
+def active_job_specs(spond_enabled: Optional[bool] = None) -> tuple[JobSpec, ...]:
+    """Return the health-owned jobs enabled by the local household config.
+
+    Spond is an optional, unofficial integration.  A missing or empty groups
+    list disables its schedule and health probe.  Invalid configuration keeps
+    the complete contract active so a setup error cannot silently hide a job.
+    """
+    if spond_enabled is None:
+        try:
+            from family_config import integration
+
+            spond_enabled = bool(integration("spond").get("groups"))
+        except RuntimeError:
+            return JOB_SPECS
+    if spond_enabled:
+        return JOB_SPECS
+    return tuple(spec for spec in JOB_SPECS if spec.label != "familybot.spond")
+
+
 @dataclass(frozen=True)
 class LaunchdInfo:
     loaded: bool

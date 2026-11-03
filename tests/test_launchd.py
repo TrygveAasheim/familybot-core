@@ -2,11 +2,10 @@ import sys
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from validate_launchd import EXPECTED, validate_launchctl_output, validate_templates  # noqa: E402
+from validate_launchd import EXPECTED, validate_launchctl_output, validate_templates
 
 
 class LaunchdScheduleTests(unittest.TestCase):
@@ -20,6 +19,14 @@ class LaunchdScheduleTests(unittest.TestCase):
         self.assertEqual({day for day, _, _ in weekday}, {1, 2, 3, 4, 5})
         self.assertEqual({day for day, _, _ in weekend}, {0, 6})
         self.assertTrue(weekday.isdisjoint(weekend))
+
+    def test_every_health_owned_job_has_a_source_template(self):
+        expected_labels = {
+            "familybot.email", "familybot.spond", "familybot.health", "familybot.status",
+            "familybot.briefing.weekday", "familybot.briefing.weekend", "familybot.briefing.weekly",
+            "familybot.delivery", "familybot.ukeplan", "familybot.tbane",
+        }
+        self.assertEqual(expected_labels, {item["label"] for item in EXPECTED.values()})
 
     def test_loaded_launchctl_output_is_checked_against_the_contract(self):
         output = """

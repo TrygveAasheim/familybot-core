@@ -18,9 +18,10 @@ import pdfplumber
 
 sys.path.insert(0, os.path.dirname(__file__))
 from reliability import connect_db, database_path, workspace_path
+from runtime_tools import executable
 
 
-OPENCLAW = "/opt/homebrew/bin/openclaw"
+OPENCLAW = executable("FAMILYBOT_OPENCLAW", "openclaw")
 OPENCLAW_MODEL = os.environ.get("FAMILYBOT_UKEPLAN_MODEL", "openai/gpt-5.6-sol")
 OPENCLAW_TIMEOUT_SECONDS = int(os.environ.get("FAMILYBOT_UKEPLAN_TIMEOUT_SECONDS", "240"))
 INTERPRETER_VERSION = "ukeplan-llm-v3-extract-review"

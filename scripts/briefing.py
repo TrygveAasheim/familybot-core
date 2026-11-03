@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from briefing_data import collect_daily, collect_weekly
 from family_config import children, family_prompt_context, integration, telegram_recipients
 from reliability import DeliveryOutbox, database_path, workspace_path
+from runtime_tools import executable
 
 RECIPIENTS = telegram_recipients()
 FAMILY_CONTEXT = family_prompt_context()
@@ -79,7 +80,7 @@ DATA:
 """
 
 
-OPENCLAW = "/opt/homebrew/bin/openclaw"
+OPENCLAW = executable("FAMILYBOT_OPENCLAW", "openclaw")
 OPENCLAW_MODEL = os.environ.get("FAMILYBOT_BRIEFING_MODEL", "openai/gpt-5.6-sol")
 VACATION_MODE_FILE = str(workspace_path() / "memory" / "vacation-mode.json")
 

@@ -9,7 +9,8 @@
 - [x] Deterministic daily/weekly briefing fallbacks and durable delivery outbox
 - [x] Canonical local family configuration and validation
 - [x] iPad-first LAN portal with family, child and parent surfaces
-- [ ] Clean-room core database migration and complete LaunchAgent installer
+- [x] Complete health-owned LaunchAgent templates and installer
+- [ ] Clean-room core database migration
 - [ ] Complete configured-parent onboarding and preference management
 
 ## Uavklarte tekniske punkt

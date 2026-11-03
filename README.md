@@ -66,14 +66,43 @@ The operational dependency map is:
   validates against Core's configuration contract, and owns its curated API,
   UI, chores and rewards tables;
 - OpenClaw supplies the conversational/Telegram layer and private workspace
-  convention; it is optional for the deterministic Core pipeline;
-- macOS `launchd`, Python 3, SQLite and Node.js/npm (for Portal) are required by
-  the local appliance deployment.
+  convention; it is optional for the deterministic Core pipeline, while the
+  full assistant footprint uses only its local CLI/gateway, one OpenAI-backed
+  agent and Telegram channel;
+- macOS `launchd`, isolated Python 3.12 runtimes, SQLite, `uv` and Node.js
+  22.22.3–22.x (for Portal and OpenClaw) are the tested appliance baseline;
+- Himalaya 1.2+ is required only for school-email ingestion. Oda uses its hosted
+  MCP service and HelloFresh needs no separate local server.
 
 Clone and configure Core first, then install and deploy Portal. Keep both
 repositories on compatible `dev` commits and run both verification suites before
 promoting either one to `main`; this is an operational compatibility contract,
 not a Python or npm package dependency.
+
+## Install or restore
+
+New users should follow the single, copy-paste walkthrough in
+[`GETTING_STARTED.md`](GETTING_STARTED.md). It includes:
+
+- required versus optional software and accounts;
+- the deliberately small OpenClaw footprint;
+- isolated Core and Portal environments;
+- private configuration, credentials, database and PIN setup;
+- a privacy-safe `scripts/check_setup.py` readiness report; and
+- deployment, real-flow verification and troubleshooting.
+
+Run this before entering any private values:
+
+```bash
+cd familybot-core
+uv venv --python 3.12 .venv
+uv pip sync --python .venv/bin/python requirements.txt
+.venv/bin/python scripts/check_setup.py --mode source
+```
+
+The current public release still requires a supported starter or restored
+`family.db`; empty Core database creation is called out at the top of the guide
+rather than failing late in deployment.
 
 ## Telegram child-chore interview
 
@@ -92,7 +121,7 @@ For a coding agent or a session without prior context, begin with
 [`AGENTS.md`](AGENTS.md), then follow this map:
 
 1. [Repository guide and core/add-on boundaries](docs/REPOSITORY_GUIDE.md)
-2. [New-user walkthrough](GETTING_STARTED.md)
+2. [Step-by-step installation and restore guide](GETTING_STARTED.md)
 3. [Architecture and Mac mini/iPad topology](ARCHITECTURE.md)
 4. [Reliability invariants](specs/RELIABILITY.md)
 5. [Change protocol](docs/CHANGE_PROTOCOL.md)

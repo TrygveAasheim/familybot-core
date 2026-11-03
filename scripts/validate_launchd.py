@@ -14,6 +14,31 @@ WORKSPACE_TOKEN = "__FAMILYBOT_WORKSPACE__"
 
 
 EXPECTED: dict[str, dict[str, Any]] = {
+    "familybot.email.plist.example": {
+        "label": "familybot.email",
+        "task": "email",
+        "interval": 900,
+    },
+    "familybot.health.plist.example": {
+        "label": "familybot.health",
+        "task": "health",
+        "interval": 1800,
+    },
+    "familybot.spond.plist.example": {
+        "label": "familybot.spond",
+        "task": "spond",
+        "interval": 3600,
+    },
+    "familybot.status.plist.example": {
+        "label": "familybot.status",
+        "task": "status",
+        "interval": 1800,
+    },
+    "familybot.tbane.plist.example": {
+        "label": "familybot.tbane",
+        "task": "tbane",
+        "interval": 900,
+    },
     "familybot.briefing.weekday.plist.example": {
         "label": "familybot.briefing.weekday",
         "task": "briefing-daily",

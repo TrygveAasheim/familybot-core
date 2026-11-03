@@ -8,11 +8,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from sre import JOB_BY_LABEL, LaunchdInfo, latest_calendar_due, next_calendar_due  # noqa: E402
+from sre import (  # noqa: E402
+    JOB_BY_LABEL,
+    LaunchdInfo,
+    active_job_specs,
+    latest_calendar_due,
+    next_calendar_due,
+)
 from sre_reconcile import plan_actions, update_health_failures  # noqa: E402
 
 
 class ScheduleContractTests(unittest.TestCase):
+    def test_optional_spond_job_follows_household_configuration(self):
+        self.assertNotIn("familybot.spond", {spec.label for spec in active_job_specs(False)})
+        self.assertIn("familybot.spond", {spec.label for spec in active_job_specs(True)})
+
     def test_weekend_next_run_is_schedule_aware(self):
         tuesday = datetime(2026, 9, 8, 4, 30, tzinfo=timezone.utc)
         spec = JOB_BY_LABEL["familybot.briefing.weekend"]

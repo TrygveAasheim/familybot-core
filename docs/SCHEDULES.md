@@ -9,6 +9,11 @@ live in [`ops/launchd/`](../ops/launchd/), and the installer expands the
 
 | Job | launchd weekdays | Time | Command |
 | --- | --- | --- | --- |
+| Email ingestion | interval | every 15 minutes | `email` |
+| Spond synchronization | interval | every 60 minutes | `spond` |
+| Entur disruption monitor | interval | every 15 minutes | `tbane` |
+| Health + bounded SRE reconciliation | interval | every 30 minutes | `health` |
+| Status snapshot | interval | every 30 minutes | `status` |
 | Weekday morning briefing | `1–5` | 06:45 | `briefing-daily` |
 | Weekend morning briefing | `0` and `6` | 08:00 | `briefing-daily` |
 | Weekly overview | `0` | 21:00 | `briefing-weekly` |
@@ -33,11 +38,16 @@ For a deliberate deployment and reload of the affected LaunchAgents:
 bash scripts/deploy_core.sh --reload
 ```
 
-The deploy script copies reviewed core scripts into the private workspace,
-validates the templates, then invokes the installer. The installer is
+The deploy script creates/synchronizes the isolated Python 3.12 Core runtime,
+copies reviewed core scripts into the private workspace, validates all ten
+available templates, then invokes the installer. The installer is
 intentionally explicit about the reload. It replaces only the source-controlled
 `familybot.*.plist` jobs, keeps runtime state outside Git and prints the
 installed labels without printing configuration or credential values.
+
+Spond is optional. When `integrations.spond.groups` is absent or empty, the
+installer skips its LaunchAgent and the health/SRE contract excludes its job
+and freshness probe. Adding a configured group enables all three together.
 
 ## Monitoring and bounded recovery
 

@@ -18,11 +18,14 @@ Store runtime backup material encrypted and separately from Git.
 
 ## Clean-host restore order
 
-1. Create the service user and install Command Line Tools, Homebrew Node.js 22+,
-   Python 3.9+, SQLite, OpenClaw and Himalaya.
+1. Create the service user and install Command Line Tools, Homebrew Node.js
+   22.22.3–22.x, `uv`, Python 3.12, SQLite, OpenClaw and Himalaya. Follow the
+   tested commands and minimal OpenClaw profile in `GETTING_STARTED.md`.
 2. Clone `familybot-core` and `familybot-portal` as sibling directories. Check
    out a reviewed tag or `main`, not a moving development branch.
-3. Install `familybot-core/requirements.txt` and run `npm ci` in the portal.
+3. Create both repositories' isolated Python 3.12 environments with `uv`,
+   install `familybot-core/requirements.txt`, and run `npm ci` plus the Portal
+   Python dependency commands from `GETTING_STARTED.md`.
 4. Restore `$HOME/.openclaw/workspace` with directories mode `0700` and private
    files mode `0600`.
 5. Restore `family.db`; run:
@@ -45,7 +48,8 @@ Store runtime backup material encrypted and separately from Git.
 
    Prove access with one no-delivery agent turn; a configured catalog entry is
    not sufficient.
-9. Run both repositories' unit/lint/build suites before installing services.
+9. Run `familybot-core/.venv/bin/python scripts/check_setup.py --mode runtime`
+   and both repositories' unit/lint/build suites before installing services.
 10. Back up the restored database, then deploy reviewed core scripts and
    LaunchAgent templates with `bash scripts/deploy_core.sh --reload`.
 11. In `familybot-portal`, create/restore the parent PIN and run
@@ -87,8 +91,11 @@ Do not use Git rollback to restore private SQLite state.
 
 ## Current non-automated boundary
 
-The portal has a local deploy script and LaunchAgent. The core's scheduled jobs
-are now source-controlled under `ops/launchd/` and installed through
-`scripts/install_launchagents.sh`. The core still lacks a complete fresh-
-database migration; retain reviewed operational state and credentials in the
-encrypted recovery bundle.
+The portal has a local deploy script and LaunchAgents. Nine base health-owned Core
+LaunchAgents are installed, with the tenth Spond job enabled only when a group
+is configured. All available job templates are source-controlled under
+`ops/launchd/` and installed through
+`scripts/install_launchagents.sh`. Both deploy scripts create isolated Python
+3.12 runtimes instead of relying on macOS's system Python. The remaining
+non-automated boundary is an empty Core database: retain a supported starter or
+reviewed operational database and credentials in the encrypted recovery bundle.

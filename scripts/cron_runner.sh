@@ -6,10 +6,16 @@ set -u
 umask 077
 
 WORKSPACE="${FAMILYBOT_WORKSPACE:-$HOME/.openclaw/workspace}"
-PYTHON="/usr/bin/python3"
+PYTHON="${FAMILYBOT_PYTHON:-$WORKSPACE/runtime/core/.venv/bin/python}"
 LOG="$WORKSPACE/logs/cron.log"
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+if [ ! -x "$PYTHON" ]; then
+  echo "FamilyBot Python runtime is missing: $PYTHON" >&2
+  echo "Run scripts/deploy_core.sh from the reviewed Core checkout." >&2
+  exit 78
+fi
 
 task="${1:-}"
 case "$task" in

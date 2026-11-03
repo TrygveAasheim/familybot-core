@@ -1,0 +1,4 @@
+# Direct runtime dependencies. Regenerate requirements.txt with the command
+# recorded at the top of that lock file.
+pdfplumber==0.11.10
+spond==1.2.1

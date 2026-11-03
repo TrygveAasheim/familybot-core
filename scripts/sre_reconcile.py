@@ -11,14 +11,13 @@ import argparse
 import json
 import os
 import subprocess
-import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 from reliability import atomic_write_json, workspace_path
 from family_config import telegram_recipients
-from sre import JOB_SPECS, JobSpec, LaunchdInfo, parse_timestamp, plist_path, read_job_state
+from sre import JOB_SPECS, JobSpec, LaunchdInfo, active_job_specs, parse_timestamp, plist_path, read_job_state
 
 
 COOLDOWN = timedelta(minutes=15)
@@ -176,9 +175,10 @@ def plan_actions(
     current: datetime,
     previous: dict[str, Any],
     gateway_failures: int = 0,
+    job_specs: tuple[JobSpec, ...] = JOB_SPECS,
 ) -> list[dict[str, Any]]:
     actions: list[dict[str, Any]] = []
-    for spec in JOB_SPECS:
+    for spec in job_specs:
         if not spec.auto_recover:
             continue
         info = launchd.get(spec.label)
@@ -292,8 +292,9 @@ def main() -> int:
             gateway_count = 0
             failures["gateway"] = {"count": 0, "key": gateway_key, "last_seen": current.isoformat(timespec="seconds")}
 
-        launchd = {spec.label: launchd_info(spec.label) for spec in JOB_SPECS}
-        states = {spec.label: read_job_state(workspace, spec.label) for spec in JOB_SPECS}
+        enabled_specs = active_job_specs()
+        launchd = {spec.label: launchd_info(spec.label) for spec in enabled_specs}
+        states = {spec.label: read_job_state(workspace, spec.label) for spec in enabled_specs}
         actions = plan_actions(
             home=Path.home(),
             launchd=launchd,
@@ -301,6 +302,7 @@ def main() -> int:
             current=current,
             previous=previous,
             gateway_failures=gateway_count,
+            job_specs=enabled_specs,
         )
         alert_results = []
         print(json.dumps({"dry_run": args.dry_run, "actions": actions, "health_failures": counters}, ensure_ascii=False))

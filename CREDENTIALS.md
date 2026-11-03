@@ -37,6 +37,13 @@ not paste secret values into issues, commits, screenshots or validation logs.
   Electrolux/AEG, HomeWhiz or Toshiba) are entered in Home Assistant or the
   provider's local OAuth/setup flow. Do not paste them into chat, FamilyBot
   configuration or issues. See [specs/SMART_HOME.md](specs/SMART_HOME.md).
+- [ ] **Oda OAuth** is completed through the Portal's same-window consent flow.
+  Renewable tokens remain in `$HOME/.openclaw/credentials/oda-mcp.json`, mode
+  `0600`; no Oda API key is copied into FamilyBot configuration.
+- [ ] **HelloFresh renewable access** is created only when both experimental
+  flags are enabled. The first-use password is transient and must never be
+  stored; renewable tokens remain in
+  `$HOME/.openclaw/credentials/hellofresh-no.json`, mode `0600`.
 
 ## Integrations without secrets
 

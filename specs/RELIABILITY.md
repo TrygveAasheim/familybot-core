@@ -100,7 +100,7 @@ structured result separately from deterministic `week_plan_days` facts.
 ## Promotion checklist
 
 1. Make a verified SQLite backup and a source snapshot.
-2. Run the full unit suite against Python 3.9.
+2. Run the full unit suite against the isolated Python 3.12 baseline.
 3. Run email ingestion against a copied database and fixture mailbox output.
 4. Run daily and weekly briefing previews with OpenClaw unavailable.
 5. Install `familybot.delivery` from the reviewed plist and verify its five-minute

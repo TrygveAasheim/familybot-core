@@ -3,11 +3,15 @@
 llm_call.py - Lightweight OpenClaw/Codex inference for FamilyBot scripts.
 """
 
+from __future__ import annotations
+
 import subprocess
 import json
 import sys
 
-OPENCLAW = "/opt/homebrew/bin/openclaw"
+from runtime_tools import executable
+
+OPENCLAW = executable("FAMILYBOT_OPENCLAW", "openclaw")
 
 def generate(prompt: str, model: str | None = None, max_tokens: int = 1024) -> str:
     """
