@@ -9,13 +9,36 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
-
 GEOCODER = "https://api.entur.io/geocoder/v1/autocomplete"
 JOURNEY_PLANNER = "https://api.entur.io/journey-planner/v3/graphql"
+ALLOWED_HOST = "api.entur.io"
 
 
-def request_json(request: urllib.request.Request) -> dict[str, Any]:
-    with urllib.request.urlopen(request, timeout=10) as response:
+class NoEnturRedirects(urllib.request.HTTPRedirectHandler):
+    """Keep setup requests on the validated provider origin."""
+
+    def redirect_request(self, request: Any, fp: Any, code: int, message: str, headers: Any, new_url: str) -> None:
+        raise RuntimeError("Entur setup requests do not follow redirects")
+
+
+ENTUR_OPENER = urllib.request.build_opener(NoEnturRedirects)
+
+
+def request_json(
+    request: urllib.request.Request,
+    opener: Any = None,
+) -> dict[str, Any]:
+    parsed = urllib.parse.urlparse(request.full_url)
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != ALLOWED_HOST
+        or parsed.port is not None
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise ValueError("Entur setup requests must use the fixed HTTPS provider origin")
+    open_request = opener or ENTUR_OPENER.open
+    with open_request(request, timeout=10) as response:
         value = json.load(response)
     if not isinstance(value, dict):
         raise RuntimeError("Entur returned an unexpected response")

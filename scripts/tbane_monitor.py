@@ -15,15 +15,15 @@ State tracking: db/tbane_alert_state.json
 """
 
 import json
-import subprocess
 import os
+import subprocess
 import sys
-from datetime import datetime
 import zoneinfo
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(__file__))
-from reliability import atomic_write_json, workspace_path
 from family_config import integration, telegram_recipients
+from reliability import atomic_write_json, workspace_path
 from transport_relevance import classify_for_corridor, parse_siri_disruptions
 
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
@@ -119,7 +119,6 @@ def send_telegram(message: str):
 
 
 def run():
-    now = datetime.now(OSLO).strftime("%Y-%m-%d %H:%M %Z")
     disruptions = fetch_disruptions()
     classified = classify(disruptions)
 

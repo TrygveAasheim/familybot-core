@@ -1,11 +1,9 @@
-import sys
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+from scripts.validate_launchd import EXPECTED, validate_launchctl_output, validate_templates
 
-from validate_launchd import EXPECTED, validate_launchctl_output, validate_templates
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class LaunchdScheduleTests(unittest.TestCase):

@@ -36,10 +36,10 @@ Usage:
 """
 
 import sqlite3
+import zoneinfo
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Optional
-import zoneinfo
 
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 
@@ -124,7 +124,6 @@ def validate_week_events(
     Returns (accepted, rejected) lists.
     Each rejected item has an added 'reject_reason' key.
     """
-    today = date.today()
     monday, friday = week_date_range(stated_week, year)
 
     accepted = []

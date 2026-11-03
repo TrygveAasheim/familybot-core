@@ -8,7 +8,6 @@ import re
 from pathlib import Path
 from urllib.parse import unquote
 
-
 REQUIRED_FILES = {
     "AGENTS.md",
     "README.md",

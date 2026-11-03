@@ -36,6 +36,7 @@ fi
 CORE_PYTHON="$CORE_RUNTIME/.venv/bin/python"
 "$CORE_PYTHON" "$SCRIPT_DIR/validate_launchd.py" --templates "$REPO_ROOT/ops/launchd"
 if command -v openclaw >/dev/null 2>&1; then
+  "$SCRIPT_DIR/configure_inference_agents.sh"
   "$CORE_PYTHON" "$SCRIPT_DIR/configure_openclaw_model.py" --check
 fi
 install -d -m 700 \

@@ -4,17 +4,16 @@ Collects all relevant data for a briefing period and returns it as a
 structured dict. The actual text generation is done by the LLM.
 """
 
-import sqlite3
-import subprocess
 import json as _json
 import os
+import subprocess
 import sys
-from datetime import date, datetime, timedelta
 import zoneinfo
+from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(__file__))
-from reliability import connect_db, database_path
 from family_config import children, integration, member_names, parents
+from reliability import connect_db, database_path
 from transport_relevance import classify_for_corridor, parse_siri_disruptions
 
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")

@@ -11,21 +11,20 @@ Usage:
   python3 briefing.py preview   — print both to stdout without sending
 """
 
-import sys
 import json
 import os
 import subprocess
+import sys
+import zoneinfo
 from datetime import datetime, timedelta
 from typing import Optional
-import zoneinfo
 
-OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
-
-sys.path.insert(0, os.path.dirname(__file__))
 from briefing_data import collect_daily, collect_weekly
 from family_config import children, family_prompt_context, integration, telegram_recipients
 from reliability import DeliveryOutbox, database_path, workspace_path
 from runtime_tools import executable
+
+OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 
 RECIPIENTS = telegram_recipients()
 FAMILY_CONTEXT = family_prompt_context()
@@ -82,6 +81,7 @@ DATA:
 
 OPENCLAW = executable("FAMILYBOT_OPENCLAW", "openclaw")
 OPENCLAW_MODEL = os.environ.get("FAMILYBOT_BRIEFING_MODEL", "openai/gpt-5.6-sol")
+OPENCLAW_AGENT = os.environ.get("FAMILYBOT_BRIEFING_AGENT", "familybot-briefing")
 VACATION_MODE_FILE = str(workspace_path() / "memory" / "vacation-mode.json")
 
 
@@ -106,7 +106,7 @@ def generate_text(prompt: str) -> str:
                 OPENCLAW,
                 "agent",
                 "--agent",
-                "main",
+                OPENCLAW_AGENT,
                 "--model",
                 OPENCLAW_MODEL,
                 "--thinking",
@@ -282,7 +282,6 @@ def run_weekly():
 
 
 def run_preview():
-    from datetime import date
 
     print("=== DAILY DATA ===")
     daily = collect_daily()

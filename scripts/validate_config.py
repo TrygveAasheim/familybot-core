@@ -14,7 +14,6 @@ from typing import Any
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-
 PLACEHOLDER = re.compile(
     r"(?:^|[^a-z])(?:FAMILY_|PARENT_|CHILD_|SPOND_|FORWARDING_|LOCAL_|HOME_|ENTUR_|TRANSIT_|DIRECTION_|GROUP_|OPTIONAL_|CONTACT_EMAIL)",
 )

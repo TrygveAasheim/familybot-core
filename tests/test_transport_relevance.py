@@ -6,7 +6,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 from transport_relevance import classify_for_corridor, notice_relevant, parse_siri_disruptions
 
-
 CORRIDOR = [
     "Hovseter", "Holmen", "Makrellbekken", "Smestad", "Borgen",
     "Majorstuen", "Nationaltheatret", "Stortinget", "Jernbanetorget",

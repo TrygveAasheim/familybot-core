@@ -5,18 +5,17 @@ Polls the familybot Gmail inbox, processes new emails, parses attachments,
 and stores results in the family SQLite database.
 """
 
-import subprocess
-import json
-import sqlite3
-import os
-import sys
-import tempfile
-import re
 import html
-from pathlib import Path
+import json
+import os
+import re
+import subprocess
+import sys
 from datetime import date, datetime
+from pathlib import Path
+
 sys.path.insert(0, os.path.dirname(__file__))
-from email_routing import resolve_sender, assert_no_member_mix, get_quarantined, _resolve_member_from_body, PARENT_FORWARD_ADDRESSES
+from email_routing import PARENT_FORWARD_ADDRESSES, _resolve_member_from_body, resolve_sender
 from parse_ukeplan import parse_ukeplan_pdf
 from reliability import (
     EmailProcessingLedger,

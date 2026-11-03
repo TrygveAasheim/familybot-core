@@ -16,13 +16,12 @@ normalized proposal requiring confirmation; ``chore-create`` is the only
 mutating command and delegates validation and storage to the portal add-on.
 """
 
-import sqlite3
 import argparse
 import json
 import os
+import sqlite3
 import subprocess
 import sys
-from datetime import datetime, date
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(__file__))

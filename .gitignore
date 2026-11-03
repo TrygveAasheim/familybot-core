@@ -48,3 +48,4 @@ CHANGELOG.md
 # The repository-root agent contract is reviewed source. Runtime copies under
 # the private OpenClaw workspace remain excluded by the rules above.
 !/AGENTS.md
+!/CHANGELOG.md

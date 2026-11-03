@@ -21,13 +21,16 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: python3 -m pip install -r requirements.txt
+        run: python3 -m pip install -r requirements.txt -r requirements-dev.txt
       - name: Verify source
         env:
           FAMILYBOT_FAMILY_CONFIG: tests/fixtures/family.test.json
         run: |
           python3 scripts/validate_docs.py
           python3 scripts/validate_config.py --config config/family.example.json --allow-placeholders --skip-permissions
+          ruff check scripts tests
+          bandit -q -r scripts -x '*/test_*.py' --severity-level medium --confidence-level medium
+          pip-audit -r requirements.txt --disable-pip
           python3 -m unittest discover -s tests -p 'test_*.py'
           python3 -m py_compile scripts/*.py
           bash -n scripts/*.sh

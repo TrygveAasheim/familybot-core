@@ -17,12 +17,12 @@ from typing import Any
 import pdfplumber
 
 sys.path.insert(0, os.path.dirname(__file__))
-from reliability import connect_db, database_path, workspace_path
+from reliability import connect_db, database_path
 from runtime_tools import executable
-
 
 OPENCLAW = executable("FAMILYBOT_OPENCLAW", "openclaw")
 OPENCLAW_MODEL = os.environ.get("FAMILYBOT_UKEPLAN_MODEL", "openai/gpt-5.6-sol")
+OPENCLAW_AGENT = os.environ.get("FAMILYBOT_UKEPLAN_AGENT", "familybot-ukeplan")
 OPENCLAW_TIMEOUT_SECONDS = int(os.environ.get("FAMILYBOT_UKEPLAN_TIMEOUT_SECONDS", "240"))
 INTERPRETER_VERSION = "ukeplan-llm-v3-extract-review"
 WEEKDAYS = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag"]
@@ -304,7 +304,7 @@ def invoke_model(prompt: str) -> str:
     result = subprocess.run(
         [
             OPENCLAW, "agent",
-            "--agent", "main",
+            "--agent", OPENCLAW_AGENT,
             "--model", OPENCLAW_MODEL,
             "--thinking", "low",
             "--message", prompt,

@@ -77,7 +77,7 @@ def redact_plan_without_pdf(connection: sqlite3.Connection, plan_id: int) -> Non
     """Remove unverifiable legacy text rather than retain mail content."""
     connection.execute(
         "UPDATE week_plans SET raw_text='', summary=? WHERE id=?",
-        (f"Ukeplan (PDF-innhold kunne ikke leses for denne planen.)", plan_id),
+        ("Ukeplan (PDF-innhold kunne ikke leses for denne planen.)", plan_id),
     )
     connection.commit()
 

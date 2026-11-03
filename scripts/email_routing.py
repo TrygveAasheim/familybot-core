@@ -13,16 +13,15 @@ Guard rails:
 - Trinn-based routing (AKS) is explicit and auditable
 """
 
-import sqlite3
-import re
 import os
+import re
 import sys
 from dataclasses import dataclass
 from typing import Optional
 
 sys.path.insert(0, os.path.dirname(__file__))
-from reliability import connect_db, database_path
 from family_config import children, integration, member_names
+from reliability import connect_db, database_path
 
 DB_PATH = str(database_path())
 

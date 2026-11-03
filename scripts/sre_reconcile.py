@@ -15,10 +15,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from reliability import atomic_write_json, workspace_path
 from family_config import telegram_recipients
+from reliability import atomic_write_json, workspace_path
 from sre import JOB_SPECS, JobSpec, LaunchdInfo, active_job_specs, parse_timestamp, plist_path, read_job_state
-
 
 COOLDOWN = timedelta(minutes=15)
 GATEWAY_FAILURE_THRESHOLD = 2

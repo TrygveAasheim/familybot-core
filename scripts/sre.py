@@ -5,12 +5,11 @@ from __future__ import annotations
 
 import json
 import re
+import zoneinfo
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
-import zoneinfo
-
 
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 

@@ -8,7 +8,6 @@ import re
 import unicodedata
 from typing import Iterable
 
-
 SKIP_KEYWORDS = (
     "forsinkels", "delay", "noe forsinket", "minor delay",
     "ikke egnet for rullestol", "not suitable for wheelchair",

@@ -10,8 +10,8 @@ Sources: Standard Norwegian holiday rules + Oslo kommune skolerute.
 Week numbers follow ISO 8601 (Monday = day 1), which matches Norwegian standard.
 """
 
-import sqlite3
 import os
+import sqlite3
 import sys
 from datetime import date, timedelta
 

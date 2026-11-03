@@ -12,7 +12,6 @@ import subprocess
 import sys
 from typing import Any, Protocol
 
-
 DEFAULT_MODEL = "openai/gpt-5.6-sol"
 DEFAULT_RETIRED_MODELS = ("openai/gpt-5.5",)
 MODEL_ID = re.compile(r"^[a-z0-9][a-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")

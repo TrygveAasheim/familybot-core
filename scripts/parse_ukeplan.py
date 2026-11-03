@@ -17,10 +17,9 @@ på tvers av ukeplaner fra samme skole/lærer.
 """
 
 import re
-import pdfplumber
 from datetime import date
-from typing import Optional
 
+import pdfplumber
 
 MONTHS_NO = {
     "januar": 1, "februar": 2, "mars": 3, "april": 4, "mai": 5, "juni": 6,
@@ -295,7 +294,8 @@ def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026, week_over
 
     # --- Temporal validation: filter events against stated week ---
     if result["week"]:
-        import os as _os, sys as _sys
+        import os as _os
+        import sys as _sys
         _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
         try:
             from calendar_guard import validate_event
@@ -326,7 +326,8 @@ def parse_ukeplan_pdf(pdf_path: str, member_id: int, year: int = 2026, week_over
 
 
 if __name__ == "__main__":
-    import sys, json
+    import json
+    import sys
     if len(sys.argv) < 2:
         print("Usage: parse_ukeplan.py <pdf_path>")
         sys.exit(1)

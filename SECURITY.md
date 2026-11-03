@@ -72,8 +72,8 @@ and a minimal per-channel tool allowlist first.
 The OpenClaw control UI is intentionally loopback-only. A missing
 `trustedProxies` value is therefore expected; configure it only if a reviewed
 reverse proxy is actually introduced. Pin separately installed OpenClaw plugins
-to exact versions and resolve duplicate install metadata before the next
-OpenClaw upgrade.
+to exact versions, add only trusted IDs to `plugins.allow`, and resolve duplicate
+install metadata before the next OpenClaw upgrade.
 
 ## Security release gate
 
@@ -82,6 +82,9 @@ Before promotion:
 ```bash
 python3 scripts/validate_docs.py
 python3 scripts/validate_config.py
+ruff check scripts tests
+bandit -q -r scripts -x '*/test_*.py' --severity-level medium --confidence-level medium
+pip-audit -r requirements.txt --disable-pip
 python3 -m unittest discover -s tests -p 'test_*.py'
 python3 -m py_compile scripts/*.py
 bash -n scripts/*.sh
@@ -93,6 +96,10 @@ npm test
 npm audit
 python3 tests/acceptance.py
 ```
+
+Deployment also reconciles the dedicated `familybot-briefing` and
+`familybot-ukeplan` inference agents. Their tools, skills and elevated access
+remain disabled so email and PDF content cannot trigger general OpenClaw tools.
 
 Also check staged files with `git diff --cached --check` and inspect names of
 all staged files. Never run a secret scanner in a way that prints matched

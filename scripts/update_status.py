@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Regenerate STATUS.md from the services that actually run FamilyBot."""
-import json, os, sqlite3, subprocess
-from datetime import datetime
+import json
+import os
+import subprocess
 import zoneinfo
-import sys
+from datetime import datetime
 
-sys.path.insert(0, os.path.dirname(__file__))
-from reliability import atomic_write_text, connect_db, workspace_path
 from family_config import integration, parents
+from reliability import atomic_write_text, connect_db, workspace_path
 from sre import read_job_state
 
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
@@ -41,8 +41,10 @@ def launchd_state(label):
         if item.startswith("state ="):
             state = "kjører" if item.endswith("running") else "planlagt"
         elif item.startswith("last exit code ="):
-            try: last_exit = int(item.rsplit("=", 1)[1].strip())
-            except ValueError: pass
+            try:
+                last_exit = int(item.rsplit("=", 1)[1].strip())
+            except ValueError:
+                pass
     execution = read_job_state(WORKSPACE, label)
     if execution:
         if execution.get("status") == "running":

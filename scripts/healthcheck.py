@@ -5,17 +5,18 @@ Checks all critical services and integrations, returns structured results.
 Exit code 0 = all OK, 1 = warnings, 2 = critical failures.
 """
 
-import subprocess
-import os
 import json
-import shlex
+import os
+import subprocess
 import sys
+import zoneinfo
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-import zoneinfo
-sys.path.insert(0, os.path.dirname(__file__))
-from reliability import connect_db, database_path, workspace_path
+
 from family_config import integration
+from reliability import connect_db, database_path, workspace_path
+from runtime_tools import executable
 from sre import (
     active_job_specs,
     latest_calendar_due,
@@ -32,6 +33,10 @@ OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 EMAIL_ACCOUNT = str(integration("email").get("account") or "configured account")
 ACTIVE_JOB_SPECS = active_job_specs()
 SPOND_ENABLED = any(spec.label == "familybot.spond" for spec in ACTIVE_JOB_SPECS)
+OPENCLAW = executable("FAMILYBOT_OPENCLAW", "openclaw")
+HIMALAYA = executable("FAMILYBOT_HIMALAYA", "himalaya")
+LAUNCHCTL = executable("FAMILYBOT_LAUNCHCTL", "launchctl")
+DF = executable("FAMILYBOT_DF", "df")
 
 results = []
 exit_code = 0
@@ -54,18 +59,18 @@ def critical(service, msg, fix=None, auto_fix=None):
                     "fix": fix, "auto_fix": auto_fix})
 
 
-def run(cmd):
+def run(argv: Sequence[str]):
     try:
         env = os.environ.copy()
         env["HOME"] = str(Path.home())
-        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=15, env=env)
+        r = subprocess.run(list(argv), capture_output=True, text=True, timeout=15, env=env)
         return r.returncode, r.stdout.strip(), r.stderr.strip()
-    except subprocess.TimeoutExpired:
-        return -1, "", "timeout"
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return -1, "", type(exc).__name__
 
 
 # ── 1. OpenClaw gateway ────────────────────────────────────────────────────────
-code, out, err = run("openclaw gateway status 2>&1 | grep -E 'Runtime:|RPC probe|Connectivity probe'")
+code, out, err = run([OPENCLAW, "gateway", "status"])
 out_lower = out.lower()
 if "running" in out_lower and ("rpc probe: ok" in out_lower or "connectivity probe: ok" in out_lower):
     ok("gateway", "Running and connectivity probe OK")
@@ -77,7 +82,7 @@ else:
 # A reachable gateway can still reject every conversational and scheduled turn
 # when its default or a cron override points at a retired provider model.
 model_check = Path(__file__).with_name("configure_openclaw_model.py")
-code, out, err = run(f"python3 {shlex.quote(str(model_check))} --check")
+code, out, err = run([sys.executable, str(model_check), "--check"])
 if code == 0:
     ok("openclaw_model", out or "OpenClaw model configuration is compatible")
 else:
@@ -90,7 +95,7 @@ else:
 # ── 2. Telegram channel ────────────────────────────────────────────────────────
 # Fast status intentionally reports SETUP/unknown. Deep status performs the
 # actual channel probe and is the only result suitable for health reporting.
-code, out, err = run("openclaw status --deep 2>&1")
+code, out, err = run([OPENCLAW, "status", "--deep"])
 telegram_line = next((line for line in out.splitlines() if "telegram" in line.lower()), "")
 if code == 0 and " OK " in f" {telegram_line.upper()} ":
     ok("telegram", "Telegram channel connected")
@@ -99,7 +104,7 @@ else:
          fix="Check bot token and restart gateway")
 
 # ── 3. Email / himalaya ───────────────────────────────────────────────────────
-code, out, err = run("himalaya folder list --output json 2>/dev/null")
+code, out, err = run([HIMALAYA, "folder", "list", "--output", "json"])
 if code == 0 and "INBOX" in out:
     ok("email", f"himalaya IMAP connected to {EMAIL_ACCOUNT}")
 else:
@@ -169,7 +174,7 @@ missing_jobs, active_failures, historical_failures, schedule_errors = [], [], []
 job_details = []
 for spec in ACTIVE_JOB_SPECS:
     label = spec.label
-    code, out, err = run(f"launchctl print gui/{os.getuid()}/{label}")
+    code, out, err = run([LAUNCHCTL, "print", f"gui/{os.getuid()}/{label}"])
     if code != 0:
         missing_jobs.append(label)
         continue
@@ -266,9 +271,9 @@ else:
     ok("spond", "Optional Spond integration is not configured")
 
 # ── 7. Disk space ─────────────────────────────────────────────────────────────
-code, out, err = run(f"df -h {WORKSPACE} 2>/dev/null | tail -1")
+code, out, err = run([DF, "-h", str(WORKSPACE)])
 if code == 0 and out:
-    parts = out.split()
+    parts = out.splitlines()[-1].split()
     # macOS df: Filesystem Size Used Avail Capacity
     try:
         capacity = parts[4] if len(parts) > 4 else "?"

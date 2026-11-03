@@ -6,17 +6,16 @@ stores in SQLite, and returns items needing attention.
 """
 
 import asyncio
+import json
 import os
 import sys
-import sqlite3
-import json
-from datetime import datetime, timezone, timedelta
-import zoneinfo
 import types
+import zoneinfo
+from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
-from reliability import atomic_write_json, connect_db, database_path, workspace_path
 from family_config import integration
+from reliability import atomic_write_json, connect_db, database_path, workspace_path
 
 OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 DB_PATH = str(database_path())

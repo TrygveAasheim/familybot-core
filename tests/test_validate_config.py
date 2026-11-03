@@ -9,7 +9,6 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 from validate_config import validate
 
-
 ROOT = Path(__file__).resolve().parent.parent
 
 
