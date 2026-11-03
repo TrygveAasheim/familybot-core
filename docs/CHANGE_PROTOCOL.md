@@ -150,9 +150,10 @@ The Ukeplan incident is the reference pattern for cross-repository fixes:
   persist a plan before the email becomes terminal, recover recent stranded
   messages idempotently, and derive the Monday-Friday range from a valid ISO
   week when the PDF omits explicit dates. PDF content remains authoritative.
-- Portal acceptance: expose only accepted, source-backed interpretation data in
-  the curated dashboard contract and render the same interpretation on the
-  child overview and detail page, with deterministic text/day facts as fallback.
+- Portal acceptance: keep the dashboard contract compact, expose accepted,
+  source-backed interpretation data only through the scoped detail route, and
+  keep the child overview as a link to that route. The detail view uses
+  deterministic text/day facts as fallback.
 - Verification: test blank-subject routing, parse real/template PDF variants,
   verify retry and no-duplicate recovery, run both repository suites, and make
   a live API/UI check for each affected child.
