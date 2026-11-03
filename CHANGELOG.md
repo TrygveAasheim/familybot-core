@@ -24,6 +24,9 @@ Household data, credentials and operational identifiers are never included.
   plugin audit now reports no unpinned install record.
 - Prevented a warning exit from the health job from recursively appearing as a
   new scheduler failure; crashes and other interval-job failures remain active.
+- Captured the deployed subway-notification repair in source: provider fetch
+  failures preserve the previous cache, cosmetic notice edits are deduplicated,
+  and durable notification history prevents repeated Telegram alerts.
 
 There is no database, credential or household-state migration. Roll back by
 redeploying the preceding source commit; private state remains compatible.

@@ -14,12 +14,17 @@ State tracking: db/tbane_alert_state.json
   Alerts fire once when new, clear when resolved.
 """
 
+from __future__ import annotations
+
 import json
 import os
+import re
 import subprocess
 import sys
+import unicodedata
 import zoneinfo
 from datetime import datetime
+from difflib import SequenceMatcher
 
 sys.path.insert(0, os.path.dirname(__file__))
 from family_config import integration, telegram_recipients
@@ -52,8 +57,8 @@ def vacation_mode_active() -> bool:
         return False
 
 
-def fetch_disruptions() -> list[dict]:
-    """Fetch active disruptions from Entur. Returns list of {lines, summary, key}."""
+def fetch_disruptions() -> list[dict] | None:
+    """Fetch disruptions, or ``None`` when Entur could not be read reliably."""
     try:
         r = subprocess.run(
             ["curl", "-s", "--max-time", "10",
@@ -62,13 +67,36 @@ def fetch_disruptions() -> list[dict]:
             capture_output=True, text=True, timeout=12
         )
         if r.returncode != 0 or not r.stdout.strip():
-            return []
+            return None
 
         return parse_siri_disruptions(r.stdout, ALL_TBANE)
 
     except Exception as e:
         print(f"[tbane_monitor] fetch error: {e}")
-        return []
+        return None
+
+
+def normalized_summary(value: object) -> str:
+    """Normalize cosmetic API changes so they do not create a new alert."""
+    text = unicodedata.normalize("NFKC", str(value or "")).casefold()
+    return " ".join(re.sub(r"[^\wæøå]+", " ", text).split())
+
+
+def alert_fingerprint(disruption: dict) -> str:
+    lines = ",".join(sorted(str(line) for line in disruption.get("lines", [])))
+    return f"{lines}:{normalized_summary(disruption.get('summary'))}"
+
+
+def summaries_similar(left: object, right: object) -> bool:
+    """Treat punctuation and small wording edits as the same notice."""
+    a, b = normalized_summary(left), normalized_summary(right)
+    if not a or not b:
+        return a == b
+    if a == b:
+        return True
+    a_tokens, b_tokens = set(a.split()), set(b.split())
+    overlap = len(a_tokens & b_tokens) / max(len(a_tokens | b_tokens), 1)
+    return overlap >= 0.75 or SequenceMatcher(None, a, b).ratio() >= 0.86
 
 
 def classify(disruptions: list[dict]) -> dict:
@@ -118,34 +146,57 @@ def send_telegram(message: str):
         )
 
 
+def reconcile_alerts(classified: dict, state: dict, observed_at: datetime) -> tuple[dict, list[str]]:
+    """Update durable alert history and return summaries that are genuinely new."""
+    active = dict(state.get("active_alerts", {}))
+    notified = dict(state.get("notified_alerts", {}))
+    new_alerts = {
+        alert_fingerprint(disruption): disruption["summary"]
+        for disruption in classified["line2"] + classified["system"]
+    }
+    fired = []
+
+    for key, summary in new_alerts.items():
+        previously_notified = (
+            key in notified
+            or any(summaries_similar(summary, old_summary) for old_summary in active.values())
+            or any(
+                summaries_similar(summary, record.get("summary") if isinstance(record, dict) else record)
+                for record in notified.values()
+            )
+        )
+        if not previously_notified:
+            fired.append(summary)
+
+    observed_text = observed_at.isoformat(timespec="seconds")
+    for key, summary in new_alerts.items():
+        # Cache every observed notice, including similar variants, so it cannot
+        # re-alert after a transient all-clear or process restart.
+        notified[key] = {"summary": summary, "last_seen": observed_text}
+
+    updated = dict(state)
+    updated["active_alerts"] = new_alerts
+    updated["notified_alerts"] = notified
+    return updated, fired
+
+
 def run():
     disruptions = fetch_disruptions()
+    # A timeout or malformed/empty response is not an all-clear. Keep the cache
+    # unchanged so a temporary Entur failure cannot make an old notice look new.
+    if disruptions is None:
+        print("[tbane_monitor] Fetch failed; keeping previous alert cache.")
+        return
     classified = classify(disruptions)
 
     # Alert logic
     state = load_state()
-    active = state.get("active_alerts", {})
-    new_alerts = {}
-    fired = []
-    cleared = []
-
-    # Build new alert set
-    for d in classified["line2"] + classified["system"]:
-        new_alerts[d["key"]] = d["summary"]
-
-    # Fire on new alerts
-    for key, summary in new_alerts.items():
-        if key not in active:
-            fired.append(summary)
-
-    # Note cleared alerts
-    for key in active:
-        if key not in new_alerts:
-            cleared.append(active[key])
+    now = datetime.now(OSLO)
+    state, fired = reconcile_alerts(classified, state, now)
 
     # Send alert if new disruptions
     # Only alert during daytime (07:30-22:00 Oslo)
-    hour_min = datetime.now(OSLO).hour * 60 + datetime.now(OSLO).minute
+    hour_min = now.hour * 60 + now.minute
     daytime = 7 * 60 + 30 <= hour_min <= 22 * 60
 
     if fired and daytime:
@@ -153,8 +204,6 @@ def run():
         msg = f"T-bane avvik — {lines_desc}:\n" + "\n".join(f"- {s}" for s in fired)
         send_telegram(msg)
 
-    # Update state
-    state["active_alerts"] = new_alerts
     save_state(state)
 
 

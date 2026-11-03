@@ -1,9 +1,16 @@
 import os
 import sys
 import unittest
+from datetime import datetime, timezone
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+os.environ.setdefault(
+    "FAMILYBOT_FAMILY_CONFIG",
+    os.path.join(os.path.dirname(__file__), "fixtures", "family.test.json"),
+)
 
+import tbane_monitor
 from transport_relevance import classify_for_corridor, notice_relevant, parse_siri_disruptions
 
 CORRIDOR = [
@@ -71,6 +78,50 @@ class TransportRelevanceTests(unittest.TestCase):
         self.assertEqual(result[0]["stop_names"], ["Lindeberg T"])
         self.assertEqual(result[0]["stop_refs"], ["NSR:Quay:123"])
         self.assertFalse(notice_relevant(result[0], CORRIDOR))
+
+
+class SubwayAlertStateTests(unittest.TestCase):
+    def test_cosmetic_notice_edits_share_alert_identity(self):
+        original = "Signalfeil på linje 2 – noe forsinkelse."
+        edited = "Signalfeil på linje 2: noe forsinkelse"
+        self.assertTrue(tbane_monitor.summaries_similar(original, edited))
+
+    def test_line_order_does_not_change_alert_fingerprint(self):
+        first = disruption("Driftsstans", lines=("2", "1"))
+        second = disruption("Driftsstans", lines=("1", "2"))
+        self.assertEqual(tbane_monitor.alert_fingerprint(first), tbane_monitor.alert_fingerprint(second))
+
+    def test_notified_variant_is_not_sent_again(self):
+        observed = datetime(2026, 11, 3, 8, 0, tzinfo=timezone.utc)
+        state = {
+            "active_alerts": {},
+            "notified_alerts": {
+                "legacy": {"summary": "Signalfeil på linje 2 – noe forsinkelse.", "last_seen": "2026-11-03T07:00:00Z"}
+            },
+        }
+        classified = {
+            "line2": [disruption("Signalfeil på linje 2: noe forsinkelse")],
+            "system": [],
+        }
+
+        updated, fired = tbane_monitor.reconcile_alerts(classified, state, observed)
+
+        self.assertEqual(fired, [])
+        self.assertEqual(len(updated["active_alerts"]), 1)
+        self.assertEqual(len(updated["notified_alerts"]), 2)
+
+    def test_failed_fetch_preserves_alert_cache(self):
+        with (
+            mock.patch.object(tbane_monitor, "fetch_disruptions", return_value=None),
+            mock.patch.object(tbane_monitor, "load_state") as load_state,
+            mock.patch.object(tbane_monitor, "save_state") as save_state,
+            mock.patch.object(tbane_monitor, "send_telegram") as send_telegram,
+        ):
+            tbane_monitor.run()
+
+        load_state.assert_not_called()
+        save_state.assert_not_called()
+        send_telegram.assert_not_called()
 
 
 if __name__ == "__main__":
