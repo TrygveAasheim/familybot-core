@@ -3,6 +3,25 @@
 Material security, reliability and compatibility changes are recorded here.
 Household data, credentials and operational identifiers are never included.
 
+## 2026-11-05
+
+### Outcome reliability safeguards
+
+- Reject briefing inference that omits configured child names or required
+  important task and RSVP titles, then deliver the complete deterministic
+  fallback instead.
+- Preserve upcoming events, evening advice, secondary-location forecasts and
+  important parent actions in deterministic briefing output.
+- Report recent briefing fallback and blocked current/next-week Ukeplan
+  interpretation as content-free health signals owned by the existing SRE
+  counter and alert loop.
+- Make failed Ukeplan interpretation attempts exit non-zero, reject stored
+  attribution conflicts before inference and validate parsed ISO dates before
+  mutating plan rows.
+
+There is no database or credential migration. Deployment adds two optional,
+owner-only briefing outcome files; rollback may leave them inert on disk.
+
 ## 2026-11-03
 
 ### Security and quality hardening
