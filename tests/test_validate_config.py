@@ -31,6 +31,51 @@ class ValidateConfigTests(unittest.TestCase):
         report = validate(ROOT / "config/family.example.json", allow_placeholders=True, check_permissions=False)
         self.assertEqual(report.errors, [])
 
+    def test_dashboard_profile_needs_no_optional_integrations(self):
+        value = self.load_fixture()
+        value["profile"] = "dashboard"
+        value["integrations"] = {}
+        report = self.validate_value(value)
+        self.assertEqual(report.errors, [])
+
+    def test_disabled_integration_does_not_require_settings(self):
+        value = self.load_fixture()
+        value["profile"] = "connected"
+        value["integrations"] = {
+            "email": {"enabled": False},
+            "spond": {"enabled": False},
+            "weather": {"enabled": False},
+            "transport": {"enabled": False},
+        }
+        report = self.validate_value(value)
+        self.assertEqual(report.errors, [])
+
+    def test_unknown_profile_fails(self):
+        value = self.load_fixture()
+        value["profile"] = "everything"
+        report = self.validate_value(value)
+        self.assertIn("profile", "\n".join(report.errors))
+
+    def test_school_calendar_and_notification_times_are_validated(self):
+        value = self.load_fixture()
+        value["school"] = {
+            "municipality": "Nordvik kommune (fiktiv)",
+            "calendar_events": [
+                {
+                    "year_label": "2026-2027",
+                    "event_type": "break",
+                    "name": "Høstferie",
+                    "start_date": "2026-10-09",
+                    "end_date": "2026-10-05",
+                }
+            ],
+        }
+        value["notifications"] = {"weekday_time": "25:61"}
+        report = self.validate_value(value)
+        combined = "\n".join(report.errors)
+        self.assertIn("end_date must not be before start_date", combined)
+        self.assertIn("24-hour HH:MM", combined)
+
     def test_placeholders_duplicate_ids_and_open_permissions_fail(self):
         value = self.load_fixture()
         value["members"][0]["name"] = "PARENT_1_NAME"
@@ -50,6 +95,15 @@ class ValidateConfigTests(unittest.TestCase):
         self.assertIn("exact http origin", combined)
         self.assertIn("supplied together", combined)
 
+    def test_enabled_weather_requires_home_coordinates(self):
+        value = copy.deepcopy(self.load_fixture())
+        value["integrations"]["weather"].pop("home_lat")
+        value["integrations"]["weather"].pop("home_lon")
+        report = self.validate_value(value)
+        combined = "\n".join(report.errors)
+        self.assertIn("integrations.weather.home_lat", combined)
+        self.assertIn("integrations.weather.home_lon", combined)
+
     def test_portal_feature_flags_must_be_boolean(self):
         value = copy.deepcopy(self.load_fixture())
         value["portal"]["features"] = {"hellofresh": "yes"}
@@ -61,9 +115,18 @@ class ValidateConfigTests(unittest.TestCase):
         report = self.validate_value(value)
         self.assertIn("portal.features.hellofresh_account", "\n".join(report.errors))
 
+        value["portal"]["features"]["hellofresh"] = False
         value["portal"]["features"]["hellofresh_account"] = True
         report = self.validate_value(value)
+        self.assertIn("requires portal.features.hellofresh=true", "\n".join(report.errors))
+
+        value["portal"]["features"]["hellofresh"] = True
+        report = self.validate_value(value)
         self.assertEqual(report.errors, [])
+
+        value["portal"]["features"] = {"oda": False, "oda_ai": True}
+        report = self.validate_value(value)
+        self.assertIn("requires portal.features.oda=true", "\n".join(report.errors))
 
     def test_secret_fields_are_rejected_without_printing_values(self):
         value = self.load_fixture()

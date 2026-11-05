@@ -46,7 +46,7 @@ class CurrentClassRoutingTests(unittest.TestCase):
 class UkeplanSourceTests(unittest.TestCase):
     def test_blank_subject_can_still_identify_ukeplan_from_body(self):
         self.assertTrue(process_emails.is_ukeplan_message(
-            "", "Ukeplan Signe\n<#part filename=\"uke-36.pdf\">"
+            "", "Ukeplan Child One\n<#part filename=\"uke-36.pdf\">"
         ))
 
     def test_unrelated_blank_subject_is_not_ukeplan(self):

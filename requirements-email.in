@@ -1,0 +1,2 @@
+# School-email PDF extraction. Installed only when integrations.email is enabled.
+pdfplumber==0.11.10

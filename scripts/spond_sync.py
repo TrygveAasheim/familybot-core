@@ -14,10 +14,10 @@ import zoneinfo
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
-from family_config import integration
+from family_config import family_timezone, integration
 from reliability import atomic_write_json, connect_db, database_path, workspace_path
 
-OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
+LOCAL_ZONE = zoneinfo.ZoneInfo(family_timezone())
 DB_PATH = str(database_path())
 SECRETS = str(workspace_path() / "secrets.env")
 STATE_PATH = workspace_path() / "db" / "spond_sync_state.json"
@@ -270,10 +270,10 @@ async def run_sync():
 
 
 if __name__ == "__main__":
-    print(f"[{datetime.now(OSLO).strftime('%Y-%m-%d %H:%M %Z')}] Syncing Spond...")
+    print(f"[{datetime.now(LOCAL_ZONE).strftime('%Y-%m-%d %H:%M %Z')}] Syncing Spond...")
     result = asyncio.run(run_sync())
     state = {
-        "checked_at": datetime.now(OSLO).isoformat(),
+        "checked_at": datetime.now(LOCAL_ZONE).isoformat(),
         "ok": not result["failures"],
         "failures": result["failures"],
         "new": len(result["new"]),

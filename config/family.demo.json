@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "profile": "dashboard",
+  "family": {
+    "display_name": "Familien Nordlys",
+    "locale": "nb-NO",
+    "timezone": "Europe/Oslo"
+  },
+  "portal": {
+    "hostname": "familie.local",
+    "web_port": 3000,
+    "api_port": 8788,
+    "bonjour_name": "Nordlys familieportal",
+    "allowed_origins": [
+      "http://familie.local:3000",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000"
+    ],
+    "features": {
+      "oda": false,
+      "oda_ai": false,
+      "hellofresh": false,
+      "hellofresh_account": false
+    }
+  },
+  "members": [
+    {"member_id": 1, "role": "parent", "name": "Nora Nordmann", "slug": "nora"},
+    {"member_id": 2, "role": "parent", "name": "Ola Nordmann", "slug": "ola"},
+    {
+      "member_id": 3,
+      "role": "child",
+      "name": "Mikkel Nordmann",
+      "slug": "mikkel",
+      "avatar": "🦊",
+      "school": "Nordvik skole (fiktiv)",
+      "grade": "4A",
+      "default_reward": {
+        "title": "Velg familiefilm",
+        "emoji": "🎬",
+        "target_value": 30,
+        "goal_type": "points",
+        "unit_label": "poeng"
+      }
+    },
+    {
+      "member_id": 4,
+      "role": "child",
+      "name": "Ingrid Nordmann",
+      "slug": "ingrid",
+      "avatar": "🦋",
+      "school": "Fjordgløtt skole (fiktiv)",
+      "grade": "2B",
+      "default_reward": {
+        "title": "Bestem fredagsdessert",
+        "emoji": "🍓",
+        "target_value": 30,
+        "goal_type": "points",
+        "unit_label": "poeng"
+      }
+    }
+  ],
+  "school": {
+    "municipality": "Nordvik kommune (fiktiv)",
+    "calendar_events": [
+      {
+        "year_label": "2026-2027",
+        "event_type": "first_day",
+        "name": "Første skoledag",
+        "start_date": "2026-08-17",
+        "end_date": "2026-08-17"
+      },
+      {
+        "year_label": "2026-2027",
+        "event_type": "break",
+        "name": "Juleferie",
+        "start_date": "2026-12-21",
+        "end_date": "2027-01-01"
+      },
+      {
+        "year_label": "2026-2027",
+        "event_type": "last_day",
+        "name": "Siste skoledag",
+        "start_date": "2027-06-18",
+        "end_date": "2027-06-18"
+      }
+    ]
+  },
+  "integrations": {}
+}

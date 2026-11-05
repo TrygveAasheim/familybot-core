@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Parser for Oslo skole ukeplaner (PDF).
+Parser for Norwegian school week-plan PDFs.
 
 Kolonnestruktur i timeplanen (side 2):
 Venstre margin (time/klokkeslett) | Mandag | Tirsdag | Onsdag | Torsdag | Fredag
@@ -12,8 +12,9 @@ Kolonnebredden er jevn. X-posisjoner til aktivitetsinnhold identifiserer dag:
 - Torsdag: x ≈ 510-615
 - Fredag:  x ≈ 615+
 
-Disse grensene er basert på observasjon av PDF-koordinater og er konsistente
-på tvers av ukeplaner fra samme skole/lærer.
+These fallback boundaries came from one supported template. The parser normally
+derives boundaries from each document's weekday headers so other schools do not
+inherit an owner-specific layout assumption.
 """
 
 import re

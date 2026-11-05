@@ -16,6 +16,21 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: Check out compatible Portal source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          repository: TrygveAasheim/familybot-portal
+          ref: dev
+          path: familybot-portal
+      - name: Use matching Portal branch when available
+        env:
+          CANDIDATE_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git -C familybot-portal fetch origin "refs/heads/$CANDIDATE_BRANCH:refs/remotes/origin/familybot-candidate"; then
+            git -C familybot-portal checkout --detach refs/remotes/origin/familybot-candidate
+          else
+            echo "No matching Portal branch; testing against reviewed Portal dev."
+          fi
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
@@ -31,7 +46,39 @@ jobs:
           ruff check scripts tests
           bandit -q -r scripts -x '*/test_*.py' --severity-level medium --confidence-level medium
           pip-audit -r requirements.txt --disable-pip
+          pip-audit -r requirements-email.txt --disable-pip
+          pip-audit -r requirements-spond.txt --disable-pip
           python3 -m unittest discover -s tests -p 'test_*.py'
           python3 -m py_compile scripts/*.py
           bash -n scripts/*.sh
           git diff --check
+
+  clean-install-macos:
+    name: Clean dashboard install (macOS)
+    runs-on: macos-14
+    steps:
+      - name: Check out Core source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: Check out compatible Portal source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          repository: TrygveAasheim/familybot-portal
+          ref: dev
+          path: familybot-portal
+      - name: Use matching Portal branch when available
+        env:
+          CANDIDATE_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git -C familybot-portal fetch origin "refs/heads/$CANDIDATE_BRANCH:refs/remotes/origin/familybot-candidate"; then
+            git -C familybot-portal checkout --detach refs/remotes/origin/familybot-candidate
+          else
+            echo "No matching Portal branch; testing against reviewed Portal dev."
+          fi
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: Verify empty-database and dashboard lifecycle
+        run: |
+          python3 -m unittest tests.test_database_migrations tests.test_clean_room_install
+          plutil -lint familybot-portal/launchd/*.plist

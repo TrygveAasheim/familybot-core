@@ -25,8 +25,7 @@ def load_family_config() -> dict[str, Any]:
         value = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError(
-            f"Missing or invalid local family configuration: {path}. "
-            "Start from config/family.example.json."
+            f"Missing or invalid local family configuration: {path}. Start from config/family.example.json."
         ) from exc
     if not isinstance(value, dict) or not isinstance(value.get("members"), list):
         raise RuntimeError(f"Family configuration has no members list: {path}")
@@ -51,14 +50,27 @@ def children() -> list[dict[str, Any]]:
 
 
 def telegram_recipients() -> list[tuple[str, str]]:
-    return [
-        (str(item["name"]), str(item["telegram_target"]))
-        for item in parents() if item.get("telegram_target")
-    ]
+    return [(str(item["name"]), str(item["telegram_target"])) for item in parents() if item.get("telegram_target")]
 
 
 def integration(name: str) -> dict[str, Any]:
     value = load_family_config().get("integrations", {}).get(name, {})
+    return value if isinstance(value, dict) and value.get("enabled", True) is not False else {}
+
+
+def capability_profile() -> str:
+    value = str(load_family_config().get("profile") or "agent")
+    return value if value in {"dashboard", "connected", "agent"} else "agent"
+
+
+def family_timezone() -> str:
+    family = load_family_config().get("family", {})
+    value = family.get("timezone") if isinstance(family, dict) else None
+    return str(value or "Europe/Oslo")
+
+
+def notification_settings() -> dict[str, Any]:
+    value = load_family_config().get("notifications", {})
     return value if isinstance(value, dict) else {}
 
 

@@ -21,12 +21,19 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from briefing_data import collect_daily, collect_weekly
-from family_config import children, family_prompt_context, integration, parents, telegram_recipients
+from family_config import (
+    children,
+    family_prompt_context,
+    family_timezone,
+    integration,
+    parents,
+    telegram_recipients,
+)
 from outcome_health import record_briefing
 from reliability import DeliveryOutbox, database_path, workspace_path
 from runtime_tools import executable
 
-OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
+LOCAL_ZONE = zoneinfo.ZoneInfo(family_timezone())
 
 RECIPIENTS = telegram_recipients()
 FAMILY_CONTEXT = family_prompt_context()
@@ -259,7 +266,7 @@ def deliver_briefing(kind: str, text: str, now: Optional[datetime] = None) -> bo
         print("[briefing] Vacation mode active; briefing was generated but not queued.")
         return True
 
-    current = now or datetime.now(OSLO)
+    current = now or datetime.now(LOCAL_ZONE)
     if kind == "daily":
         period = current.date().isoformat()
         expires_at = current + timedelta(hours=8)
@@ -352,7 +359,7 @@ def run_preview():
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "daily"
-    now = datetime.now(OSLO).strftime("%H:%M")
+    now = datetime.now(LOCAL_ZONE).strftime("%H:%M")
     print(f"[{now}] Briefing mode: {mode}")
 
     if mode == "daily":
