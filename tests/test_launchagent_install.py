@@ -107,12 +107,9 @@ class LaunchAgentInstallTests(unittest.TestCase):
                 encoding="utf-8",
             )
             fake_uv.chmod(0o700)
-            branch = subprocess.run(
-                ["git", "-C", str(ROOT), "branch", "--show-current"],
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.strip()
+            fake_git = root / "git"
+            fake_git.write_text("#!/bin/bash\nprintf 'ci-test\\n'\n", encoding="utf-8")
+            fake_git.chmod(0o700)
             environment = os.environ.copy()
             environment.update(
                 {
@@ -121,8 +118,9 @@ class LaunchAgentInstallTests(unittest.TestCase):
                     "FAMILYBOT_LAUNCH_AGENTS_DIR": str(root / "LaunchAgents"),
                     "FAMILYBOT_PYTHON": sys.executable,
                     "FAMILYBOT_UV": str(fake_uv),
-                    "FAMILYBOT_DEPLOY_BRANCH": branch,
+                    "FAMILYBOT_DEPLOY_BRANCH": "ci-test",
                     "FAMILYBOT_TEST_UV_LOG": str(uv_log),
+                    "PATH": f"{root}:{environment.get('PATH', '')}",
                 }
             )
             result = subprocess.run(
