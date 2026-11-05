@@ -22,6 +22,11 @@ Household data, credentials and operational identifiers are never included.
 There is no database or credential migration. Deployment adds two optional,
 owner-only briefing outcome files; rollback may leave them inert on disk.
 
+### Repository maintenance
+
+- Directed future Dependabot pull requests to the `dev` integration branch so
+  dependency changes follow the documented review and deployment flow.
+
 ## 2026-11-03
 
 ### Security and quality hardening
