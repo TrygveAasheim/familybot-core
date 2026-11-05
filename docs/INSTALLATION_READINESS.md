@@ -38,7 +38,7 @@ its own provider accounts and contracts.
 | Missing integrations | Weather/transport/provider absence returns isolated unavailable states | Automated pass |
 | Invalid config | Validation stops before database creation | Automated pass |
 | Fictional browser demo | Isolated API and Portal served the clean-room Nordlys data; screenshot captured | Local simulated pass, not hardware |
-| macOS portability | Clean lifecycle and plist checks on `macos-14` CI | CI configured; requires PR run |
+| macOS portability | Clean lifecycle and plist checks on `macos-15` CI | CI configured; requires PR run |
 | Physical Mac mini/iPad | Bonjour, launchd, touch, rotation and Home Screen behavior | Not executed in this assessment |
 | Live external accounts | IMAP, Spond, Telegram/model, Oda and HelloFresh | Not executed; household verification required |
 
