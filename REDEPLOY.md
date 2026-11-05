@@ -6,12 +6,11 @@ credentials. You need both.
 ## Backup inventory
 
 - [ ] `familybot-core` and `familybot-portal` refs/tags
-- [ ] `$HOME/.openclaw/workspace/config/family.local.json`
-- [ ] `$HOME/.openclaw/workspace/db/family.db` plus required attachments/memory
-- [ ] OpenClaw provider and Telegram credential state
-- [ ] Himalaya configuration/secret store
-- [ ] `$HOME/.openclaw/workspace/secrets.env` when Spond is enabled
-- [ ] portal `runtime/parent-pin.txt`
+- [ ] `$HOME/.familybot/config/family.local.json` and `parent-pin.txt`
+- [ ] `$HOME/.familybot/db/family.db` plus required attachments/memory
+- [ ] OpenClaw provider and Telegram credential state, only for the agent profile
+- [ ] Himalaya configuration/secret store, only when email is enabled
+- [ ] `$HOME/.familybot/secrets.env` when Spond is enabled
 - [ ] reviewed LaunchAgent schedules and any non-default environment overrides
 
 Store runtime backup material encrypted and separately from Git.
@@ -19,28 +18,35 @@ Store runtime backup material encrypted and separately from Git.
 ## Clean-host restore order
 
 1. Create the service user and install Command Line Tools, Homebrew Node.js
-   22.22.3–22.x, `uv`, Python 3.12, SQLite, OpenClaw and Himalaya. Follow the
-   tested commands and minimal OpenClaw profile in `GETTING_STARTED.md`.
+   22.22.3–22.x, `uv`, Python 3.12 and SQLite. Install OpenClaw, Himalaya and
+   other optional clients only for capabilities present in the backup.
 2. Clone `familybot-core` and `familybot-portal` as sibling directories. Check
    out a reviewed tag or `main`, not a moving development branch.
-3. Create both repositories' isolated Python 3.12 environments with `uv`,
-   install `familybot-core/requirements.txt`, and run `npm ci` plus the Portal
-   Python dependency commands from `GETTING_STARTED.md`.
-4. Restore `$HOME/.openclaw/workspace` with directories mode `0700` and private
+3. Restore `$HOME/.familybot` with directories mode `0700` and private
    files mode `0600`.
-5. Restore `family.db`; run:
+4. Verify the selected backup without replacing current state:
 
    ```bash
-   sqlite3 "$HOME/.openclaw/workspace/db/family.db" \
+   sqlite3 "/exact/path/to/backup/family.db" \
      "PRAGMA integrity_check; PRAGMA foreign_key_check;"
    ```
 
-6. Restore or create the one local family config from
-   `familybot-core/config/family.example.json`; run
-   `python3 familybot-core/scripts/validate_config.py`.
-7. Restore credentials using [CREDENTIALS.md](CREDENTIALS.md). Test capability,
+5. Restore the database through the supported command, which verifies the
+   source and preserves a pre-restore copy when a target already exists:
+
+   ```bash
+   cd familybot-core
+   uv run --python 3.12 scripts/manage_database.py restore \
+     --db "$HOME/.familybot/db/family.db" \
+     --backup-root "$HOME/.familybot/backups" \
+     --from-backup "/exact/path/to/backup/family.db"
+   ```
+
+6. Restore or create the one local family config and validate it with an
+   explicit `FAMILYBOT_FAMILY_CONFIG` path.
+7. Restore enabled credentials using [CREDENTIALS.md](CREDENTIALS.md). Test capability,
    never secret value.
-8. Audit and apply the OpenClaw default model before deployment:
+8. For the agent profile only, audit and apply the OpenClaw default model before deployment:
 
    ```bash
    python3 familybot-core/scripts/configure_openclaw_model.py --apply --restart
@@ -48,14 +54,20 @@ Store runtime backup material encrypted and separately from Git.
 
    Prove access with one no-delivery agent turn; a configured catalog entry is
    not sufficient.
-9. Run `familybot-core/.venv/bin/python scripts/check_setup.py --mode runtime`
-   and both repositories' unit/lint/build suites before installing services.
-10. Back up the restored database, then deploy reviewed core scripts and
-   LaunchAgent templates with `bash scripts/deploy_core.sh --reload`.
-11. In `familybot-portal`, create/restore the parent PIN and run
-    `bash scripts/deploy-local.sh`.
-12. Run `python3 tests/acceptance.py`; require every critical criterion to pass.
-13. Verify one email/ukeplan, one Spond poll if enabled, one deterministic
+9. Rerun the idempotent installer. It applies compatible Core and Portal
+   migrations and deploys the dashboard:
+
+   ```bash
+   uv run --python 3.12 scripts/install_familybot.py \
+     --portal-repo ../familybot-portal
+   ```
+
+10. Run `scripts/check_setup.py --mode runtime --profile dashboard` (or the
+    restored profile) and both repositories' verification suites.
+11. For connected/agent profiles, deploy the selected Core jobs with
+    `bash scripts/deploy_core.sh --reload`.
+12. Run `python3 familybot-portal/tests/acceptance.py`; require every critical criterion to pass.
+13. Verify one email/Ukeplan, one Spond poll if enabled, one deterministic
     briefing preview, one Telegram delivery to each parent, weather, Entur and
     an iPad child completion/parent rejection cycle.
 
@@ -75,27 +87,26 @@ git -C familybot-core pull --ff-only
 git -C familybot-portal pull --ff-only
 ```
 
-Run preflight and all tests. Take a consistent SQLite backup before any
-migration. Deploy portal last, run acceptance, then return development checkouts
-to `dev` if that is your workflow.
+Create a consistent backup with `scripts/manage_database.py backup`, then rerun
+the installer. It migrates Core before Portal, refuses future/incompatible
+schema versions and verifies the local services. Deploy connected/agent Core
+jobs only after the Portal baseline is healthy.
 
 ## Rollback
 
 1. Stop the affected LaunchAgent.
 2. Keep the failed logs and database copy for diagnosis.
-3. Restore the pre-migration SQLite backup if a migration changed data.
+3. Restore the selected pre-migration SQLite backup with
+   `scripts/manage_database.py restore`.
 4. Check out the last known-good tag/commit and redeploy generated runtime.
 5. Restart and rerun health/acceptance checks.
 
 Do not use Git rollback to restore private SQLite state.
 
-## Current non-automated boundary
+## Recovery evidence and limits
 
-The portal has a local deploy script and LaunchAgents. Nine base health-owned Core
-LaunchAgents are installed, with the tenth Spond job enabled only when a group
-is configured. All available job templates are source-controlled under
-`ops/launchd/` and installed through
-`scripts/install_launchagents.sh`. Both deploy scripts create isolated Python
-3.12 runtimes instead of relying on macOS's system Python. The remaining
-non-automated boundary is an empty Core database: retain a supported starter or
-reviewed operational database and credentials in the encrypted recovery bundle.
+Empty initialization, repeat installation, upgrade, migration failure rollback
+and restore are automated tests. A clean-room CI run cannot prove the household's
+router, iPad, mail provider, Spond account, Telegram bot, model entitlement or
+experimental grocery-provider contract. Record those as manual verification,
+not as inferred success.

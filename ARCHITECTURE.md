@@ -26,7 +26,7 @@ flowchart LR
       Launchd["launchd schedules"]
       Core["FamilyBot Core jobs"]
       DB[("SQLite family.db")]
-      Gateway["OpenClaw gateway"]
+      Gateway["OpenClaw gateway - optional"]
       API["Curated local API :8788"]
       Web["Familieportalen :3000"]
       Bonjour["Bonjour: Familieportalen"]
@@ -89,22 +89,33 @@ Git checkouts/                         reviewed, non-private source
   familybot-core/
   familybot-portal/
 
-$HOME/.openclaw/workspace/            private durable state
+$HOME/.familybot/                     private durable state for new installs
   config/family.local.json
+  config/parent-pin.txt
   db/family.db
   scripts/
   secrets.env
   attachments/, logs/, memory/, backups/
 
-$HOME/.openclaw/runtime/familybot-portal/  generated deployed portal
+$HOME/.familybot/runtime/familybot-portal/ generated deployed portal
 $HOME/Library/LaunchAgents/                reviewed schedules/supervisors
 ```
+
+Existing households may keep an older `$HOME/.openclaw/workspace` path through
+`FAMILYBOT_WORKSPACE`; migration does not require moving private state.
 
 Source control is not a household backup. See [REDEPLOY.md](REDEPLOY.md) for
 the source/state/credential restore order and [SECURITY.md](SECURITY.md) for
 the threat model.
 
 ## Core and add-on dependency rule
+
+The dashboard profile deploys no Core runtime and requires no integration
+package. Connected/Agent Core deployment starts with the stdlib-only base lock,
+then adds the hash-locked PDF or unofficial Spond dependency set only when that
+adapter is explicitly enabled. `requirements.txt` remains the aggregate test
+and contributor lock; it is not evidence that every package is required by a
+household profile.
 
 ```mermaid
 flowchart LR
@@ -122,6 +133,25 @@ Core owns ingestion completion, fact durability, briefings, outbox delivery and
 health. Add-ons may consume curated facts or own separate schemas, but they do
 not change core completion state. The detailed ownership map is in
 [`docs/REPOSITORY_GUIDE.md`](docs/REPOSITORY_GUIDE.md).
+
+## Schema and profile contract
+
+Both repositories share one SQLite file but not implicit table ownership.
+`familybot_schema_migrations` records component, version, migration name and
+checksum. Core currently requires `core:1`; Portal requires `core:1` and owns
+`portal:1..2`. Migrations run transactionally, back up an existing database
+before a pending change and fail closed on an unknown future version or changed
+checksum.
+
+The runtime footprint is selected by configuration:
+
+- Dashboard: Portal only; no Core background schedule or external account.
+- Connected: only configured deterministic adapters and their health/status.
+- Agent: Connected plus isolated model-assisted interpretation, durable
+  briefing delivery and Telegram.
+
+Optional adapters must fail independently. Their absence cannot make SQLite,
+the dashboard, chores or rewards unavailable.
 
 ## Planned Smart Home topology
 

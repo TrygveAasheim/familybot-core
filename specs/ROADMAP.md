@@ -10,20 +10,25 @@
 - [x] Canonical local family configuration and validation
 - [x] iPad-first LAN portal with family, child and parent surfaces
 - [x] Complete health-owned LaunchAgent templates and installer
-- [ ] Clean-room core database migration
-- [ ] Complete configured-parent onboarding and preference management
+- [x] Clean-room Core/Portal database initialization and migrations
+- [x] Guided configured-household dashboard onboarding
 
 ## Uavklarte tekniske punkt
 
-### Spond chat-meldinger
-Testet 2026-04-19. `get_messages()` i spond-biblioteket returnerer 404 for alle grupper — chat-API-et ser ikke ut til å fungere mot vår konto/grupper. Spond har sannsynligvis en separat chat-API som ikke er implementert i biblioteket.
+### Spond chat messages
 
-Mulige veier videre:
-- Aktivere e-postvarsler for Spond-grupper → meldinger havner i innboksen og prosesseres automatisk
-- Reverse-engineere Spond chat-API manuelt
-- Vente på at spond-biblioteket implementerer det
+The community client has not established a supported chat-message contract;
+some account/group combinations return provider errors. FamilyBot therefore
+does not describe Spond chat ingestion as supported.
 
-Status: ikke løst, ikke prioritert. Følges opp når det er aktuelt.
+Possible future paths:
+
+- use account-owned Spond email notifications through normal mail ingestion;
+- add a fixture-backed bounded adapter if the community library publishes a
+  stable contract; or
+- wait for an official provider API.
+
+Status: unsupported and not on the release path.
 
 ---
 
@@ -33,27 +38,25 @@ The canonical plan, device inventory and acceptance criteria are in
 [`SMART_HOME.md`](SMART_HOME.md). Current order:
 
 - [ ] Install Home Assistant as an isolated broker on the Mac mini
-- [ ] Integrate the home Roborock S5 locally without re-pairing
-- [ ] Test the cabin Q5 Pro through the existing Xiaomi Home account
+- [ ] Prove one fictional/test local vacuum adapter without re-pairing production devices
+- [ ] Prove one remote-location cloud adapter behind an explicit consent boundary
 - [ ] Add a separate `/smart-home` portal page and parent-authorized controls
 - [ ] Evaluate laundry, freezer, Nest and cabin climate only after Xiaomi passes
 
 ## Add-on track — Local discovery
 
-### Oslo-events for barn og familier
-Research gjort 2026-04-19. Anbefalte kilder:
-- **TMDB API** (gratis nøkkel) — barnefilmer på kino i Oslo, aldersgrense, omtale
-- **Ticketmaster/Billetservice API** — konserter, familieshow, Oslo-events
-- **LLM-basert ukentlig søk** — supplement siden de fleste norske eventsider blokkerer scraping (VisitOslo 403, Oslo kommune 404, Filmweb JS-rendered)
-- Nasjonalmuseet, Munchmuseet, TusenFryd — parseable ved behov
+### Configured local events for families
 
-Implementasjon: TMDB for kino + ukentlig web-søk som oppsummeres og sendes til familien.
+Future discovery must take the municipality/region from household
+configuration. Candidate sources include official municipal feeds, TMDB for
+cinema metadata and Ticketmaster for events. Scraping or model-assisted search
+must be an optional bounded supplement, not a default Oslo assumption.
 
 
 
 Features that enrich family life but are not core to the organiser function.
 
-- [ ] "What's happening in Oslo for kids this week" — events scraper / API for family-relevant events in Oslo
+- [ ] "What's happening near us this week" — configured-region event API
 - [ ] "What's happening near our configured second location" — conditions, events, activities
 - [ ] Artist tour tracker — monitor announcements for locally configured artists
 

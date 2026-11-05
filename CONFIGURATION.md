@@ -7,14 +7,16 @@ does not carry a second template.
 
 ## Create the local file
 
-From the `familybot-core` checkout:
+The guided installer creates the private file automatically. To create one
+manually from the `familybot-core` checkout:
 
 ```bash
-install -d -m 700 "$HOME/.openclaw/workspace/config"
+install -d -m 700 "$HOME/.familybot/config"
 install -m 600 config/family.example.json \
-  "$HOME/.openclaw/workspace/config/family.local.json"
-${EDITOR:-nano} "$HOME/.openclaw/workspace/config/family.local.json"
-python3 scripts/validate_config.py
+  "$HOME/.familybot/config/family.local.json"
+${EDITOR:-nano} "$HOME/.familybot/config/family.local.json"
+FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json" \
+  python3 scripts/validate_config.py
 ```
 
 The validator prints paths and diagnoses, never family values. It rejects
@@ -26,6 +28,7 @@ broken references and malformed portal origins.
 | Path | Required | Purpose |
 | --- | --- | --- |
 | `schema_version` | yes | Configuration contract; currently `1` |
+| `profile` | yes for new installs | `dashboard`, `connected`, or `agent`; missing is legacy `agent` compatibility |
 | `family.display_name` | yes | Household label shown in family-facing text |
 | `family.locale` | yes | Locale, normally `nb-NO` |
 | `family.timezone` | yes | IANA time zone, normally `Europe/Oslo` |
@@ -40,25 +43,63 @@ broken references and malformed portal origins.
 | `members[].name`, `slug` | yes | Local display name and durable lowercase key |
 | `members[].telegram_target` | when Telegram is used | Recipient identifier; parents only |
 | `members[].grade` | recommended for children | School-email and `ukeplan` routing context |
+| `members[].school`, `teacher` | optional | Per-child school context; different children may use different schools |
 | `members[].avatar` | optional | Child dashboard avatar |
 | `members[].default_reward` | optional | Initial portal reward definition |
 | `integrations.email` | when email job is enabled | Himalaya account label and known forwarding addresses |
 | `integrations.spond.groups[]` | when Spond job is enabled | Group ID, label and optional owning `member_id` |
-| `integrations.transport` | dashboard | Entur stop, direction-specific quay, mode, line and labels |
-| `integrations.weather` | dashboard/briefing | MET user agent and coordinates |
+| `school.municipality`, `calendar_events[]` | optional | Household municipality and its authoritative school dates |
+| `notifications.*` | agent only | Enable/disable briefings and configure local delivery times |
+| `integrations.*.enabled` | optional | Explicitly disable one configured adapter without deleting its settings |
+| `integrations.transport` | optional | Entur stop, direction-specific quay, mode, line and labels |
+| `integrations.weather` | optional | MET user agent, required home coordinates and optional secondary location |
 
 A Spond group may omit or set `member_id` to `null` when it belongs to the
 whole household. Never renumber members after the database contains events,
 plans, chores or rewards.
 
-## Optional integrations
+`member_id` and `role` are the durable household identity. Re-running the
+installer or database initializer may update a member's display name, grade,
+school and teacher; it creates a verified `core-profile-*` backup first and
+keeps name-based Kanban assignments in sync. Changing a member's role is
+rejected because historical rows already refer to that identity. Removing a
+member from configuration does not delete or deactivate their database record:
+preserving that history is deliberate. Archive their active work first and
+keep the existing ID reserved; automated member retirement is not yet a
+supported operation.
 
-Remove an unused optional integration block and do not install its LaunchAgent.
-The configuration file does not enable or disable schedules by itself. The
-home weather and transport blocks are required by the current dashboard.
+## Profiles and optional integrations
+
+An absent integration block is disabled. A present block can also set
+`"enabled": false`; disabled blocks require no other fields and are omitted from
+deployment, health and status checks. The dashboard remains usable without
+weather or transport and shows an honest unavailable state instead.
+
+Profile selection controls the background footprint:
+
+- `dashboard`: no Core LaunchAgents and no external account required;
+- `connected`: health/status plus only configured email, Spond and transport
+  jobs;
+- `agent`: connected jobs plus selected briefings, delivery and model-assisted
+  Ukeplan interpretation.
+
+Changing JSON alone does not load or unload a macOS service. Validate, then run
+`bash scripts/deploy_core.sh --reload` for a deliberate profile change.
 
 The three cabin fields are all-or-none:
 `cabin_label`, `cabin_lat`, and `cabin_lon`.
+
+School dates are configuration-owned because Norwegian municipalities and
+individual schools differ. Add `first_day`, `last_day`, `break`,
+`planning_day` or `school_event` entries with ISO dates. `calendar_seed.py`
+replaces the local school-calendar rows from this list and derives national
+public holidays for the current surrounding years; it does not ship or retain
+an Oslo calendar when another household configuration is applied.
+
+Notification times use `HH:MM` in `family.timezone` and therefore follow the
+IANA daylight-saving rules installed with Python. Available fields are
+`weekday_briefing`, `weekend_briefing`, `weekly_summary`, `weekday_time`,
+`weekend_time`, `weekly_time` and `weekly_weekday`.
 
 ## Configure Ruter or other Norwegian public transport
 
@@ -130,7 +171,9 @@ arbitrary `.local` hosts or entire private ranges.
 ## Overrides
 
 - `FAMILYBOT_FAMILY_CONFIG`: alternate populated JSON path.
-- `FAMILYBOT_WORKSPACE`: alternate workspace for both repositories.
+- `FAMILYBOT_WORKSPACE`: private workspace for both repositories. New installs
+  default to `$HOME/.familybot`; existing OpenClaw-based installs may keep their
+  prior path.
 - `OPENCLAW_WORKSPACE`: legacy core workspace override.
 - `FAMILYBOT_DB_PATH`: alternate SQLite database.
 - `FAMILYBOT_PORTAL_RUNTIME`: alternate deployed portal runtime.

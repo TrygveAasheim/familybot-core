@@ -12,13 +12,14 @@ transport data. SQLite holds normalized durable state. OpenClaw supplies the
 conversational and Telegram layer. The sibling `familybot-portal` repository is
 the iPad-first family interface used directly by parents and children.
 
-## The three repositories and runtimes
+## The repositories and optional runtime
 
 | Component | Responsibility | Must not become |
 | --- | --- | --- |
 | `familybot-core` | Ingestion, parsing, normalized facts, briefings, durable delivery, health and canonical configuration | A web UI or vendor-appliance collection |
 | `familybot-portal` | Curated local API, family/child/parent UI, chores and rewards | An OpenClaw admin console or raw database browser |
-| OpenClaw workspace | Private database, config, attachments, credentials, operational memory and deployed scripts | Source control |
+| Private FamilyBot workspace | Database, config, attachments, credentials, operational memory and deployed scripts | Source control |
+| OpenClaw runtime (optional) | AI/Telegram profile orchestration and provider credentials | A dashboard prerequisite or state owner |
 
 Home Assistant is the planned integration broker for Smart Home features. It is
 not yet a core dependency and must remain outside the ingestion/delivery
@@ -96,6 +97,8 @@ core jobs depend on its availability.
 | Delivery worker | `scripts/flush_outbox.py` |
 | Health/status/SRE | `scripts/healthcheck.py`, `scripts/update_status.py`, `scripts/job_state.py`, `scripts/sre.py`, `scripts/sre_reconcile.py` |
 | Canonical household contract | `config/family.example.json`, `scripts/family_config.py`, `scripts/validate_config.py` |
+| Core schema and recovery | `scripts/database_migrations.py`, `scripts/manage_database.py` |
+| First-time installation | `scripts/install_familybot.py` |
 | Schedule wrapper | `scripts/cron_runner.sh`, `ops/launchd/` |
 
 ## Private runtime boundary
@@ -103,14 +106,24 @@ core jobs depend on its availability.
 Reviewed source lives in Git. Private durable state normally lives under:
 
 ```text
-$HOME/.openclaw/workspace/
+$HOME/.familybot/
   config/family.local.json
+  config/parent-pin.txt
   db/family.db
   attachments/
   backups/
   logs/
   secrets.env
 ```
+
+Older installations may retain `$HOME/.openclaw/workspace` through the explicit
+workspace override. New dashboard installations do not require OpenClaw.
+
+The shared database has explicit component ownership. Core migration version 1
+owns source facts and reliability ledgers. Portal versions 1–2 own chores,
+rewards, completions and interaction idempotency. The Portal refuses to start
+without the compatible Core marker; neither repository may silently create the
+other component's tables.
 
 Do not solve a source problem by editing only the deployed workspace copy. Fix
 and test the repository, then deploy deliberately. Do not solve a runtime-state

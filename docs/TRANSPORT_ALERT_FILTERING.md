@@ -3,11 +3,12 @@
 ## Change record
 
 - Change type: bug fix and configuration improvement.
-- Problem or intent: Entur may associate station accessibility notices with a
-  whole metro line. Line-only filtering therefore sent notices for stations
-  outside the household's Hovseter–Jernbanetorget journey corridor.
-- Evidence: the live alert state contained a line 2 elevator notice for
-  Lindeberg, which is east of Jernbanetorget and outside the configured trip.
+- Problem or intent: Entur may associate a station accessibility notice with a
+  whole line. Line-only filtering can therefore send notices for stations
+  outside a household's configured journey corridor.
+- Evidence: a sanitized SIRI-SX fixture reproduces an elevator notice tagged
+  with the configured line but scoped to a station outside the fictional test
+  corridor.
 - Scope and owner: Core owns Entur parsing and relevance in
   `scripts/transport_relevance.py`; `tbane_monitor.py` owns immediate Telegram
   alerts and `briefing_data.py` owns briefing facts. Portal is unchanged.
