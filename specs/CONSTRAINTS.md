@@ -10,8 +10,9 @@
 
 ### Infrastructure
 - Runs on the family Mac mini (self-hosted, always-on)
-- OpenClaw is optional and limited to the Agent profile's Telegram and
-  interactive inference; launchd schedules deterministic work
+- OpenClaw is optional: the Agent profile uses it for Telegram and inference;
+  separately consented Oda dinner AI can also use its isolated tool-free agent.
+  Dashboard and Oda search/cart do not need it; launchd schedules deterministic work
 - All persistent storage is local (files, JSON, SQLite as needed)
 - No paid SaaS backend is required by the Dashboard profile
 
