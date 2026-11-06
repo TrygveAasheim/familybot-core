@@ -81,6 +81,15 @@ class ManagedInstallTests(unittest.TestCase):
                     connection.close()
                 subprocess.run([sys.executable, str(PORTAL / "tests/acceptance.py"),
                                 "--workspace", str(workspace), "--host", settings["hostname"]], check=True)
+            except (subprocess.SubprocessError, installer.InstallError, AssertionError, OSError):
+                # Only reached behind the disposable hosted-runner guard. These
+                # are this fixture's generated logs; no real household is present.
+                for name in ("familybot-portal.log", "familybot-portal.error.log"):
+                    log = Path.home() / "Library/Logs" / name
+                    if log.is_file():
+                        print(f"Managed fictional fixture diagnostic: {name}", flush=True)
+                        print(log.read_text(errors="replace")[-12000:], flush=True)
+                raise
             finally:
                 for owned in (label, label + "-images"):
                     subprocess.run(["launchctl", "bootout", f"{domain}/{owned}"],

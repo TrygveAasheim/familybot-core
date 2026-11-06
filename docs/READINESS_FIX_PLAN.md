@@ -67,6 +67,10 @@ integration account for Dashboard or describe unsupported providers as proven.
 CI toolchain note: install the pinned uv runner separately from the hash-locked
 Python requirements; mixing an unhashed command-line package into that lock
 correctly fails pip's hash verification and never reaches installation tests.
+Readiness failures identify the failing fixed HTTP route without response
+bodies, tokens or raw exception text. Disposable hosted CI additionally emits
+bounded generated service logs for its fictional household on failure; this
+diagnostic path never runs on the existing household installation.
 
 Run Core docs/config/unit/compile/shell/Ruff/Bandit/dependency checks and Portal
 docs/lint/API/build/render/security checks; record exact commands and scopes.

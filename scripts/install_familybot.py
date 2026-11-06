@@ -266,8 +266,10 @@ def service_probe(hostname: str, api_port: int, web_port: int, *, origin_hostnam
             response = connection.getresponse()
             raw = response.read(2_000_001)
             if response.status != 200 or len(raw) > 2_000_000:
-                raise InstallError("Configured service returned an unexpected status or oversized response")
+                raise InstallError(f"HTTP probe {path} returned an unexpected status or oversized response")
             return raw
+        except (OSError, http.client.HTTPException) as exc:
+            raise InstallError(f"HTTP probe {path} failed ({type(exc).__name__})") from exc
         finally:
             connection.close()
 
@@ -298,7 +300,7 @@ def verify_local_service(api_port: int, web_port: int, hostname: str = "127.0.0.
                 raise InstallError("Hostname resolves to a different FamilyBot instance than this Mac")
             return
         except (OSError, http.client.HTTPException, ValueError, TypeError, AttributeError, InstallError) as exc:
-            error = type(exc).__name__
+            error = str(exc) if isinstance(exc, InstallError) else type(exc).__name__
             time.sleep(min(1, max(0, deadline - time.monotonic())))
     raise InstallError(
         f"Configured hostname/web/API did not become ready ({error}). "
