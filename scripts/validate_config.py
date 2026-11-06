@@ -49,7 +49,7 @@ def default_config_path() -> Path:
     return (
         Path(workspace).expanduser() / "config/family.local.json"
         if workspace
-        else Path.home() / ".openclaw/workspace/config/family.local.json"
+        else Path.home() / ".familybot/config/family.local.json"
     )
 
 

@@ -11,6 +11,7 @@ import os
 import re
 import secrets
 import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from database_migrations import MigrationError, initialize_database, migration_status
+from family_config import workspace_path
 from validate_config import validate
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -146,6 +148,38 @@ def interactive_dashboard_config() -> dict[str, Any]:
     }
 
 
+def new_hostname(override: str | None = None) -> str:
+    """Use the Mac's existing mDNS name, never create or rename a host alias."""
+    if override is not None:
+        hostname = override
+    elif sys.platform == "darwin":
+        result = subprocess.run(
+            ["/usr/sbin/scutil", "--get", "LocalHostName"],
+            capture_output=True, text=True, check=False, timeout=5,
+        )
+        if result.returncode or not result.stdout.strip():
+            raise InstallError("Cannot detect the Mac LocalHostName; provide --hostname with a working local hostname")
+        hostname = result.stdout.strip() + ".local"
+    else:
+        hostname = "localhost"  # data-only tests; managed deployment still requires macOS
+    if len(hostname) > 253 or not all(
+        re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?", label)
+        for label in hostname.split(".")
+    ):
+        raise InstallError("Hostname must be a DNS name or IPv4 address without a scheme, port or path")
+    return hostname.lower()
+
+
+def set_new_hostname(config: dict[str, Any], hostname: str) -> None:
+    portal = config["portal"]
+    previous = f"http://{portal['hostname']}:{portal['web_port']}"
+    origin = f"http://{hostname}:{portal['web_port']}"
+    portal["hostname"] = hostname
+    portal["allowed_origins"] = list(dict.fromkeys(
+        [origin] + [item for item in portal.get("allowed_origins", []) if item != previous]
+    ))
+
+
 def read_pin(source: Path | None, *, non_interactive: bool) -> str:
     if source:
         try:
@@ -222,28 +256,55 @@ def deployment_dependencies() -> None:
     require_command("dns-sd", "dns-sd is supplied by macOS Bonjour.")
 
 
-def verify_local_service(api_port: int, web_port: int) -> None:
-    deadline = time.monotonic() + 30
-    pending = {
-        (api_port, "/api/health"): "API",
-        (web_port, "/"): "dashboard",
-    }
-    while pending and time.monotonic() < deadline:
-        for port, path in list(pending):
-            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
-            try:
-                connection.request("GET", path)
-                response = connection.getresponse()
-                if 200 <= response.status < 400:
-                    pending.pop((port, path))
-            except OSError:
-                pass
-            finally:
-                connection.close()
-        if pending:
-            time.sleep(1)
-    if pending:
-        raise InstallError(f"Local service did not become ready: {', '.join(pending.values())}")
+def service_probe(hostname: str, api_port: int, web_port: int, *, origin_hostname: str | None = None) -> str:
+    origin = f"http://{origin_hostname or hostname}:{web_port}"
+
+    def get(port: int, path: str, token: str = "") -> bytes:
+        connection = http.client.HTTPConnection(hostname, port, timeout=2)
+        try:
+            connection.request("GET", path, headers={"Origin": origin, "X-FamilyBot-Local-Token": token})
+            response = connection.getresponse()
+            raw = response.read(2_000_001)
+            if response.status != 200 or len(raw) > 2_000_000:
+                raise InstallError("Configured service returned an unexpected status or oversized response")
+            return raw
+        finally:
+            connection.close()
+
+    health = json.loads(get(api_port, "/api/health"))
+    if health.get("service") != "familybot-dashboard-api" or health.get("ok") is not True:
+        raise InstallError("Configured API port does not serve a healthy FamilyBot API")
+    session = json.loads(get(api_port, "/api/session"))
+    if session.get("api") != "familybot-local-v2" or not session.get("token"):
+        raise InstallError("FamilyBot session/origin check failed")
+    dashboard = json.loads(get(api_port, "/api/dashboard", session["token"]))
+    if not isinstance(dashboard.get("children"), list):
+        raise InstallError("FamilyBot dashboard contract check failed")
+    web = get(web_port, "/").lower()
+    if b"<html" not in web or not any(marker in web for marker in (b"familieportalen", b"familybot")):
+        raise InstallError("Configured web port does not serve the FamilyBot dashboard")
+    return session["token"]
+
+
+def verify_local_service(api_port: int, web_port: int, hostname: str = "127.0.0.1", *, timeout: float = 30) -> None:
+    deadline = time.monotonic() + timeout
+    error = "service not ready"
+    while time.monotonic() < deadline:
+        try:
+            socket.getaddrinfo(hostname, web_port, type=socket.SOCK_STREAM)
+            local_session = service_probe("127.0.0.1", api_port, web_port, origin_hostname=hostname)
+            named_session = service_probe(hostname, api_port, web_port)
+            if not secrets.compare_digest(local_session, named_session):
+                raise InstallError("Hostname resolves to a different FamilyBot instance than this Mac")
+            return
+        except (OSError, http.client.HTTPException, ValueError, TypeError, AttributeError, InstallError) as exc:
+            error = type(exc).__name__
+            time.sleep(min(1, max(0, deadline - time.monotonic())))
+    raise InstallError(
+        f"Configured hostname/web/API did not become ready ({error}). "
+        "Check local DNS, exact allowed_origins, ports and private service logs. "
+        "No iPad/LAN verification has been inferred."
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -251,12 +312,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--workspace",
         type=Path,
-        default=Path(os.environ.get("FAMILYBOT_WORKSPACE", Path.home() / ".familybot")),
+        default=workspace_path(),
     )
     parser.add_argument("--portal-repo", type=Path, default=ROOT.parent / "familybot-portal")
     parser.add_argument("--config-source", type=Path)
     parser.add_argument("--parent-pin-source", type=Path)
     parser.add_argument("--demo", action="store_true", help="use the fictional Nordlys household")
+    parser.add_argument("--hostname", help="working local DNS name or IPv4 address, new configuration only")
     parser.add_argument("--non-interactive", action="store_true")
     parser.add_argument("--no-deploy", action="store_true", help="initialize and verify data only")
     return parser.parse_args()
@@ -271,6 +333,9 @@ def main() -> int:
     database = workspace / "db/family.db"
     backups = workspace / "backups"
     try:
+        for key, expected in (("FAMILYBOT_FAMILY_CONFIG", config_path), ("FAMILYBOT_DB_PATH", database)):
+            if os.environ.get(key) and Path(os.environ[key]).expanduser().resolve() != expected:
+                raise InstallError(f"{key} conflicts with --workspace; unset it or select the matching workspace")
         if not (portal / "local_api/dashboard_migration.py").is_file():
             raise InstallError(f"Portal checkout not found beside Core: {portal}")
         if not args.no_deploy:
@@ -286,6 +351,8 @@ def main() -> int:
             private_directory(directory)
         config_preexisting = config_path.exists()
         if config_preexisting:
+            if args.hostname:
+                raise InstallError("--hostname is only for new configuration; existing hostname/origins were preserved")
             print(f"Using existing private configuration: {config_path}")
         else:
             if args.config_source:
@@ -299,6 +366,8 @@ def main() -> int:
                 raise InstallError("Non-interactive installation requires --demo or --config-source")
             else:
                 config = interactive_dashboard_config()
+            if args.hostname or not args.config_source:
+                set_new_hostname(config, new_hostname(args.hostname))
             write_private_json(config_path, config)
         report = validate(config_path)
         if report.errors:
@@ -329,6 +398,8 @@ def main() -> int:
                 "FAMILYBOT_WORKSPACE": str(workspace),
                 "FAMILYBOT_FAMILY_CONFIG": str(config_path),
                 "FAMILYBOT_PARENT_PIN_FILE": str(pin_path),
+                "FAMILYBOT_DB_PATH": str(database),
+                "FAMILYBOT_CONFIG_VALIDATOR": str(ROOT / "scripts/validate_config.py"),
             }
         )
         run([sys.executable, str(ROOT / "scripts/calendar_seed.py")], environment=environment)
@@ -367,6 +438,8 @@ def main() -> int:
             capture_output=True,
             text=True,
         ).stdout.strip()
+        if not branch:
+            branch = subprocess.check_output(["git", "-C", str(portal), "rev-parse", "HEAD"], text=True).strip()
         deploy_environment = environment | {
             "FAMILYBOT_DEPLOY_BRANCH": branch,
             "FAMILYBOT_PORTAL_RUNTIME": str(workspace / "runtime/familybot-portal"),
@@ -379,13 +452,13 @@ def main() -> int:
             cwd=portal,
         )
         settings = config["portal"]
-        verify_local_service(int(settings.get("api_port", 8788)), int(settings.get("web_port", 3000)))
+        verify_local_service(int(settings.get("api_port", 8788)), int(settings.get("web_port", 3000)), settings["hostname"])
         print(
             "FamilyBot is ready on "
             f"http://{settings.get('hostname', 'familie.local')}:{int(settings.get('web_port', 3000))}/"
         )
         return 0
-    except (InstallError, MigrationError) as exc:
+    except (InstallError, MigrationError, subprocess.TimeoutExpired) as exc:
         print(f"Installation stopped safely: {exc}", file=sys.stderr)
         return 1
 

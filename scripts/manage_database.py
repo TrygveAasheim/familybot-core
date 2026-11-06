@@ -16,10 +16,7 @@ from database_migrations import (
     migration_status,
     restore_database,
 )
-
-
-def workspace_path() -> Path:
-    return Path(os.environ.get("FAMILYBOT_WORKSPACE", Path.home() / ".openclaw/workspace")).expanduser()
+from family_config import workspace_path
 
 
 def parser() -> argparse.ArgumentParser:

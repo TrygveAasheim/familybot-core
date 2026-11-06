@@ -3,6 +3,24 @@
 Material security, reliability and compatibility changes are recorded here.
 Household data, credentials and operational identifiers are never included.
 
+## 2026-11-06 — Installation review fixes (candidate, not deployed)
+
+- Aligned Python/shell workspace defaults with `.familybot`, retaining explicit
+  legacy overrides and rejecting conflicting installer config/database paths.
+- New wizard/demo installs use the Mac's existing local hostname. Verification
+  checks FamilyBot identity, configured Origin, authenticated dashboard and web
+  content on loopback and requires the hostname to reach the same API session.
+- Added actual HTTP chore/parent-approval/restart/reinstall tests and isolated
+  macOS managed deployment/restart CI with test-owned labels and cleanup.
+- Corrected candidate branch instructions, optional AI consent, recovery and
+  acceptance claims across the documentation. The F1–F8 plan and hardware gate
+  are in `docs/READINESS_FIX_PLAN.md` and `docs/INSTALLATION_READINESS.md`.
+
+No schema change or production deployment. Revert the coordinated source pair
+to roll back; no database restore is needed for this change. Old installations
+must retain their explicit workspace path; omitted grocery flags in Portal now
+mean disabled and must be enabled deliberately if wanted.
+
 ## 2026-11-05
 
 ### Independent household installation

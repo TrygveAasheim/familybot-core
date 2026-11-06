@@ -91,7 +91,7 @@ For portal changes, run in the sibling repository:
 npm run docs:check
 npm run lint
 npm test
-python3 tests/acceptance.py
+python3 tests/acceptance.py --workspace /exact/test/workspace --host TEST-MAC.local
 ```
 
 For Smart Home changes, satisfy the acceptance criteria in
@@ -113,9 +113,12 @@ used from each repository and verify their compatibility together.
 
 ## 6. Promote and deploy
 
-Commit intentional files on `dev`. Fast-forward verified `dev` to `main`; do
-not rewrite production history. Follow `REDEPLOY.md`, deploy only the affected
-service and inspect health/acceptance evidence before declaring success.
+Commit intentional files on dedicated branches and open reviewed PRs into
+`dev`. Promotion to `main` needs an owner-approved release PR; never silently
+fast-forward or directly commit to main. Deployment requires separate task
+authorization. A review-only/PR-only task stops without changing runtime state.
+When deployment is authorized, follow `REDEPLOY.md`, deploy only the affected
+service and inspect scoped health/acceptance evidence before declaring success.
 
 Documentation-only changes do not require restarting runtime services. A code,
 configuration-contract, migration or LaunchAgent change does.

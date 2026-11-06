@@ -17,12 +17,16 @@ The canonical guide for both repositories is
 
 ```bash
 mkdir -p "$HOME/FamilyBot" && cd "$HOME/FamilyBot"
-git clone https://github.com/TrygveAasheim/familybot-core.git
-git clone https://github.com/TrygveAasheim/familybot-portal.git
+git clone --branch dev https://github.com/TrygveAasheim/familybot-core.git
+git clone --branch dev https://github.com/TrygveAasheim/familybot-portal.git
 cd familybot-core
 uv run --python 3.12 scripts/install_familybot.py \
   --portal-repo ../familybot-portal
 ```
+
+This is the development installation candidate, not yet the public `main`
+release. For pre-merge review use the exact paired commits in the readiness PRs,
+not moving `dev`. See [the execution/review plan](docs/READINESS_FIX_PLAN.md).
 
 The guided installer checks the supported macOS toolchain, creates private
 configuration and a parent PIN, initializes an empty SQLite database, applies

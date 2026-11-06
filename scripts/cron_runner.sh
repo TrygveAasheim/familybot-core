@@ -5,7 +5,7 @@
 set -u
 umask 077
 
-WORKSPACE="${FAMILYBOT_WORKSPACE:-$HOME/.openclaw/workspace}"
+WORKSPACE="${FAMILYBOT_WORKSPACE:-${OPENCLAW_WORKSPACE:-$HOME/.familybot}}"
 PYTHON="${FAMILYBOT_PYTHON:-$WORKSPACE/runtime/core/.venv/bin/python}"
 LOG="$WORKSPACE/logs/cron.log"
 

@@ -25,7 +25,7 @@ The core value is **reducing cognitive load for busy parents**. The bot handles 
 4. **Privacy wall between users.** Personal conversations stay with the individual user. Shared family data (tasks, events, school info) is visible to configured parents.
 5. **Self-hosted.** Runs on the family Mac mini. Data leaves the house only for
    integrations the household explicitly enables; the Dashboard profile uses no
-   LLM.
+   LLM by default. Separately enabled Oda dinner AI requires explicit consent.
 6. **Extensible.** The architecture should make it straightforward to add new skills later without reworking the core.
 7. **Dashboard first for family life.** The chatbot is the intelligence layer;
    the touch dashboard is the calm, direct interface the household lives with.

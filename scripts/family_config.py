@@ -11,7 +11,7 @@ from typing import Any
 
 def workspace_path() -> Path:
     configured = os.environ.get("FAMILYBOT_WORKSPACE") or os.environ.get("OPENCLAW_WORKSPACE")
-    return Path(configured).expanduser() if configured else Path.home() / ".openclaw/workspace"
+    return Path(configured).expanduser() if configured else Path.home() / ".familybot"
 
 
 def config_path() -> Path:

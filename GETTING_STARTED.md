@@ -54,6 +54,9 @@ sqlite3 --version
 ```
 
 The Node version must be at least `22.22.3` and remain below `23`.
+Log into the Mac desktop as the installation user before managed setup;
+`launchctl` needs that user's GUI domain. SSH-only/headless bootstrap is not a
+supported substitute. Keep the Mac awake for household service availability.
 
 ## 3. Clone both repositories
 
@@ -62,12 +65,17 @@ Keep the checkouts together and outside a cloud-synchronized folder:
 ```bash
 mkdir -p "$HOME/FamilyBot"
 cd "$HOME/FamilyBot"
-git clone https://github.com/TrygveAasheim/familybot-core.git
-git clone https://github.com/TrygveAasheim/familybot-portal.git
+git clone --branch dev https://github.com/TrygveAasheim/familybot-core.git
+git clone --branch dev https://github.com/TrygveAasheim/familybot-portal.git
 ```
 
-Use the reviewed `main` branch for a household installation. The directories
-must be siblings:
+This guide describes the development installation candidate. The public `main`
+branch does not yet contain this installer. Before a main release, use the
+paired reviewed candidate commits, not default clones. Pre-merge fixes are on
+`codex/readiness-review-fixes` in both repos; the PR handoff records exact SHAs.
+For a reproducible test, fetch that branch then `git switch --detach SHA` in
+each checkout using its respective recorded SHA. Do not mix release tracks.
+The directories must be siblings:
 
 ```text
 $HOME/FamilyBot/familybot-core
@@ -91,7 +99,7 @@ uv run --python 3.12 scripts/install_familybot.py \
   --portal-repo ../familybot-portal
 ```
 
-It asks for the family name, any number of parents and children, optional school
+It asks for the family name, 1–20 parents and 0–20 children, optional school
 and class, and a six-to-eight-digit parent PIN. It then:
 
 1. validates macOS, Node, Python, Git, SQLite, `uv`, `rsync`, Bonjour and
@@ -101,7 +109,14 @@ and class, and a six-to-eight-digit parent PIN. It then:
 4. creates `family.db` from authoritative versioned migrations;
 5. seeds household rows and starter chores;
 6. builds and deploys the Portal; and
-7. verifies both the API and dashboard locally.
+7. verifies FamilyBot API identity, a session with the configured web Origin,
+   authenticated dashboard data and web content through the configured hostname.
+
+For a new wizard/demo config it uses the Mac's existing `LocalHostName.local`,
+as returned by `scutil --get LocalHostName`. It never renames your Mac.
+`--hostname YOUR-LOCAL-HOSTNAME` overrides that choice for a new installation.
+Supplied and existing configs keep their explicit hostname and origins. The
+Bonjour service advertisement does not create a `familie.local` alias.
 
 The operation is idempotent. Running it again keeps the existing config, PIN
 and household data and applies only pending migrations.
@@ -137,18 +152,17 @@ finished. Never use a broad home-directory deletion command.
 
 ## 5. Open the dashboard
 
-On the Mac, open:
-
-```text
-http://familie.local:3000/
-```
+On the Mac, open the exact URL printed by the installer (for example
+`http://kitchen-mac.local:3000/`, if that is your Mac's local hostname).
 
 On the iPad, join the same trusted Wi-Fi and open the same URL in Safari. Use
 Safari's **Share → Add to Home Screen** to create an app-like icon.
 
-If Bonjour is unavailable, use the Mac's LAN IP and add that exact origin to
-`portal.allowed_origins` before redeploying. Do not add wildcards or an entire
-private address range.
+If Bonjour is unavailable, reserve the Mac's LAN IP in your router, set
+`portal.hostname` to that IP and add its exact web origin to
+`portal.allowed_origins` before redeploying. Keep localhost origins for local
+diagnostics. Do not add wildcards or an entire private address range. Changing
+the hostname also changes the Oda callback; reconnect Oda after that change.
 
 Verify the installed baseline without printing private values:
 
@@ -276,6 +290,14 @@ Both are Portal features and neither changes the capability profile.
   reverse-engineered Norway provider contract for upcoming boxes, bounded meal
   selection and pause/resume. Provider changes may break it without notice.
 
+Enable `oda: true` for Oda, and separately `oda_ai: true` only if you consent to
+the bounded dinner request/preferences leaving home for model processing. Oda
+search/cart works without AI; AI additionally needs the isolated OpenClaw dinner
+agent even outside the Agent profile. Enable `hellofresh: true` for public menus
+and additionally `hellofresh_account: true` for guarded account writes. Omitted
+flags are false, including for older configs: deliberately add flags before
+upgrading if you want to retain those previously implicit capabilities.
+
 Enable only the corresponding booleans under `portal.features`, validate the
 config and rerun the installer. Provider credentials remain outside Git. The
 plain-HTTP LAN risk is especially important for HelloFresh first-use password
@@ -353,7 +375,7 @@ disaster-recovery order is in [REDEPLOY.md](REDEPLOY.md).
 
 ## 13. Troubleshooting
 
-### `familie.local` does not open
+### The printed `.local` hostname does not open
 
 ```bash
 launchctl print "gui/$(id -u)/ai.familybot.portal"

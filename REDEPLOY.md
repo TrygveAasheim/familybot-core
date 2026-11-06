@@ -21,7 +21,8 @@ Store runtime backup material encrypted and separately from Git.
    22.22.3–22.x, `uv`, Python 3.12 and SQLite. Install OpenClaw, Himalaya and
    other optional clients only for capabilities present in the backup.
 2. Clone `familybot-core` and `familybot-portal` as sibling directories. Check
-   out a reviewed tag or `main`, not a moving development branch.
+   out the exact compatible Core/Portal commit pair recorded with the backup.
+   The installer is currently a development candidate, not yet on main.
 3. Restore `$HOME/.familybot` with directories mode `0700` and private
    files mode `0600`.
 4. Verify the selected backup without replacing current state:
@@ -66,10 +67,14 @@ Store runtime backup material encrypted and separately from Git.
     restored profile) and both repositories' verification suites.
 11. For connected/agent profiles, deploy the selected Core jobs with
     `bash scripts/deploy_core.sh --reload`.
-12. Run `python3 familybot-portal/tests/acceptance.py`; require every critical criterion to pass.
-13. Verify one email/Ukeplan, one Spond poll if enabled, one deterministic
-    briefing preview, one Telegram delivery to each parent, weather, Entur and
-    an iPad child completion/parent rejection cycle.
+12. Run `python3 ../familybot-portal/tests/acceptance.py --workspace "$HOME/.familybot" --host TEST-MAC.local`
+    with the actual configured hostname and selected restored workspace.
+    Add `--allow-integrations` only with consent for configured adapter reads.
+    Probe success does not certify browser/hardware/provider acceptance.
+13. Verify an iPad child completion/parent rejection cycle where children are
+    configured. Test email/Ukeplan, Spond, briefing preview, Telegram, weather
+    and Entur only when each capability is enabled. Record disabled criteria
+    as not applicable and unperformed checks as not run.
 
 Optional add-ons such as Home Assistant are restored only after this base
 pipeline is healthy. Their failure must not block core recovery. Follow the
@@ -81,13 +86,14 @@ restoring appliance control.
 ```bash
 git -C familybot-core fetch --prune
 git -C familybot-portal fetch --prune
-git -C familybot-core switch main
-git -C familybot-portal switch main
-git -C familybot-core pull --ff-only
-git -C familybot-portal pull --ff-only
+git -C familybot-core switch --detach REVIEWED_CORE_SHA
+git -C familybot-portal switch --detach REVIEWED_PORTAL_SHA
 ```
 
-Create a consistent backup with `scripts/manage_database.py backup`, then rerun
+Replace the two SHA placeholders with the reviewed compatible pair from the
+release/PR record; do not literally execute placeholder values. Record the
+current pair first and create a consistent backup with
+`scripts/manage_database.py backup` **before switching source**, then rerun
 the installer. It migrates Core before Portal, refuses future/incompatible
 schema versions and verifies the local services. Deploy connected/agent Core
 jobs only after the Portal baseline is healthy.
@@ -97,7 +103,9 @@ jobs only after the Portal baseline is healthy.
 1. Stop the affected LaunchAgent.
 2. Keep the failed logs and database copy for diagnosis.
 3. Restore the selected pre-migration SQLite backup with
-   `scripts/manage_database.py restore`.
+   `scripts/manage_database.py restore` only when reverting a schema/data
+   change requires it. Documentation and default-path fixes do not require
+   database restoration; restoring unnecessarily would discard newer work.
 4. Check out the last known-good tag/commit and redeploy generated runtime.
 5. Restart and rerun health/acceptance checks.
 

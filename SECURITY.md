@@ -33,7 +33,7 @@ using guest/shared Wi-Fi or any network whose clients are not mutually trusted.
 | A05 Injection | Parameterized SQLite statements, bounded JSON, strict enums/dates/IDs, no raw browser-to-shell path | PDF/email parsers still process attacker-controlled content and require continued fuzz/fixture coverage |
 | A06 Insecure Design | Local-first trust boundaries, curated API, inference outside durability, backups before writes | Children intentionally need no login; any trusted dashboard device can register a child completion |
 | A07 Authentication Failures | Parent PIN comparison, random in-memory parent token, five-attempt/five-minute rate limit | PIN is shared, token lasts until process restart/re-login and restart resets the throttle; use 6–8 random digits and a trusted LAN |
-| A08 Software or Data Integrity Failures | Idempotency keys, SQLite constraints, atomic writes, integrity checks, reviewed `main` deployment | Audit log is local and not tamper-evident; no signed update channel |
+| A08 Software or Data Integrity Failures | Idempotency keys, SQLite constraints, atomic writes, integrity checks, reviewed source-pair deployment | Audit log is local and not tamper-evident; no signed update channel |
 | A09 Security Logging and Alerting Failures | Owner-only audit log, health snapshot, schedule-aware job freshness, bounded SRE action log, launchd logs | No external security alert sink; host loss also loses unshipped logs |
 | A10 Mishandling Exceptional Conditions | Bounded timeouts/payloads, generic client errors, durable retry/outbox, cooldown-limited supervisor recovery | External API schema changes can degrade integrations until adapters are updated; briefing replay remains manual to avoid duplicates |
 
@@ -66,8 +66,11 @@ access to the service account can read household data and credentials.
 
 ## External processing and consent
 
-The Dashboard profile sends no household data to an LLM and needs no AI
-account. Enabling the Agent profile is explicit consent to send bounded briefing
+The Dashboard profile sends no household data to an LLM by default and needs no
+AI account. Independently enabling `portal.features.oda_ai` consents to bounded
+dinner requests/preferences being processed externally and requires its isolated
+OpenClaw agent; Oda without AI remains usable. Enabling the Agent profile is
+explicit consent to send bounded briefing
 or Ukeplan context to the configured model provider. Tool-free inference agents
 receive curated task data, not credentials, raw mailbox access or browser/tool
 authority. External email, PDF and provider content is treated as untrusted data
@@ -125,7 +128,7 @@ npm ci
 npm run lint
 npm test
 npm audit
-python3 tests/acceptance.py
+python3 tests/acceptance.py --workspace /exact/test/workspace --host TEST-MAC.local
 ```
 
 Deployment also reconciles the dedicated `familybot-briefing` and

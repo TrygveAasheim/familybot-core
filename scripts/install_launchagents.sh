@@ -6,7 +6,7 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 USER_HOME="${HOME:?HOME is required}"
-WORKSPACE_DIR="${FAMILYBOT_WORKSPACE:-$USER_HOME/.openclaw/workspace}"
+WORKSPACE_DIR="${FAMILYBOT_WORKSPACE:-${OPENCLAW_WORKSPACE:-$USER_HOME/.familybot}}"
 LAUNCH_AGENT_DIR="${FAMILYBOT_LAUNCH_AGENTS_DIR:-$USER_HOME/Library/LaunchAgents}"
 PYTHON_BIN="${FAMILYBOT_PYTHON:-$(command -v python3)}"
 OPENCLAW_BIN="${FAMILYBOT_OPENCLAW:-$(command -v openclaw || true)}"
