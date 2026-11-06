@@ -92,7 +92,8 @@ jobs:
           plutil -lint familybot-portal/launchd/*.plist
       - name: Install deployment toolchain
         run: |
-          python3 -m pip install uv -r requirements-dev.txt
+          python3 -m pip install uv==0.13.7
+          python3 -m pip install -r requirements-dev.txt
       - name: Managed install and restart on disposable macOS runner
         env:
           FAMILYBOT_MANAGED_CI: "1"

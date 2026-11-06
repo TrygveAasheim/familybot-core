@@ -61,6 +61,10 @@ configuration, security, grocery, acceptance and feature/readiness guides.
 Core GETTING_STARTED remains the canonical new-user guide. Do not require an
 integration account for Dashboard or describe unsupported providers as proven.
 
+CI toolchain note: install the pinned uv runner separately from the hash-locked
+Python requirements; mixing an unhashed command-line package into that lock
+correctly fails pip's hash verification and never reaches installation tests.
+
 Run Core docs/config/unit/compile/shell/Ruff/Bandit/dependency checks and Portal
 docs/lint/API/build/render/security checks; record exact commands and scopes.
 Then run two independent reviews of the final paired changes: affirmative
