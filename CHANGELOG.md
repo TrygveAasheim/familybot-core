@@ -5,6 +5,33 @@ Household data, credentials and operational identifiers are never included.
 
 ## 2026-11-05
 
+### Independent household installation
+
+- Added authoritative Core schema version 1, transactional migrations, a
+  shared component/checksum ledger and verified backup/restore commands.
+- Added an idempotent macOS installer that creates a private `$HOME/.familybot`
+  workspace, empty database, fictional demo household and compatible Portal
+  schema without an owner-provided starter database.
+- Added Dashboard, Connected and Agent capability profiles. Deployment, health,
+  status and schedules now omit disabled integrations instead of reporting
+  them as failures.
+- Split deployed PDF and unofficial Spond dependencies into adapter-specific,
+  hash-locked sets so a household installs only capabilities it enabled.
+- Replaced fixed school dates with configured municipality calendars and
+  calculated Norwegian public holidays; notification schedules and processing
+  use the configured IANA time zone.
+- Made member display and school-profile updates repeatable by stable member
+  ID, with a verified pre-change backup and preserved Kanban assignments;
+  incompatible role changes fail before household identity is rewritten.
+- Added clean-room, migration-failure, restore, profile-schedule and macOS CI
+  coverage.
+
+Existing databases are compatible and receive a verified backup before their
+first recorded Core migration. New installs default to `$HOME/.familybot`;
+existing installations may keep their current workspace path. Roll back source
+and restore the automatic pre-migration backup with
+`scripts/manage_database.py restore` if a migration must be reversed.
+
 ### Outcome reliability safeguards
 
 - Reject briefing inference that omits configured child names or required
@@ -19,7 +46,8 @@ Household data, credentials and operational identifiers are never included.
   attribution conflicts before inference and validate parsed ISO dates before
   mutating plan rows.
 
-There is no database or credential migration. Deployment adds two optional,
+These outcome-reliability changes add no migration beyond the installation
+schema work above and no credential migration. Deployment adds two optional,
 owner-only briefing outcome files; rollback may leave them inert on disk.
 
 ### Repository maintenance

@@ -10,12 +10,14 @@
 
 ### Infrastructure
 - Runs on the family Mac mini (self-hosted, always-on)
-- OpenClaw is the Telegram gateway and interactive agent runtime; launchd schedules deterministic work
+- OpenClaw is optional and limited to the Agent profile's Telegram and
+  interactive inference; launchd schedules deterministic work
 - All persistent storage is local (files, JSON, SQLite as needed)
-- No paid SaaS backends beyond what is already in use
+- No paid SaaS backend is required by the Dashboard profile
 
 ### Reliability
-- The daily briefing must send even if one or more skills fail — partial data with a clear note is better than silence
+- When briefings are enabled, deterministic complete fallback data must remain
+  available when model generation or one optional adapter fails
 - Skills should fail gracefully and log errors without crashing the whole pipeline
 
 ### Cost
@@ -40,7 +42,8 @@
 
 ### User experience
 - The iPad-first LAN dashboard is the family's glanceable and child-facing
-  interface. Telegram/OpenClaw is the conversational layer for complex actions.
+  interface. Telegram/OpenClaw is an optional conversational layer for complex
+  actions.
 - Commands should be simple and natural-language where possible
 - The daily briefing should be scannable in under 60 seconds
 

@@ -12,11 +12,11 @@ import zoneinfo
 from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(__file__))
-from family_config import children, integration, member_names, parents
+from family_config import children, family_timezone, integration, member_names, parents
 from reliability import connect_db, database_path
 from transport_relevance import classify_for_corridor, parse_siri_disruptions
 
-OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
+LOCAL_ZONE = zoneinfo.ZoneInfo(family_timezone())
 DB_PATH = str(database_path())
 
 DAYS_NO = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"]
@@ -203,9 +203,9 @@ def fetch_met_data(target_date) -> dict:
             wdata = _json.loads(r.stdout)
             series = wdata["properties"]["timeseries"]
             def local_dt(entry):
-                return datetime.fromisoformat(entry["time"].replace("Z", "+00:00")).astimezone(OSLO)
+                return datetime.fromisoformat(entry["time"].replace("Z", "+00:00")).astimezone(LOCAL_ZONE)
 
-            # MET timestamps are UTC. Select by Oslo calendar date and inspect the
+            # MET timestamps are UTC. Select by the configured local calendar date and inspect the
             # full day. Clothing is calculated for the children's likely outdoor
             # window (06:00–19:00); later hazards are reported separately.
             day_entries = [t for t in series if local_dt(t).date() == target_date]
@@ -386,7 +386,7 @@ def kanban_items(assigned_to: str, c) -> list:
 
 def collect_daily(today: date = None) -> dict:
     if today is None:
-        today = datetime.now(OSLO).date()
+        today = datetime.now(LOCAL_ZONE).date()
 
     conn = db()
     c = conn.cursor()
@@ -511,7 +511,7 @@ def collect_daily(today: date = None) -> dict:
 
 def collect_weekly(reference: date = None) -> dict:
     if reference is None:
-        reference = datetime.now(OSLO).date()
+        reference = datetime.now(LOCAL_ZONE).date()
 
     # Week start = next Monday (or tomorrow if today is Sunday)
     week_start = reference + timedelta(days=8 - reference.isoweekday())

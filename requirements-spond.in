@@ -1,0 +1,2 @@
+# Unofficial Spond client. Installed only when integrations.spond is enabled.
+spond==1.2.1

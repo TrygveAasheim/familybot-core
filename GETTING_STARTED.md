@@ -1,128 +1,63 @@
-# Install FamilyBot on a Mac
+# Install FamilyBot on a Mac mini
 
-This is the canonical first-time setup guide for both public repositories. It
-is written for a household operator who is comfortable copying commands but is
-not expected to know Python, Node.js, `launchd` or OpenClaw.
+This is the canonical setup guide for both FamilyBot repositories. It is for a
+new household that can copy Terminal commands but has no existing FamilyBot,
+OpenClaw, database or credentials.
 
-FamilyBot has two sibling repositories:
+The shortest path is the **Dashboard** profile. It is independently useful and
+installs no optional integration. School mail, Spond, AI, Telegram, Oda and
+HelloFresh can be added later.
 
-```text
-familybot-core/       email, PDFs, Spond, schedules, briefings and durable data
-familybot-portal/     iPad dashboard, chores, rewards, Oda and HelloFresh
-```
+## 1. Know what will be installed
 
-Allow an hour for the software installation and configuration. Account consent,
-mailbox setup and household customization can take longer.
-
-> **Current clean-install limitation:** this release can restore and migrate a
-> supported `family.db`, but it cannot create every historical Core table from
-> an empty file. A first-time household therefore needs a supported starter
-> database or a reviewed migration supplied by the project owner. Do not create
-> tables by copying SQL from tests. The setup checker identifies this clearly
-> before deployment.
-
-## 1. Choose the footprint you want
-
-You can start small and add integrations later.
-
-| Footprint | What works | Additional software/accounts |
+| Profile | Capabilities | Required accounts |
 | --- | --- | --- |
-| Dashboard | Existing family data, chores, rewards, weather, Entur, Oda and optionally HelloFresh | Core + Portal, Node.js, Python, `uv`, SQLite; Oda/HelloFresh accounts only when enabled |
-| Full family assistant | School mail, interpreted Ukeplan, natural-language briefings, Telegram delivery and monitoring | Small OpenClaw gateway/CLI footprint, one OpenAI-authenticated agent and one Telegram bot |
-| Spond add-on | Spond activities in the dashboard and briefings | Dedicated Spond credentials; the client is unofficial |
+| Dashboard | Family profiles, chores, rewards, Kanban and iPad dashboard; weather/transport only when configured | None |
+| Connected organizer | Dashboard plus school email/PDFs, deterministic Ukeplan data, Spond and scheduled processing | Only the integrations selected |
+| AI family agent | Connected organizer plus model-assisted interpretation, briefings and Telegram | OpenClaw-supported model account and Telegram |
 
-OpenClaw is not the database, web server or scheduler. For the full footprint it
-provides only:
+Oda and HelloFresh are independent optional Portal features.
 
-1. the loopback-only local gateway and CLI;
-2. one `main` agent authenticated to OpenAI;
-3. the Telegram channel; and
-4. an optional isolated, tool-free `familybot-oda-dinner` agent created by the
-   Portal deploy script.
+The default dashboard is served only on the home LAN. Do not create router port
+forwards for ports `3000` or `8788`.
 
-No OpenClaw browser UI, public gateway, extra skill pack, web-search provider or
-third-party plugin is required. Without OpenClaw, deterministic ingestion and
-the LAN dashboard remain independent, but Telegram, LLM Ukeplan interpretation
-and model-written briefing text are unavailable. Oda falls back to direct
-recipe search.
+## 2. Install the baseline software
 
-The bundled Core schedule is the full-assistant profile. Dashboard-only users
-deploy Portal and skip the Core LaunchAgents. Individual deterministic scripts
-can still be run for development, but a selectively scheduled mail-only Core
-service is not a supported appliance profile in this release.
+The managed appliance path is tested on macOS with this baseline:
 
-## 2. What you need before starting
-
-- An always-on Mac. Apple Silicon is the tested host; Intel macOS should work
-  because executable paths are discovered at deployment, but it is not tested
-  in CI.
-- A normal, dedicated non-admin macOS account when practical.
-- An iPad or browser on the same trusted home network.
-- A supported `family.db` backup or starter database.
-- For school mail: a dedicated mailbox or app password with IMAP access.
-- For Telegram: a bot token created through Telegram and the parent chat IDs.
-- For inference: OpenAI access through an OpenClaw-supported login flow.
-- No router port forwarding for ports `3000` or `8788`.
-
-The service is intentionally LAN-only. Telegram, weather, transport, email,
-Spond, Oda, HelloFresh and the model provider are the expected outbound
-connections.
-
-## 3. Install the host software
-
-### Tested baseline
-
-| Software | Tested/required baseline | Why it is present |
+| Software | Baseline | Needed for Dashboard |
 | --- | --- | --- |
-| macOS Command Line Tools | Current macOS release | Git and standard build utilities |
-| Homebrew | Current stable | Installs the remaining command-line tools |
-| Node.js | `22.22.3` through the latest `22.x` | Portal build/runtime and OpenClaw |
-| Python | `3.12` in isolated `uv` environments | Core and Portal services |
-| `uv` | Current stable | Reproducible Python environments |
-| SQLite CLI/library | Current macOS/Homebrew release | Durable local database and integrity checks |
-| Himalaya | `1.2.0+` | IMAP email ingestion |
-| OpenClaw | Tested with `2026.7.1-2` | Optional full assistant/Telegram footprint |
-| Git, `curl`, `rsync`, `dns-sd`, `launchctl` | Supplied by macOS/Command Line Tools | Source, APIs, deployment and Bonjour |
+| macOS Command Line Tools | Current supported macOS | yes |
+| Node.js | `22.22.3` through `22.x` | yes |
+| Python | `3.12` through `uv` | yes |
+| `uv` | current stable | yes |
+| Git, SQLite, `rsync`, Bonjour and `launchd` | macOS / Command Line Tools | yes |
+| Himalaya `1.2+` | current supported | connected email only |
+| OpenClaw | reviewed current release | AI/Telegram only |
 
-Install Apple's Command Line Tools first:
+Install Apple's tools:
 
 ```bash
 xcode-select --install
 ```
 
-If Homebrew is not installed, use the installation command from
-[brew.sh](https://brew.sh/). Then install the tested toolchain:
+Install [Homebrew](https://brew.sh/) if needed, then:
 
 ```bash
-brew install node@22 uv sqlite himalaya
+brew install node@22 uv
 echo 'export PATH="$(brew --prefix node@22)/bin:$PATH"' >> "$HOME/.zprofile"
 export PATH="$(brew --prefix node@22)/bin:$PATH"
 uv python install 3.12
-```
-
-For the full assistant footprint, install the tested OpenClaw release from npm:
-
-```bash
-npm install --global openclaw@2026.7.1-2
-```
-
-Confirm that the shell sees the expected tools:
-
-```bash
 node --version
-npm --version
 uv --version
-himalaya --version
 sqlite3 --version
-openclaw --version   # full assistant footprint only
 ```
 
-If `node --version` is older than `22.22.3`, close and reopen Terminal and
-check the PATH line in `$HOME/.zprofile`.
+The Node version must be at least `22.22.3` and remain below `23`.
 
-## 4. Clone the repositories together
+## 3. Clone both repositories
 
-Choose a private working directory outside any cloud-synchronized folder:
+Keep the checkouts together and outside a cloud-synchronized folder:
 
 ```bash
 mkdir -p "$HOME/FamilyBot"
@@ -131,306 +66,338 @@ git clone https://github.com/TrygveAasheim/familybot-core.git
 git clone https://github.com/TrygveAasheim/familybot-portal.git
 ```
 
-The resulting directory must look like this:
+Use the reviewed `main` branch for a household installation. The directories
+must be siblings:
 
 ```text
-$HOME/FamilyBot/
-  familybot-core/
-  familybot-portal/
+$HOME/FamilyBot/familybot-core
+$HOME/FamilyBot/familybot-portal
 ```
 
-Use `main` for the public stable baseline. The project owner deploys active
-development from `dev`; a fork may use its own release workflow.
-
-## 5. Create isolated development environments
-
-Install Core's two pinned runtime packages:
+Optionally verify the source-only prerequisites before creating private state:
 
 ```bash
 cd "$HOME/FamilyBot/familybot-core"
-uv venv --python 3.12 .venv
-uv pip sync --python .venv/bin/python requirements.txt
+uv run --python 3.12 scripts/check_setup.py --mode source --profile dashboard
 ```
 
-Install Portal's Node.js dependencies and Python runtime/quality tools:
+## 4. Install the dashboard
 
-```bash
-cd "$HOME/FamilyBot/familybot-portal"
-npm ci
-uv venv --python 3.12 .venv
-uv pip sync --python .venv/bin/python requirements.txt
-uv pip install --python .venv/bin/python --requirement requirements-dev.txt
-source .venv/bin/activate
-```
-
-Run the privacy-safe source readiness check. It prints executable paths and
-pass/fail status, never credentials or household values:
+Run the guided installer:
 
 ```bash
 cd "$HOME/FamilyBot/familybot-core"
-.venv/bin/python scripts/check_setup.py --mode source
+uv run --python 3.12 scripts/install_familybot.py \
+  --portal-repo ../familybot-portal
 ```
 
-OpenClaw and Himalaya are warnings in source mode because the dashboard-only
-footprint can omit them. They become required in the full runtime check.
+It asks for the family name, any number of parents and children, optional school
+and class, and a six-to-eight-digit parent PIN. It then:
 
-## 6. Configure the minimal OpenClaw footprint
+1. validates macOS, Node, Python, Git, SQLite, `uv`, `rsync`, Bonjour and
+   `launchd` before changing state;
+2. creates `$HOME/.familybot` with owner-only directories and files;
+3. writes the Dashboard profile with every integration disabled;
+4. creates `family.db` from authoritative versioned migrations;
+5. seeds household rows and starter chores;
+6. builds and deploys the Portal; and
+7. verifies both the API and dashboard locally.
 
-Skip this section for a dashboard-only installation.
+The operation is idempotent. Running it again keeps the existing config, PIN
+and household data and applies only pending migrations.
 
-Run OpenClaw's interactive local onboarding. Choose an OpenAI login supported
-by your account, keep the gateway bound to loopback, install its launchd daemon,
-and use the default `main` agent workspace:
+### Try fictional data first
+
+Use the built-in Familien Nordlys demo:
 
 ```bash
-openclaw onboard --flow quickstart --mode local --install-daemon \
-  --workspace "$HOME/.openclaw/workspace"
+uv run --python 3.12 scripts/install_familybot.py \
+  --portal-repo ../familybot-portal --demo
 ```
 
-You do not need to enable optional skills, web search, external plugins, a LAN
-gateway or a public control UI. Add Telegram through the guided channel flow:
+The demo contains fictional people, schools, calendar dates, rewards and chores.
+It makes no external integration request.
+
+### Initialize without starting services
+
+For review, CI or a disposable test workspace:
 
 ```bash
-openclaw channels add --channel telegram
+printf '482731\n' > /tmp/familybot-demo-pin
+chmod 600 /tmp/familybot-demo-pin
+uv run --python 3.12 scripts/install_familybot.py \
+  --portal-repo ../familybot-portal \
+  --workspace /tmp/familybot-demo \
+  --demo --non-interactive --no-deploy \
+  --parent-pin-source /tmp/familybot-demo-pin
 ```
 
-Do not put the Telegram token or OpenAI credential in either Git repository or
-in `family.local.json`. OpenClaw owns those credentials.
+Delete only that explicit disposable `/tmp/familybot-demo` directory when
+finished. Never use a broad home-directory deletion command.
 
-Verify only capabilities, not secret values:
+## 5. Open the dashboard
 
-```bash
-openclaw gateway health
-openclaw models status
-openclaw channels status --probe
-openclaw agent --agent main --message "Reply exactly: MODEL_OK" --json
+On the Mac, open:
+
+```text
+http://familie.local:3000/
 ```
 
-The last command uses a small amount of model capacity. A successful catalog
-listing alone does not prove that the authenticated account can run the model.
+On the iPad, join the same trusted Wi-Fi and open the same URL in Safari. Use
+Safari's **Share → Add to Home Screen** to create an app-like icon.
 
-## 7. Configure school email with Himalaya
+If Bonjour is unavailable, use the Mac's LAN IP and add that exact origin to
+`portal.allowed_origins` before redeploying. Do not add wildcards or an entire
+private address range.
 
-Skip this section if school email ingestion is not wanted.
-
-Use a dedicated mailbox or an app password rather than a primary account
-password. The account name must match `integrations.email.account` in the
-FamilyBot configuration:
+Verify the installed baseline without printing private values:
 
 ```bash
+cd "$HOME/FamilyBot/familybot-core"
+FAMILYBOT_WORKSPACE="$HOME/.familybot" \
+FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json" \
+uv run --python 3.12 scripts/check_setup.py --mode runtime --profile dashboard
+```
+
+This is a software check, not evidence of a physical iPad test. Confirm touch,
+portrait/landscape layout and parent approval on the actual household iPad.
+
+## 6. Personalize the dashboard
+
+The installer writes `$HOME/.familybot/config/family.local.json`. It is mode
+`0600` and outside Git. Edit and validate it with:
+
+```bash
+nano "$HOME/.familybot/config/family.local.json"
+FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json" \
+uv run --python 3.12 scripts/validate_config.py
+```
+
+See [CONFIGURATION.md](CONFIGURATION.md) for school calendars, MET coordinates,
+Entur stop/quay selection, secondary locations and notification schedules.
+Never put passwords, API tokens, provider cookies or the parent PIN in this
+JSON file.
+
+After a valid edit, rerun the installer to rebuild and verify the Portal:
+
+```bash
+uv run --python 3.12 scripts/install_familybot.py \
+  --portal-repo ../familybot-portal
+```
+
+## 7. Enable the Connected organizer
+
+Only do this for integrations the household has chosen.
+
+1. Change `profile` to `connected`.
+2. Add an integration block with `"enabled": true` for email, Spond and/or
+   transport/weather.
+3. Validate the configuration.
+4. Configure credentials outside Git.
+5. Deploy Core's selected schedules.
+
+### School email and PDF plans
+
+Install and configure Himalaya:
+
+```bash
+brew install himalaya
 himalaya account configure familybot
 himalaya account doctor familybot
 himalaya folder list --output json
 ```
 
-Himalaya normally stores configuration under
-`$HOME/.config/himalaya/config.toml` and uses the secret mechanism selected in
-its wizard. Never copy that file into either repository.
+Set `integrations.email.account` to that account label. Use a dedicated mailbox
+or app password when the mail provider supports it. Unknown mail remains
+untrusted and cannot invoke tools.
 
-## 8. Create the private household configuration
+### Spond
 
-Core owns the only public template. Copy it outside Git:
+Spond uses an unofficial community client. Add only the selected groups to the
+configuration and place credentials in the owner-only store described in
+[CREDENTIALS.md](CREDENTIALS.md). A Spond outage disables only Spond data.
+
+### Deploy selected connected jobs
 
 ```bash
 cd "$HOME/FamilyBot/familybot-core"
-install -d -m 700 "$HOME/.openclaw/workspace/config"
-install -m 600 config/family.example.json \
-  "$HOME/.openclaw/workspace/config/family.local.json"
-${EDITOR:-nano} "$HOME/.openclaw/workspace/config/family.local.json"
-.venv/bin/python scripts/validate_config.py
+export FAMILYBOT_WORKSPACE="$HOME/.familybot"
+export FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json"
+export FAMILYBOT_DEPLOY_BRANCH="$(git branch --show-current)"
+bash scripts/deploy_core.sh --reload
+uv run --python 3.12 scripts/check_setup.py --mode runtime --profile connected
 ```
 
-Replace every placeholder. Configure:
+Profile-aware deployment installs only enabled jobs. Missing optional
+credentials are reported as an integration failure; they do not stop the
+dashboard or unrelated adapters. The isolated Core runtime also installs the
+PDF and unofficial Spond dependency locks only when their corresponding
+adapter is enabled.
 
-- stable IDs, names and roles for family members;
-- parent Telegram targets only when Telegram is enabled;
-- the Himalaya account and forwarding addresses when email is enabled;
-- Spond groups only when Spond is enabled;
-- exact Entur stop/quay IDs and the relevant station corridor;
-- MET coordinates and an identifiable contact User-Agent; and
-- exact Portal origins that the household's iPad will use.
+## 8. Enable the AI family agent
 
-Read [CONFIGURATION.md](CONFIGURATION.md) for every field. The file contains
-private household metadata, but no passwords, tokens or API keys.
+OpenClaw is the optional conversational/Telegram boundary—not a prerequisite
+for SQLite, the dashboard or `launchd`.
 
-## 9. Restore the supported database
-
-Stop here if you do not have a supported starter or backup database. Empty
-database creation is the remaining clean-install blocker.
-
-Restore it with owner-only permissions:
+Install a reviewed OpenClaw release, keep its gateway on loopback and use its
+guided OpenAI and Telegram setup. This is the **minimal OpenClaw footprint**:
+one local gateway/CLI, one model-backed agent and the Telegram channel. Do not
+enable browser tools, public gateway access or unneeded plugins.
 
 ```bash
-install -d -m 700 "$HOME/.openclaw/workspace/db"
-install -m 600 /path/to/your/family.db \
-  "$HOME/.openclaw/workspace/db/family.db"
-sqlite3 "$HOME/.openclaw/workspace/db/family.db" \
-  "PRAGMA integrity_check; PRAGMA foreign_key_check;"
+npm install --global openclaw
+openclaw onboard --flow quickstart --mode local --install-daemon
+openclaw channels add --channel telegram
 ```
 
-The first result must be `ok`; the foreign-key query should return no rows.
-Never commit the database. Git restores source, not household state.
-
-## 10. Create the Portal parent PIN
-
-Use six to eight random digits. This protects parent actions on the trusted LAN;
-it is not an internet-grade account system.
+Change `profile` to `agent`, add parent Telegram targets, validate, then deploy:
 
 ```bash
-cd "$HOME/FamilyBot/familybot-portal"
-install -d -m 700 runtime
-read -r -s -p "Parent PIN: " FAMILYBOT_PARENT_PIN
-printf '\n'
-printf '%s\n' "$FAMILYBOT_PARENT_PIN" > runtime/parent-pin.txt
-unset FAMILYBOT_PARENT_PIN
-chmod 600 runtime/parent-pin.txt
+cd "$HOME/FamilyBot/familybot-core"
+export FAMILYBOT_WORKSPACE="$HOME/.familybot"
+export FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json"
+export FAMILYBOT_DEPLOY_BRANCH="$(git branch --show-current)"
+bash scripts/deploy_core.sh --reload
+uv run --python 3.12 scripts/check_setup.py --mode runtime --profile agent
 ```
 
-## 11. Add optional credentials
+The briefing and Ukeplan agents have tools, skills and elevation disabled.
+External email/PDF text is treated as data, not instructions. Deterministic
+fallbacks remain active when inference fails. Consequential conversational
+actions use bounded commands and explicit confirmation.
 
-Follow [CREDENTIALS.md](CREDENTIALS.md). In particular:
+## 9. Optional Oda and HelloFresh
 
-- Spond credentials go in
-  `$HOME/.openclaw/workspace/secrets.env` with mode `0600`;
-- Oda uses same-window OAuth from the Portal and stores renewable tokens in an
-  owner-only file outside Git;
-- HelloFresh is disabled by default and stores only renewable provider tokens,
-  never the password; and
-- the Portal PIN remains in the ignored Portal runtime directory.
+Both are Portal features and neither changes the capability profile.
 
-## 12. Run all checks before installing services
+- Oda uses a hosted MCP/OAuth service. The Portal exposes only an allowlist of
+  recipe/product/cart operations; checkout remains at Oda.
+- HelloFresh is experimental and disabled by default. It uses an unsupported,
+  reverse-engineered Norway provider contract for upcoming boxes, bounded meal
+  selection and pause/resume. Provider changes may break it without notice.
+
+Enable only the corresponding booleans under `portal.features`, validate the
+config and rerun the installer. Provider credentials remain outside Git. The
+plain-HTTP LAN risk is especially important for HelloFresh first-use password
+entry; use only a trusted, isolated LAN.
+
+## 10. Back up before upgrades
+
+Create and verify a private SQLite backup:
+
+```bash
+cd "$HOME/FamilyBot/familybot-core"
+uv run --python 3.12 scripts/manage_database.py backup \
+  --db "$HOME/.familybot/db/family.db" \
+  --backup-root "$HOME/.familybot/backups"
+```
+
+Also back up, encrypted and outside Git:
+
+- `$HOME/.familybot/config/`;
+- `$HOME/.familybot/backups/` and the current database;
+- enabled integration credential stores;
+- the exact Core and Portal Git commit IDs.
+
+Git is not a household-state backup.
+
+## 11. Upgrade safely
+
+```bash
+cd "$HOME/FamilyBot/familybot-core"
+uv run --python 3.12 scripts/manage_database.py backup \
+  --db "$HOME/.familybot/db/family.db" \
+  --backup-root "$HOME/.familybot/backups"
+git pull --ff-only
+git -C ../familybot-portal pull --ff-only
+uv run --python 3.12 scripts/install_familybot.py \
+  --portal-repo ../familybot-portal
+```
+
+The migration ledger checks component version, name and checksum. Existing data
+is backed up before pending migrations run. A failed migration rolls back its
+transaction and leaves a recovery backup; the service refuses incompatible
+schema versions rather than serving partial data.
+
+If Core schedules are enabled, redeploy them after the upgrade:
+
+```bash
+export FAMILYBOT_WORKSPACE="$HOME/.familybot"
+export FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json"
+export FAMILYBOT_DEPLOY_BRANCH="$(git branch --show-current)"
+bash scripts/deploy_core.sh --reload
+```
+
+## 12. Restore or roll back
+
+Inspect database status:
+
+```bash
+uv run --python 3.12 scripts/manage_database.py status \
+  --db "$HOME/.familybot/db/family.db"
+```
+
+Restore a selected verified backup:
+
+```bash
+uv run --python 3.12 scripts/manage_database.py restore \
+  --db "$HOME/.familybot/db/family.db" \
+  --backup-root "$HOME/.familybot/backups" \
+  --from-backup "/exact/path/to/backup/family.db"
+```
+
+Restore verifies the source before replacing the database and creates a
+pre-restore recovery backup of the current file. Then check out the matching
+Core and Portal commits, rerun the installer and verify the dashboard. Full
+disaster-recovery order is in [REDEPLOY.md](REDEPLOY.md).
+
+## 13. Troubleshooting
+
+### `familie.local` does not open
+
+```bash
+launchctl print "gui/$(id -u)/ai.familybot.portal"
+dns-sd -B _http._tcp local
+curl -fsS http://127.0.0.1:8788/api/health
+```
+
+Check that the iPad is not on guest Wi-Fi and that the router permits mDNS
+between household devices.
+
+### An optional integration is unavailable
+
+Keep the dashboard running. Validate only that integration's config and
+credentials, then inspect the owner-only service log. Do not copy credentials
+or private payloads into a public issue.
+
+### Database migration stopped
+
+Do not delete the database or edit the migration ledger. Preserve the error,
+run `manage_database.py status`, identify the automatic backup, and follow the
+restore command above.
+
+### Full verification for contributors
 
 Core:
 
 ```bash
 cd "$HOME/FamilyBot/familybot-core"
-.venv/bin/python scripts/validate_docs.py
-.venv/bin/python scripts/validate_config.py
-.venv/bin/python scripts/validate_launchd.py
+uv venv --python 3.12 .venv
+uv pip sync --python .venv/bin/python requirements.txt requirements-dev.txt
 FAMILYBOT_FAMILY_CONFIG=tests/fixtures/family.test.json \
   .venv/bin/python -m unittest discover -s tests -p 'test_*.py'
-.venv/bin/python -m py_compile scripts/*.py
-bash -n scripts/*.sh
+.venv/bin/ruff check scripts tests
 ```
 
 Portal:
 
 ```bash
 cd "$HOME/FamilyBot/familybot-portal"
-source .venv/bin/activate
-npm run docs:check
+npm ci
 npm run lint
 npm test
-npm run preflight
 ```
 
-Then run the full readiness check. It suppresses command output from OpenClaw
-and Himalaya so diagnostics cannot accidentally expose mailbox or provider
-details:
-
-```bash
-cd "$HOME/FamilyBot/familybot-core"
-.venv/bin/python scripts/check_setup.py --mode runtime
-```
-
-For a dashboard-only footprint, select its capability profile:
-
-```bash
-# Existing-data dashboard without school mail or Telegram/AI
-.venv/bin/python scripts/check_setup.py --mode runtime --profile dashboard
-```
-
-The `mail` profile is also available to contributors testing the deterministic
-ingestion component in isolation. Resolve every `FAIL`. A `WARN` is an
-explicitly optional integration.
-
-## 13. Deploy the services
-
-The public stable branch is `main`; the project owner's active appliance uses
-reviewed `dev` deployments. The deploy scripts default to `dev` for that owner
-workflow, while a fork can explicitly name its reviewed release branch with
-`FAMILYBOT_DEPLOY_BRANCH`.
-
-Dashboard-only users skip this Core service step and deploy Portal below. For
-the full assistant, deploy Core first on the project owner's `dev` branch:
-
-```bash
-cd "$HOME/FamilyBot/familybot-core"
-bash scripts/deploy_core.sh --reload
-```
-
-For a new fork deploying its reviewed `main` branch instead:
-
-```bash
-FAMILYBOT_DEPLOY_BRANCH=main bash scripts/deploy_core.sh --reload
-```
-
-Core deployment creates an isolated Python 3.12 runtime under
-`$HOME/.openclaw/workspace/runtime/core`, copies reviewed scripts, installs all
-nine base LaunchAgents, installs the tenth Spond job only when at least one
-Spond group is configured, and reloads the installed jobs when requested.
-
-Deploy Portal second:
-
-```bash
-cd "$HOME/FamilyBot/familybot-portal"
-bash scripts/deploy-local.sh
-.venv/bin/python tests/acceptance.py
-```
-
-For a reviewed `main` branch in a fork, use:
-
-```bash
-FAMILYBOT_DEPLOY_BRANCH=main bash scripts/deploy-local.sh
-.venv/bin/python tests/acceptance.py
-```
-
-Portal deployment records the exact Node executable selected during setup,
-creates its isolated Python 3.12 runtime and installs the web/API and optional
-HelloFresh image-prefetch LaunchAgents.
-
-## 14. Open the dashboard and verify one real flow
-
-From the Mac, open:
-
-```text
-http://familie.local:3000/
-```
-
-Then test from the iPad on the same LAN. Verify, in this order:
-
-1. the home page loads and the clock advances;
-2. weather and Entur show either current data or an honest unavailable state;
-3. each child page opens;
-4. one chore completion and parent decision persist after refresh;
-5. one school email/PDF becomes the correct child's Ukeplan;
-6. one Telegram test reaches each configured parent; and
-7. `python3 tests/acceptance.py` reports every critical Portal criterion passed.
-
-Only after these pass should you add the dashboard to the iPad Home Screen.
-
-## Troubleshooting map
-
-| Symptom | Start here |
-| --- | --- |
-| A command is missing or the wrong version | `.venv/bin/python scripts/check_setup.py --mode source` |
-| Configuration is rejected | [CONFIGURATION.md](CONFIGURATION.md) and `scripts/validate_config.py` |
-| OpenClaw/model/Telegram fails | `openclaw doctor`, `openclaw gateway health`, `openclaw models status`, `openclaw channels status --probe` |
-| Mail fails | `himalaya account doctor familybot` and [CREDENTIALS.md](CREDENTIALS.md) |
-| A scheduled job is absent | [docs/SCHEDULES.md](docs/SCHEDULES.md) and `scripts/deploy_core.sh --reload` |
-| Portal preflight fails | `npm run preflight`; confirm sibling Core, config, database and PIN |
-| `familie.local` does not resolve | Check `ai.familybot.portal`, `dns-sd` and the iPad's LAN/guest-network placement |
-| Restoring after a host failure | [REDEPLOY.md](REDEPLOY.md) |
-
-## What every fork must customize
-
-- Family members, schools, teacher/sender rules and forwarding conventions.
-- Entur stop/quay IDs, station corridor and MET coordinates.
-- The school calendar: the included Oslo seed is not a universal Norwegian
-  calendar and must be kept current.
-- Spond groups and whether the unofficial adapter is acceptable.
-- Portal origins, Bonjour name, parent PIN and optional grocery provider flags.
-- Branch/deployment policy if it differs from the owner's `dev` workflow.
-
-Do not describe Smart Home as installed: it remains a separately reviewed plan
-in [specs/SMART_HOME.md](specs/SMART_HOME.md).
+Automated clean-room tests prove empty initialization, chore approval, restart,
+upgrade and migration recovery. They do not prove a household's mail account,
+Spond account, provider contract, router, physical iPad or model entitlement.

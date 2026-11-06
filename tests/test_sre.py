@@ -1,8 +1,11 @@
+import json
+import os
 import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -23,6 +26,53 @@ class ScheduleContractTests(unittest.TestCase):
         self.assertNotIn("familybot.spond", {spec.label for spec in active_job_specs(False)})
         self.assertIn("familybot.spond", {spec.label for spec in active_job_specs(True)})
 
+    def test_capability_profile_selects_only_relevant_jobs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / "family.json"
+            base = {
+                "profile": "dashboard",
+                "members": [{"member_id": 1, "role": "parent", "name": "Test"}],
+                "integrations": {},
+            }
+            with patch.dict(os.environ, {"FAMILYBOT_FAMILY_CONFIG": str(config)}):
+                config.write_text(json.dumps(base), encoding="utf-8")
+                self.assertEqual(active_job_specs(), ())
+
+                base["profile"] = "connected"
+                base["integrations"] = {
+                    "email": {"account": "test@example.invalid"},
+                    "transport": {"stop_id": "NSR:StopPlace:test"},
+                }
+                config.write_text(json.dumps(base), encoding="utf-8")
+                connected = {spec.label for spec in active_job_specs()}
+                self.assertEqual(
+                    connected,
+                    {
+                        "familybot.email",
+                        "familybot.health",
+                        "familybot.status",
+                        "familybot.tbane",
+                    },
+                )
+
+                base["profile"] = "agent"
+                config.write_text(json.dumps(base), encoding="utf-8")
+                agent = {spec.label for spec in active_job_specs()}
+                self.assertIn("familybot.delivery", agent)
+                self.assertIn("familybot.ukeplan", agent)
+
+                base["notifications"] = {
+                    "weekday_briefing": False,
+                    "weekly_time": "19:30",
+                    "weekly_weekday": "saturday",
+                }
+                config.write_text(json.dumps(base), encoding="utf-8")
+                configured = {spec.label: spec for spec in active_job_specs()}
+                self.assertNotIn("familybot.briefing.weekday", configured)
+                self.assertEqual(
+                    ((6, 19, 30),), configured["familybot.briefing.weekly"].calendar
+                )
+
     def test_weekend_next_run_is_schedule_aware(self):
         tuesday = datetime(2026, 9, 8, 4, 30, tzinfo=timezone.utc)
         spec = JOB_BY_LABEL["familybot.briefing.weekend"]
@@ -30,6 +80,22 @@ class ScheduleContractTests(unittest.TestCase):
         following = next_calendar_due(spec, tuesday)
         self.assertEqual(latest.weekday(), 6)  # Sunday, in UTC for this date
         self.assertEqual(following.weekday(), 5)  # Saturday, in UTC for this date
+
+    def test_calendar_due_uses_configured_household_timezone(self):
+        with tempfile.TemporaryDirectory() as directory:
+            config = Path(directory) / "family.json"
+            config.write_text(
+                json.dumps({
+                    "family": {"timezone": "Atlantic/Reykjavik"},
+                    "members": [{"member_id": 1, "role": "parent", "name": "Test"}],
+                }),
+                encoding="utf-8",
+            )
+            spec = JOB_BY_LABEL["familybot.briefing.weekday"]
+            current = datetime(2026, 9, 8, 6, 0, tzinfo=timezone.utc)
+            with patch.dict(os.environ, {"FAMILYBOT_FAMILY_CONFIG": str(config)}):
+                following = next_calendar_due(spec, current)
+            self.assertEqual(datetime(2026, 9, 8, 6, 45, tzinfo=timezone.utc), following)
 
     def test_health_warning_exit_does_not_recurse_as_scheduler_failure(self):
         current = datetime(2026, 11, 3, 8, 30, tzinfo=timezone.utc)

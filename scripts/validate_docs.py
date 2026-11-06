@@ -72,16 +72,19 @@ def validate_repository(root: Path) -> list[str]:
     if getting_started.is_file():
         content = getting_started.read_text(encoding="utf-8")
         required_install_contract = {
-            "Current clean-install limitation": "does not disclose the clean database limitation",
+            "scripts/install_familybot.py": "does not include the supported installer",
+            "scripts/manage_database.py backup": "does not include the supported backup command",
+            "scripts/manage_database.py restore": "does not include the supported restore command",
+            "--demo": "does not include the fictional demonstration path",
             "22.22.3": "does not pin the tested Node.js baseline",
             "Python | `3.12`": "does not pin the Python 3.12 baseline",
             "minimal OpenClaw footprint": "does not explain the minimal OpenClaw footprint",
             "scripts/check_setup.py --mode source": "does not include the source readiness check",
             "scripts/check_setup.py --mode runtime": "does not include the runtime readiness check",
-            "--profile dashboard": "does not explain the reduced dashboard readiness profile",
+            "--profile dashboard": "does not include the dashboard readiness profile",
             "himalaya account configure": "does not include guided mail setup",
             "scripts/deploy_core.sh --reload": "does not include Core deployment",
-            "scripts/deploy-local.sh": "does not include Portal deployment",
+            "$HOME/.familybot": "does not document the standalone private workspace",
         }
         for marker, message in required_install_contract.items():
             if marker not in content:
@@ -115,6 +118,10 @@ def validate_repository(root: Path) -> list[str]:
         "python 3.9+": "installation documentation still advertises unsupported Python 3.9",
         "not yet a one-command installer for every historical schedule":
             "installation documentation still describes the incomplete LaunchAgent set",
+        "current clean-install limitation":
+            "installation documentation still describes empty database creation as unsupported",
+        "supported starter or restored database":
+            "documentation still requires an owner-provided starter database",
     }
     combined = "\n".join(path.read_text(encoding="utf-8").lower() for path in markdown_files(root))
     for phrase, message in legacy_phrases.items():

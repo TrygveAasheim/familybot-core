@@ -3,12 +3,21 @@
 Use this list on first install, credential rotation and disaster recovery. Do
 not paste secret values into issues, commits, screenshots or validation logs.
 
-## Required for the current installation
+## Required for every dashboard installation
 
 - [ ] **Local family config** exists at
-  `$HOME/.openclaw/workspace/config/family.local.json`, is mode `0600`, and
+  `$HOME/.familybot/config/family.local.json`, is mode `0600`, and
   passes `python3 scripts/validate_config.py`. It is private metadata, not a
   credential.
+- [ ] **Portal parent PIN** is 6–8 random digits in
+  `$HOME/.familybot/config/parent-pin.txt`, mode `0600`. Deployment copies it to
+  the generated runtime and the API rate-limits login attempts.
+
+Existing installations may keep a different explicit `FAMILYBOT_WORKSPACE`.
+Paths below are relative to that workspace.
+
+## Required only when the Agent profile is enabled
+
 - [ ] **OpenClaw provider credential** is installed through OpenClaw's supported
   login/credential flow. Verify with an exact-response smoke test; do not copy
   provider tokens into FamilyBot files.
@@ -16,18 +25,14 @@ not paste secret values into issues, commits, screenshots or validation logs.
   `openclaw gateway health` and one deliberate message to each configured
   parent. Telegram recipient IDs belong in local family config; the bot token
   does not.
+## Required only when the integration is enabled
+
 - [ ] **Mail credential** is in Himalaya's protected configuration, normally
   `~/.config/himalaya/config.toml` plus its chosen secret store. Verify
   `himalaya folder list --output json`. Prefer an app password and least-privilege
   mailbox dedicated to FamilyBot.
-- [ ] **Portal parent PIN** is 4–8 digits (6–8 random digits recommended) in
-  `familybot-portal/runtime/parent-pin.txt`, mode `0600`. It is copied to the
-  ignored deployment runtime and rate-limited by the API.
-
-## Required only when enabled
-
 - [ ] **Spond username/password** are in
-  `$HOME/.openclaw/workspace/secrets.env`, mode `0600`, as `SPOND_USERNAME` and
+  `$HOME/.familybot/secrets.env`, mode `0600`, as `SPOND_USERNAME` and
   `SPOND_PASSWORD`. The community Spond client is unofficial; use a dedicated
   account if practical and review it after upstream changes.
 - [ ] **Future Home Assistant credential** uses a dedicated non-admin account
@@ -38,12 +43,12 @@ not paste secret values into issues, commits, screenshots or validation logs.
   provider's local OAuth/setup flow. Do not paste them into chat, FamilyBot
   configuration or issues. See [specs/SMART_HOME.md](specs/SMART_HOME.md).
 - [ ] **Oda OAuth** is completed through the Portal's same-window consent flow.
-  Renewable tokens remain in `$HOME/.openclaw/credentials/oda-mcp.json`, mode
+  Renewable tokens remain in `$HOME/.familybot/credentials/oda-mcp.json`, mode
   `0600`; no Oda API key is copied into FamilyBot configuration.
 - [ ] **HelloFresh renewable access** is created only when both experimental
   flags are enabled. The first-use password is transient and must never be
   stored; renewable tokens remain in
-  `$HOME/.openclaw/credentials/hellofresh-no.json`, mode `0600`.
+  `$HOME/.familybot/credentials/hellofresh-no.json`, mode `0600`.
 
 ## Integrations without secrets
 

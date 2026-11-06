@@ -29,8 +29,9 @@ For installation or configuration work, also read `CONFIGURATION.md`,
   `ukeplan` email without a stored `week_plans` row remains retryable.
 - A delivery is not successful until its recipient-specific outbox row is sent.
   Vacation suppression is never recorded as delivery.
-- Runtime state and credentials belong under the private OpenClaw workspace,
-  never in Git. Do not print secret values while testing.
+- Runtime state and credentials belong under the configured private FamilyBot
+  workspace, never in Git. OpenClaw has its own credential store only when the
+  Agent profile is enabled. Do not print secret values while testing.
 - Add-ons consume curated interfaces. They do not reach into or repurpose the
   email ledger, delivery outbox, parser state or raw untrusted payloads.
 

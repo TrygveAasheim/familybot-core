@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
-from family_config import integration
+from family_config import capability_profile, family_timezone, integration
 from outcome_health import briefing_health, interpretation_health
 from reliability import connect_db, database_path, workspace_path
 from runtime_tools import executable
@@ -31,8 +31,10 @@ from validate_launchd import validate_launchctl_output
 
 DB_PATH = str(database_path())
 WORKSPACE = workspace_path()
-OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
-EMAIL_ACCOUNT = str(integration("email").get("account") or "configured account")
+LOCAL_ZONE = zoneinfo.ZoneInfo(family_timezone())
+PROFILE = capability_profile()
+EMAIL = integration("email")
+EMAIL_ACCOUNT = str(EMAIL.get("account") or "configured account")
 ACTIVE_JOB_SPECS = active_job_specs()
 SPOND_ENABLED = any(spec.label == "familybot.spond" for spec in ACTIVE_JOB_SPECS)
 OPENCLAW = executable("FAMILYBOT_OPENCLAW", "openclaw")
@@ -71,47 +73,53 @@ def run(argv: Sequence[str]):
         return -1, "", type(exc).__name__
 
 
-# ── 1. OpenClaw gateway ────────────────────────────────────────────────────────
-code, out, err = run([OPENCLAW, "gateway", "status"])
-out_lower = out.lower()
-if "running" in out_lower and ("rpc probe: ok" in out_lower or "connectivity probe: ok" in out_lower):
-    ok("gateway", "Running and connectivity probe OK")
-else:
-    critical("gateway", f"Gateway may be down: {out or err}",
-             fix="openclaw gateway restart",
-             auto_fix="restart")
+if PROFILE == "agent":
+    # ── 1. OpenClaw gateway ────────────────────────────────────────────────────
+    code, out, err = run([OPENCLAW, "gateway", "status"])
+    out_lower = out.lower()
+    if "running" in out_lower and ("rpc probe: ok" in out_lower or "connectivity probe: ok" in out_lower):
+        ok("gateway", "Running and connectivity probe OK")
+    else:
+        critical("gateway", f"Gateway may be down: {out or err}",
+                 fix="openclaw gateway restart",
+                 auto_fix="restart")
 
 # A reachable gateway can still reject every conversational and scheduled turn
 # when its default or a cron override points at a retired provider model.
-model_check = Path(__file__).with_name("configure_openclaw_model.py")
-code, out, err = run([sys.executable, str(model_check), "--check"])
-if code == 0:
-    ok("openclaw_model", out or "OpenClaw model configuration is compatible")
-else:
-    critical(
-        "openclaw_model",
-        f"OpenClaw model configuration is incompatible: {err or out}",
-        fix=f"python3 {model_check} --apply --restart",
-    )
+    model_check = Path(__file__).with_name("configure_openclaw_model.py")
+    code, out, err = run([sys.executable, str(model_check), "--check"])
+    if code == 0:
+        ok("openclaw_model", out or "OpenClaw model configuration is compatible")
+    else:
+        critical(
+            "openclaw_model",
+            f"OpenClaw model configuration is incompatible: {err or out}",
+            fix=f"python3 {model_check} --apply --restart",
+        )
 
 # ── 2. Telegram channel ────────────────────────────────────────────────────────
 # Fast status intentionally reports SETUP/unknown. Deep status performs the
 # actual channel probe and is the only result suitable for health reporting.
-code, out, err = run([OPENCLAW, "status", "--deep"])
-telegram_line = next((line for line in out.splitlines() if "telegram" in line.lower()), "")
-if code == 0 and " OK " in f" {telegram_line.upper()} ":
-    ok("telegram", "Telegram channel connected")
+    code, out, err = run([OPENCLAW, "status", "--deep"])
+    telegram_line = next((line for line in out.splitlines() if "telegram" in line.lower()), "")
+    if code == 0 and " OK " in f" {telegram_line.upper()} ":
+        ok("telegram", "Telegram channel connected")
+    else:
+        warn("telegram", f"Telegram channel state unclear: {telegram_line or err}",
+             fix="Check bot token and restart gateway")
 else:
-    warn("telegram", f"Telegram channel state unclear: {telegram_line or err}",
-         fix="Check bot token and restart gateway")
+    ok("agent", "Optional AI and Telegram capabilities are not enabled")
 
 # ── 3. Email / himalaya ───────────────────────────────────────────────────────
-code, out, err = run([HIMALAYA, "folder", "list", "--output", "json"])
-if code == 0 and "INBOX" in out:
-    ok("email", f"himalaya IMAP connected to {EMAIL_ACCOUNT}")
+if not EMAIL:
+    ok("email", "Optional school email integration is not configured")
 else:
-    critical("email", f"himalaya IMAP failed: {err or out}",
-             fix="Check App Password and himalaya config at ~/.config/himalaya/config.toml")
+    code, out, err = run([HIMALAYA, "folder", "list", "--output", "json"])
+    if code == 0 and "INBOX" in out:
+        ok("email", f"himalaya IMAP connected to {EMAIL_ACCOUNT}")
+    else:
+        critical("email", f"himalaya IMAP failed: {err or out}",
+                 fix="Check App Password and himalaya config at ~/.config/himalaya/config.toml")
 
 # ── 4. Database ───────────────────────────────────────────────────────────────
 try:
@@ -134,7 +142,9 @@ try:
         member_count = c.execute("SELECT COUNT(*) FROM family_members").fetchone()[0]
         ok("database", f"SQLite OK — {len(tables)} tables, {member_count} family members")
 
-    if "delivery_outbox" in tables:
+    if PROFILE != "agent":
+        ok("delivery_outbox", "Optional agent delivery queue is not enabled")
+    elif "delivery_outbox" in tables:
         pending = c.execute(
             "SELECT COUNT(*) FROM delivery_outbox WHERE status IN ('pending', 'sending')"
         ).fetchone()[0]
@@ -152,7 +162,9 @@ try:
     else:
         warn("delivery_outbox", "Durable delivery outbox has not been initialized")
 
-    if "email_processing_state" in tables:
+    if not EMAIL:
+        ok("email_pipeline", "Optional school email pipeline is not enabled")
+    elif "email_processing_state" in tables:
         failed_email = c.execute(
             "SELECT COUNT(*) FROM email_processing_state WHERE status='failed'"
         ).fetchone()[0]
@@ -163,20 +175,22 @@ try:
             ok("email_pipeline", "No failed email processing records")
     else:
         warn("email_pipeline", "Email processing ledger has not been initialized")
-    outcome = interpretation_health(conn, datetime.now(OSLO).date())
-    results.append(outcome)
-    if outcome["status"] == "warn":
-        exit_code = max(exit_code, 1)
+    if PROFILE == "agent" and EMAIL:
+        outcome = interpretation_health(conn, datetime.now(LOCAL_ZONE).date())
+        results.append(outcome)
+        if outcome["status"] == "warn":
+            exit_code = max(exit_code, 1)
     conn.close()
 except Exception as e:
     critical("database", f"Cannot open database: {e}",
              fix=f"Check {DB_PATH}")
 
 # ── 5. Email processing freshness ─────────────────────────────────────────────
-outcome = briefing_health()
-results.append(outcome)
-if outcome["status"] == "warn":
-    exit_code = max(exit_code, 1)
+if PROFILE == "agent":
+    outcome = briefing_health()
+    results.append(outcome)
+    if outcome["status"] == "warn":
+        exit_code = max(exit_code, 1)
 
 # ── 6. Cron jobs and freshness ───────────────────────────────────────────────
 now_utc = datetime.now(timezone.utc)
@@ -300,21 +314,24 @@ if code == 0 and out:
 
 
 # ── 7b. Calendar hygiene — purge past email events ───────────────────────────
-try:
-    sys.path.insert(0, str(WORKSPACE / "scripts"))
-    from calendar_guard import purge_past_email_events
-    conn_hygiene = connect_db(DB_PATH)
-    removed = purge_past_email_events(conn_hygiene, dry_run=True)
-    conn_hygiene.close()
-    if removed:
-        warn("calendar_hygiene", f"{len(removed)} past email event(s) await cleanup")
-    else:
-        ok("calendar_hygiene", "No past email events to purge")
-except Exception as e:
-    warn("calendar_hygiene", f"Could not run calendar hygiene: {e}")
+if not EMAIL:
+    ok("calendar_hygiene", "Optional email calendar hygiene is not enabled")
+else:
+    try:
+        sys.path.insert(0, str(WORKSPACE / "scripts"))
+        from calendar_guard import purge_past_email_events
+        conn_hygiene = connect_db(DB_PATH)
+        removed = purge_past_email_events(conn_hygiene, dry_run=True)
+        conn_hygiene.close()
+        if removed:
+            warn("calendar_hygiene", f"{len(removed)} past email event(s) await cleanup")
+        else:
+            ok("calendar_hygiene", "No past email events to purge")
+    except Exception as e:
+        warn("calendar_hygiene", f"Could not run calendar hygiene: {e}")
 
 # ── Summary ───────────────────────────────────────────────────────────────────
-now = datetime.now(OSLO)
+now = datetime.now(LOCAL_ZONE)
 oks = [r for r in results if r["status"] == "ok"]
 warns = [r for r in results if r["status"] == "warn"]
 crits = [r for r in results if r["status"] == "critical"]

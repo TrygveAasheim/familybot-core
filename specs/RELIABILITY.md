@@ -1,7 +1,8 @@
 # Reliability foundation
 
 Status: privacy-safe source baseline. Deployment state must be verified from the
-running OpenClaw workspace and launchd; this document is not a live status file.
+configured private workspace and launchd; OpenClaw status is relevant only for
+the Agent profile. This document is not a live status file.
 
 ## Invariants
 
