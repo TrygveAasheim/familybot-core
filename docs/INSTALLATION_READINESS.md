@@ -6,6 +6,25 @@ state or live household credentials.
 
 ## Follow-up review, 2026-11-06
 
+### Existing-household upgrade correction
+
+The subsequent regression review found seven upgrade blockers/risks despite
+green fresh-install tests: school-date deletion, rejected legacy restore,
+premature Portal migration markers, backup after data changes, starter chore
+resurrection, clearing omitted member metadata and rejecting valid legacy PINs.
+These are now covered by repository regressions, not only an external review
+script. See U1–U8 in [the plan](READINESS_FIX_PLAN.md) and the explicit operational
+gate in [REDEPLOY.md](../REDEPLOY.md). Existing-household upgrades are not implied
+by clean-install success. Paired final CI, both review perspectives and a separate
+controlled rollout are required before calling an actual household upgraded.
+
+Local tests use fictional databases; no production database or credentials were
+used for these fixes. The new managed-upgrade test runs only on a disposable
+GitHub-hosted Mac. Its result must be recorded from the final PR run; local skips
+are not passes. It does not test physical iPad, Bonjour or provider sessions.
+
+### Earlier fresh-install follow-up
+
 The adversarial review of Core `e47d1fb` / Portal `8b849fa` concluded
 **conditional GO for controlled dev testing, NO-GO for unaided public setup**.
 The initial assessment below overstated restart/deployment coverage: reopening

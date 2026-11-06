@@ -85,6 +85,10 @@ def validate_repository(root: Path) -> list[str]:
             "himalaya account configure": "does not include guided mail setup",
             "scripts/deploy_core.sh --reload": "does not include Core deployment",
             "$HOME/.familybot": "does not document the standalone private workspace",
+            "--upgrade --writers-stopped": "does not document explicit stopped-writer upgrades",
+            "--portal-runtime": "does not retain the selected upgrade runtime",
+            "--replace-school-calendar": "does not explain explicit school-date replacement",
+            "pre-upgrade": "does not explain whole-upgrade backup and recovery",
         }
         for marker, message in required_install_contract.items():
             if marker not in content:

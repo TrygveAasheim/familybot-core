@@ -60,6 +60,18 @@ pending migration on an existing database first creates and verifies a SQLite
 backup; a failure rolls back and does not mark the version complete. Restore
 verifies the selected source before replacement and creates a pre-restore copy.
 
+Explicit upgrades additionally back up the entire database before member or
+calendar synchronization even when no migration is pending. Portal validates
+owned columns, migration history, integrity and foreign keys before committing
+markers and before API startup. These checks are not a security proof or a
+cross-component atomic transaction. Keep all database users stopped through
+upgrade/recovery; the acknowledgement flag does not enforce process exclusion.
+Restore rejects target SQLite sidecars and validates recognized legacy backups
+without adding new markers. Follow [REDEPLOY.md](REDEPLOY.md), including the
+separate private configuration/credentials backup. Existing 4–5 digit parent
+PINs are preserved for compatibility but remain weaker than the new 6–8 digit
+recommendation; this does not strengthen plain-HTTP LAN confidentiality.
+
 These controls do not encrypt backups. The operator must place backup copies in
 an encrypted store and protect the Mac account and FileVault. A local user with
 access to the service account can read household data and credentials.

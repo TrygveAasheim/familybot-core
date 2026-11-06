@@ -4,6 +4,7 @@ from __future__ import annotations
 import http.client
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -79,6 +80,23 @@ class ManagedInstallTests(unittest.TestCase):
                     self.assertEqual(403, connection.getresponse().status)
                 finally:
                     connection.close()
+                # Existing-household upgrade, with the fixture's only writer
+                # stopped. Never run this managed path on a household host.
+                subprocess.run(["launchctl", "bootout", f"{domain}/{label}"], check=True)
+                database = workspace / "db/family.db"
+                with sqlite3.connect(database) as db:
+                    db.execute("UPDATE kanban_cards SET archived_at='2026-11-01'")
+                    db.execute("UPDATE reward_goals SET active=0")
+                    before = db.execute("SELECT COUNT(*) FROM kanban_cards").fetchone()[0]
+                subprocess.run(command + ["--upgrade", "--writers-stopped", "--portal-runtime",
+                                          str(workspace / "runtime/familybot-portal")],
+                               env=environment, check=True, timeout=900)
+                with sqlite3.connect(database) as db:
+                    self.assertEqual(before, db.execute("SELECT COUNT(*) FROM kanban_cards").fetchone()[0])
+                    self.assertEqual(0, db.execute("SELECT COUNT(*) FROM kanban_cards WHERE archived_at IS NULL").fetchone()[0])
+                    self.assertEqual(0, db.execute("SELECT COUNT(*) FROM reward_goals WHERE active=1").fetchone()[0])
+                self.assertTrue(list((workspace / "backups").glob("pre-upgrade-*/family.db")))
+                installer.verify_local_service(settings["api_port"], settings["web_port"], settings["hostname"])
                 subprocess.run([sys.executable, str(PORTAL / "tests/acceptance.py"),
                                 "--workspace", str(workspace), "--host", settings["hostname"]], check=True)
             except (subprocess.SubprocessError, installer.InstallError, AssertionError, OSError):

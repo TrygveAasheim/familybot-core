@@ -232,7 +232,7 @@ class ProcessLifecycleTests(unittest.TestCase):
                 for route in ("/api/oda/status", "/api/hellofresh/status", "/api/hellofresh/menu"):
                     self.assertEqual(404, request(route, token=token)[0])
                 stop()
-                result = subprocess.run(command, env=environment, capture_output=True, text=True, check=False)
+                result = subprocess.run(command + ["--upgrade", "--writers-stopped"], env=environment, capture_output=True, text=True, check=False)
                 self.assertEqual(0, result.returncode, result.stderr)
                 new_token = start()
                 self.assertNotEqual(token, new_token)

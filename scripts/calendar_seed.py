@@ -8,10 +8,12 @@ individual schools publish different calendars.
 
 from __future__ import annotations
 
+import argparse
 import sqlite3
 from datetime import date, timedelta
 
-from family_config import load_family_config
+from database_migrations import backup_database
+from family_config import load_family_config, workspace_path
 from reliability import database_path
 
 
@@ -98,23 +100,31 @@ def seed_public_holidays(connection: sqlite3.Connection, years: range) -> int:
     return len(holidays)
 
 
-def configured_school() -> tuple[str, list[dict[str, object]]]:
-    value = load_family_config().get("school", {})
+def configured_school() -> tuple[str, list[dict[str, object]] | None]:
+    value = load_family_config().get("school")
+    if value is None:
+        return "all", None
     if not isinstance(value, dict):
-        return "all", []
+        raise ValueError("school must be an object")
     municipality = str(value.get("municipality") or "all").strip()
-    events = value.get("calendar_events", [])
-    return municipality, [event for event in events if isinstance(event, dict)] if isinstance(events, list) else []
+    if "calendar_events" not in value:
+        return municipality, None
+    events = value["calendar_events"]
+    if not isinstance(events, list) or not all(isinstance(event, dict) for event in events):
+        raise ValueError("school.calendar_events must be an array of objects")
+    return municipality, events
 
 
 def seed_school_calendar(
     connection: sqlite3.Connection,
     municipality: str,
-    events: list[dict[str, object]],
+    events: list[dict[str, object]] | None,
 ) -> int:
-    # One installation has one authoritative local school calendar. Clear only
-    # school-owned rows, including the historical hard-coded Oslo seed, while
-    # retaining calculated national holidays.
+    # Omission is not consent to clear a legacy database-owned calendar.
+    if events is None:
+        return 0
+    # Explicit replacement only. Callers preserve existing rows unless the
+    # operator has opted into transferring calendar ownership to configuration.
     connection.execute("DELETE FROM norwegian_holidays WHERE kind='school_break'")
     connection.execute("DELETE FROM school_calendar")
     connection.execute("DELETE FROM school_years")
@@ -173,10 +183,28 @@ def is_school_day(check_date: date, connection: sqlite3.Connection) -> tuple[boo
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--replace-school-calendar", action="store_true",
+                        help="explicitly replace stored school dates with the configured list (including an empty list)")
+    args = parser.parse_args()
     current_year = date.today().year
     municipality, events = configured_school()
+    if args.replace_school_calendar and events is None:
+        parser.error("--replace-school-calendar requires an explicit school.calendar_events list")
+    database = database_path()
+    # Direct calendar maintenance also needs a pre-write backup. The installer
+    # separately creates a whole-upgrade backup before member/schema changes.
+    if database.is_file() and database.stat().st_size:
+        backup = backup_database(database, workspace_path() / "backups", label="pre-calendar")
+        print(f"[backup] {backup}")
     with sqlite3.connect(database_path()) as connection:
         setup_schema(connection)
+        has_school = any(connection.execute(query).fetchone()[0] for query in (
+            "SELECT COUNT(*) FROM school_calendar", "SELECT COUNT(*) FROM school_years",
+            "SELECT COUNT(*) FROM norwegian_holidays WHERE kind='school_break'",
+        ))
+        if has_school and not args.replace_school_calendar:
+            events = None
         holiday_count = seed_public_holidays(
             connection, range(current_year - 1, current_year + 4)
         )

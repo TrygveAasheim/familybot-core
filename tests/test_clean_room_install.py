@@ -155,7 +155,7 @@ class CleanRoomInstallTests(unittest.TestCase):
             config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
             config_path.chmod(0o600)
 
-            upgraded = subprocess.run(command, capture_output=True, text=True, check=False)
+            upgraded = subprocess.run(command + ["--upgrade", "--writers-stopped"], capture_output=True, text=True, check=False)
 
             self.assertEqual(0, upgraded.returncode, upgraded.stderr)
             self.assertIn("existing capability profile", upgraded.stdout)
@@ -190,7 +190,7 @@ class CleanRoomInstallTests(unittest.TestCase):
             environment = os.environ.copy()
             first = subprocess.run(command, capture_output=True, text=True, env=environment, check=False)
             self.assertEqual(0, first.returncode, first.stderr)
-            second = subprocess.run(command, capture_output=True, text=True, env=environment, check=False)
+            second = subprocess.run(command + ["--upgrade", "--writers-stopped"], capture_output=True, text=True, env=environment, check=False)
             self.assertEqual(0, second.returncode, second.stderr)
 
             database = workspace / "db/family.db"

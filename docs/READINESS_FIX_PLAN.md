@@ -7,6 +7,25 @@ account access, credential use or promotion to `main` is authorized by this work
 
 ## Findings and exact implementation requirements
 
+Upgrade regression follow-up (implemented on this same paired PR train):
+
+| ID | Required fix | Repository evidence |
+| --- | --- | --- |
+| U1 | Preserve school dates unless explicit replacement list and flag | Core upgrade-preservation tests, including explicit empty-list clearing and backup content |
+| U2 | Restore recognized unversioned pre-migration backups | Legacy migration → restore → re-upgrade regression; unrelated/future/tampered backups rejected |
+| U3 | Validate Portal schema before committing markers; status/startup fail closed | Portal final-validation rollback, missing column/table, checksum and history-gap tests |
+| U4 | Full verified backup before any upgrade data write | Backup-failure no-write assertion and pre-upgrade calendar content check |
+| U5 | Never recreate archived chores or reactivate rewards during upgrade | Repeated upgrade and explicit-seed regressions; deployment drops automatic repair |
+| U6 | Preserve omitted member metadata; explicit null may clear | Stable-ID upgrade regression for grade/school/teacher |
+| U7 | Accept existing 4–8 digit PINs, new installs 6–8 | Legacy PIN/config byte-preservation and fresh short-PIN rejection |
+| U8 | Preserve installed workspace/runtime and deliberate feature choices | Explicit upgrade/path/flag guards, mocked deployment handoff, hosted managed upgrade |
+
+Finish with source tests, full quality/security gates, FOR/AGAINST review and
+paired PR CI. Stop before merge/deploy/promotion; existing-household rollout
+requires stopped writers, exact source/config/path inventory, verified backups
+and operator verification. `--writers-stopped` acknowledges downtime; it does
+not establish it. Component commits are not an atomic whole-installer upgrade.
+
 | ID | Defect | Owning implementation | Acceptance and regression evidence |
 | --- | --- | --- | --- |
 | F1 | Setup clones main where installer is absent | Both READMEs, Core GETTING_STARTED, Portal docs validator | Candidate instructions select the same explicit branch in both repos; final PR handoff records both full SHAs; no claim main is ready |
@@ -125,10 +144,12 @@ deployment is part of this train; no schema or private-state changes are needed.
 
 No schema change is planned. Reverting the two PRs restores source behavior;
 never restore a database merely to undo documentation or default-path changes.
-An installer execution elsewhere may create config/runtime/plists: retain its
-private state, stop only its generated jobs, select the recorded prior source
-pair and redeploy explicitly. Schema rollback follows REDEPLOY's verified
-backup/restore procedure, never file-copying a running SQLite database.
+An installer execution elsewhere may change database/config/runtime/plists:
+retain its private state and stop all users of that household database, including
+Core/Portal/agent/manual workers. Select the recorded prior source/configuration
+pair; if undoing data changes, restore the full pre-upgrade snapshot using
+REDEPLOY's verified procedure. Source-only reversal needs no database restore.
+Never file-copy a running SQLite database or stop unrelated household services.
 
 On the user's separate test Mac: install with fictional data, use the printed
 URL from an iPad on the same LAN, add a Home Screen shortcut, test portrait,

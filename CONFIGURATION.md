@@ -94,9 +94,18 @@ The three cabin fields are all-or-none:
 School dates are configuration-owned because Norwegian municipalities and
 individual schools differ. Add `first_day`, `last_day`, `break`,
 `planning_day` or `school_event` entries with ISO dates. `calendar_seed.py`
-replaces the local school-calendar rows from this list and derives national
-public holidays for the current surrounding years; it does not ship or retain
-an Oslo calendar when another household configuration is applied.
+initializes an empty calendar from this list and derives national public
+holidays for the current surrounding years. Existing school dates are preserved
+unless `--replace-school-calendar` is explicitly supplied (also available on
+the installer upgrade command). An omitted `school`/`calendar_events` is never
+a deletion request; an explicit empty list plus the flag clears school dates.
+A verified SQLite backup precedes calendar writes. No Oslo calendar is bundled.
+
+Member synchronization uses stable `member_id`. Omitted `grade`, `school` and
+`teacher` fields preserve database-only values; explicit `null` clears a field.
+Removing a member from configuration does not delete their historical data.
+Upgrades do not recreate starter chores or reactivate disabled rewards. See
+[REDEPLOY.md](REDEPLOY.md) for explicit paths, optional-feature consent and downtime.
 
 Notification times use `HH:MM` in `family.timezone` and therefore follow the
 IANA daylight-saving rules installed with Python. Available fields are

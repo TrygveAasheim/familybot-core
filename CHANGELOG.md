@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-11-06 — Upgrade preservation fixes (candidate, not deployed)
+
+- Separate first installation from explicit stopped-writer upgrades, retaining
+  installed workspace/runtime and existing PIN. Require deliberate grocery flags.
+- Take a full verified pre-upgrade snapshot before any database changes, even
+  without pending migrations; direct calendar maintenance also backs up first.
+- Preserve database-only school calendars and omitted member metadata. Calendar
+  replacement now requires an explicit list and `--replace-school-calendar`.
+- Do not seed starter chores/rewards during upgrades. Existing 4–5 digit PINs
+  remain accepted; new installations still require 6–8 digits.
+- Restore recognized unversioned legacy backups without stamping new markers;
+  reject tampered/future/unrelated sources and target SQLite sidecars.
+- Add fictional upgrade regressions and extend disposable macOS managed CI
+  with an upgrade/preservation check. Update setup, configuration, recovery,
+  security and reliability instructions with the actual boundaries.
+
+No new schema version or live deployment. Coordinate with Portal's transactional
+validation/no-reseed fix. Source-only rollback reverts the pair; if an upgrade
+was run and data changes must be undone, stop all database users and restore the
+full pre-upgrade snapshot plus the matching old source/configuration. Individual
+component transactions do not undo earlier installer steps. See `REDEPLOY.md`.
+
 ## 2026-11-06 — Double-review follow-up (candidate, not deployed)
 
 - Give dashboard readiness a bounded ten-second request timeout, covering the

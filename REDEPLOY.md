@@ -40,7 +40,7 @@ Store runtime backup material encrypted and separately from Git.
    uv run --python 3.12 scripts/manage_database.py restore \
      --db "$HOME/.familybot/db/family.db" \
      --backup-root "$HOME/.familybot/backups" \
-     --from-backup "/exact/path/to/backup/family.db"
+     --from-backup "/exact/path/to/backup/family.db" --writers-stopped
    ```
 
 6. Restore or create the one local family config and validate it with an
@@ -55,12 +55,16 @@ Store runtime backup material encrypted and separately from Git.
 
    Prove access with one no-delivery agent turn; a configured catalog entry is
    not sufficient.
-9. Rerun the idempotent installer. It applies compatible Core and Portal
-   migrations and deploys the dashboard:
+9. With all database users stopped, run the explicit upgrade path if the selected
+   release includes this installer. Old releases use their own deployment procedure.
+   This applies compatible Core/Portal migrations and deploys the dashboard:
 
    ```bash
    uv run --python 3.12 scripts/install_familybot.py \
-     --portal-repo ../familybot-portal
+     --portal-repo ../familybot-portal \
+     --workspace "$HOME/.familybot" \
+     --portal-runtime "$HOME/.familybot/runtime/familybot-portal" \
+     --upgrade --writers-stopped
    ```
 
 10. Run `scripts/check_setup.py --mode runtime --profile dashboard` (or the
@@ -97,6 +101,26 @@ consistent backup with `scripts/manage_database.py backup`. Replace the SHA
 placeholders below with the next reviewed compatible pair. Do not run the
 literal placeholder names.
 
+Preflight is mandatory, especially for a legacy installation:
+
+1. Record the actual workspace/database/config/PIN and Portal runtime paths,
+   installed service labels and source pair. Legacy `.openclaw/workspace` stays
+   where it is; pass it explicitly. Do not let the new `.familybot` default select
+   another household. Retain a separately installed Portal runtime explicitly.
+2. Review `portal.features`: set `oda`, `oda_ai`, `hellofresh` and
+   `hellofresh_account` to deliberate booleans. Omitted flags no longer mean
+   enabled. The managed installer refuses ambiguity rather than disabling a
+   previously used feature silently. Preserve hostname/origins, ports and PIN.
+3. Save private config, credential stores and installed service definitions
+   encrypted outside Git, along with the exact source pair. SQLite backup alone
+   does not restore any of those files or application code.
+4. Stop every database user, including Core schedulers, Portal, agents and
+   manually started workers. Use `launchctl bootout "gui/$(id -u)/EXACT_LABEL"`
+   for each recorded loaded service; close manually started workers too. Do not
+   blindly stop unrelated services. Confirm they are stopped. The installer does
+   not discover/stop workers and `--writers-stopped` is only an acknowledgement.
+5. Take a consistent SQLite backup, then select the reviewed source pair below.
+
 ```bash
 git -C familybot-core fetch --prune
 git -C familybot-portal fetch --prune
@@ -108,22 +132,61 @@ Replace the two SHA placeholders with the reviewed compatible pair from the
 release/PR record; do not literally execute placeholder values. Record the
 current pair first and create a consistent backup with
 `scripts/manage_database.py backup` **before switching source**, then rerun
-the installer. It migrates Core before Portal, refuses future/incompatible
-schema versions and verifies the local services. Deploy connected/agent Core
-jobs only after the Portal baseline is healthy.
+the installer with explicit paths (replace these illustrative values):
+
+```bash
+cd familybot-core
+uv run --python 3.12 scripts/install_familybot.py \
+  --portal-repo ../familybot-portal \
+  --workspace "/exact/existing/workspace" \
+  --portal-runtime "/exact/existing/portal-runtime" \
+  --upgrade --writers-stopped
+```
+
+Retain non-default `FAMILYBOT_PORTAL_LABEL`/`FAMILYBOT_LAUNCHAGENT_DIR` overrides
+when installed that way. A noncanonical existing PIN file can be supplied with
+`--parent-pin-source /exact/private/pin-file`; an existing canonical PIN cannot
+be overwritten with a different value. Legacy 4–8 digit PINs remain usable;
+choose 6–8 random digits for a new install.
+
+The installer creates a full `pre-upgrade` backup before **any database write**,
+then migrates Core before Portal. Component transactions are separate; a later
+failure does not automatically undo earlier commits. Keep the printed backup
+path. A backup failure stops before database changes. For a data-only rehearsal
+on a fictional/disposable stopped copy, add `--no-deploy` (no runtime required).
+Never rehearse against the live database. Deploy connected/agent Core jobs only
+after the Portal baseline is healthy, retaining their existing workspace and
+schedule configuration. Verify the physical iPad and each enabled integration
+before declaring the household upgraded.
+
+Upgrades do not run starter seeds or repair inactive default rewards. Omitted
+member `grade`, `school` and `teacher` retain stored values; explicit `null`
+clears them. Existing school dates remain unless the operator provides both
+`school.calendar_events` and `--replace-school-calendar`. An explicit empty
+list plus that flag clears school dates; national public holidays still refresh.
+Direct `calendar_seed.py` follows the same replacement guard and backs up first.
 
 ## Rollback
 
-1. Stop the affected LaunchAgent.
+1. Stop **all** database users, not just the failed LaunchAgent.
 2. Keep the failed logs and database copy for diagnosis.
 3. Restore the selected pre-migration SQLite backup with
-   `scripts/manage_database.py restore` only when reverting a schema/data
+   `scripts/manage_database.py restore --writers-stopped` only when reverting a schema/data
    change requires it. Documentation and default-path fixes do not require
    database restoration; restoring unnecessarily would discard newer work.
 4. Check out the last known-good tag/commit and redeploy generated runtime.
 5. Restart and rerun health/acceptance checks.
 
 Do not use Git rollback to restore private SQLite state.
+
+Restore accepts a recognized unversioned FamilyBot backup after integrity,
+foreign-key and legacy identity checks, without stamping it as upgraded. Future,
+tampered or unrelated backups are rejected. Portal version compatibility remains
+the responsibility of the matching source pair. Restore refuses target
+`-wal`, `-shm` or `-journal` files: close all clients cleanly and resolve/checkpoint
+SQLite recovery with the matching release before retrying. Do not delete sidecars:
+they may contain committed data. Absence of sidecars is not proof no writer exists;
+the operator must maintain exclusive downtime through replacement and restart.
 
 ## Recovery evidence and limits
 

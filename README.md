@@ -100,6 +100,13 @@ exact data-flow and residual risks are documented in
 See [`CONFIGURATION.md`](CONFIGURATION.md) for household fields and
 [`REDEPLOY.md`](REDEPLOY.md) for upgrade, backup, restore and rollback.
 
+Existing households: do not rerun the fresh-install command. Use the explicit
+upgrade procedure with the actual workspace/runtime and all database users
+stopped. The candidate preserves archived chores, disabled rewards, omitted
+member metadata and stored school dates; it creates a full pre-upgrade backup.
+This train remains a candidate until the paired CI/review and household rollout
+checks are complete. Merging source is not deployment or proof of a live upgrade.
+
 ## Integration support level
 
 - MET Locationforecast and Entur Journey Planner are official public APIs.

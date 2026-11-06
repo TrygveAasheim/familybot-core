@@ -9,12 +9,19 @@ not paste secret values into issues, commits, screenshots or validation logs.
   `$HOME/.familybot/config/family.local.json`, is mode `0600`, and
   passes `python3 scripts/validate_config.py`. It is private metadata, not a
   credential.
-- [ ] **Portal parent PIN** is 6–8 random digits in
+- [ ] **Portal parent PIN** for new installs is 6–8 random digits in
   `$HOME/.familybot/config/parent-pin.txt`, mode `0600`. Deployment copies it to
   the generated runtime and the API rate-limits login attempts.
 
 Existing installations may keep a different explicit `FAMILYBOT_WORKSPACE`.
 Paths below are relative to that workspace.
+
+An explicit upgrade preserves an existing 4–8 digit PIN (new installs require
+6–8). If it lives outside the canonical workspace location, supply
+`--parent-pin-source /exact/private/pin-file` or `FAMILYBOT_PARENT_PIN_FILE`.
+The installer refuses a different value when a canonical PIN already exists.
+It preserves the existing file contents and enforces owner-only permissions.
+Do not paste PINs into command arguments, Git or public review evidence.
 
 ## Required only when the Agent profile is enabled
 

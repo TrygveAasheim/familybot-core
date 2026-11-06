@@ -19,7 +19,7 @@ import unicodedata
 from pathlib import Path
 from typing import Any
 
-from database_migrations import MigrationError, initialize_database, migration_status
+from database_migrations import MigrationError, backup_database, initialize_database, migration_status
 from family_config import workspace_path
 from validate_config import validate
 
@@ -180,7 +180,7 @@ def set_new_hostname(config: dict[str, Any], hostname: str) -> None:
     ))
 
 
-def read_pin(source: Path | None, *, non_interactive: bool) -> str:
+def read_pin(source: Path | None, *, non_interactive: bool, legacy: bool = False) -> str:
     if source:
         try:
             value = source.read_text(encoding="utf-8").strip()
@@ -194,8 +194,9 @@ def read_pin(source: Path | None, *, non_interactive: bool) -> str:
         if first != second:
             raise InstallError("Parent PIN entries did not match")
         value = first
-    if not re.fullmatch(r"\d{6,8}", value):
-        raise InstallError("Parent PIN must contain 6–8 digits")
+    minimum = 4 if legacy else 6
+    if not re.fullmatch(rf"[0-9]{{{minimum},8}}", value):
+        raise InstallError(f"Parent PIN must contain {minimum}–8 digits")
     return value
 
 
@@ -318,11 +319,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--workspace",
         type=Path,
-        default=workspace_path(),
+        default=None,
     )
     parser.add_argument("--portal-repo", type=Path, default=ROOT.parent / "familybot-portal")
     parser.add_argument("--config-source", type=Path)
     parser.add_argument("--parent-pin-source", type=Path)
+    parser.add_argument("--portal-runtime", type=Path, help="explicit deployed runtime directory; required for managed upgrades")
+    parser.add_argument("--upgrade", action="store_true", help="preserve and upgrade an existing household, without starter seeding")
+    parser.add_argument("--writers-stopped", action="store_true",
+                        help="confirm all Core/Portal/agent processes that use this database have been stopped")
+    parser.add_argument("--replace-school-calendar", action="store_true",
+                        help="explicitly replace stored school dates from school.calendar_events")
     parser.add_argument("--demo", action="store_true", help="use the fictional Nordlys household")
     parser.add_argument("--hostname", help="working local DNS name or IPv4 address, new configuration only")
     parser.add_argument("--non-interactive", action="store_true")
@@ -332,13 +339,29 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    workspace = args.workspace.expanduser().resolve()
+    workspace = (args.workspace or workspace_path()).expanduser().resolve()
     portal = args.portal_repo.expanduser().resolve()
     config_path = workspace / "config/family.local.json"
     pin_path = workspace / "config/parent-pin.txt"
     database = workspace / "db/family.db"
     backups = workspace / "backups"
     try:
+        existing_database = database.is_file() and database.stat().st_size > 0
+        if existing_database and not args.upgrade:
+            raise InstallError("Existing database: use --upgrade --writers-stopped after stopping all database users")
+        if args.upgrade:
+            if args.workspace is None and not (os.environ.get("FAMILYBOT_WORKSPACE") or os.environ.get("OPENCLAW_WORKSPACE")):
+                raise InstallError("Upgrade requires an explicit --workspace or workspace environment override")
+            if not existing_database or not config_path.is_file():
+                raise InstallError("Upgrade requires the existing database and its existing family configuration")
+            if not args.writers_stopped:
+                raise InstallError("Upgrade requires --writers-stopped; stop all database users first (this flag does not stop them)")
+        runtime_override = args.portal_runtime or os.environ.get("FAMILYBOT_PORTAL_RUNTIME")
+        if args.upgrade and not args.no_deploy and not runtime_override:
+            raise InstallError("Managed upgrade requires --portal-runtime or FAMILYBOT_PORTAL_RUNTIME; retain the installed path")
+        runtime = Path(runtime_override or workspace / "runtime/familybot-portal").expanduser().resolve()
+        if runtime in (ROOT, portal) or workspace.is_relative_to(runtime):
+            raise InstallError("Portal runtime must be a dedicated directory, not a checkout or an ancestor of household state")
         for key, expected in (("FAMILYBOT_FAMILY_CONFIG", config_path), ("FAMILYBOT_DB_PATH", database)):
             if os.environ.get(key) and Path(os.environ[key]).expanduser().resolve() != expected:
                 raise InstallError(f"{key} conflicts with --workspace; unset it or select the matching workspace")
@@ -379,6 +402,12 @@ def main() -> int:
         if report.errors:
             raise InstallError("Configuration is invalid:\n- " + "\n- ".join(report.errors))
         config = json.loads(config_path.read_text(encoding="utf-8"))
+        if args.upgrade and not args.no_deploy:
+            features = config.get("portal", {}).get("features", {})
+            if not all(isinstance(features.get(key), bool) for key in ("oda", "oda_ai", "hellofresh", "hellofresh_account")):
+                raise InstallError("Managed upgrade requires explicit oda, oda_ai, hellofresh and hellofresh_account booleans; review optional consent first")
+        if args.replace_school_calendar and not isinstance(config.get("school", {}).get("calendar_events"), list):
+            raise InstallError("--replace-school-calendar requires an explicit school.calendar_events list")
         if config.get("profile") != "dashboard" and not config_preexisting:
             raise InstallError(
                 "This entry point installs the safe dashboard baseline first; enable connected/agent capabilities afterward"
@@ -388,15 +417,26 @@ def main() -> int:
                 "Using the existing capability profile for database and Portal upgrade; "
                 "Core integration jobs are changed only by an explicit deploy_core.sh run."
             )
-        if pin_path.exists() and args.parent_pin_source is None:
+        pin_source = args.parent_pin_source
+        if pin_source is None and os.environ.get("FAMILYBOT_PARENT_PIN_FILE"):
+            pin_source = Path(os.environ["FAMILYBOT_PARENT_PIN_FILE"]).expanduser()
+        if pin_path.exists() and pin_source is None:
             pin = pin_path.read_text(encoding="utf-8").strip()
-            if not re.fullmatch(r"\d{6,8}", pin):
+            if not re.fullmatch(r"[0-9]{4,8}" if args.upgrade else r"[0-9]{6,8}", pin):
                 raise InstallError("Existing parent PIN is invalid; replace the private file manually")
         else:
-            pin = read_pin(args.parent_pin_source, non_interactive=args.non_interactive)
+            pin = read_pin(pin_source, non_interactive=args.non_interactive, legacy=args.upgrade)
         if pin_path.exists() and pin_path.read_text(encoding="utf-8").strip() != pin:
             raise InstallError("Refusing to replace an existing parent PIN with a different value")
-        write_pin(pin_path, pin)
+        if existing_database:
+            # Covers all subsequent schema, member, calendar and Portal changes,
+            # even when no component migration happens to be pending.
+            backup = backup_database(database, backups, label="pre-upgrade")
+            print(f"[pre-upgrade-backup] {backup}", flush=True)
+        if not pin_path.exists():
+            write_pin(pin_path, pin)
+        else:
+            pin_path.chmod(0o600)
         initialize_database(database, config_path, backups)
         environment = os.environ.copy()
         environment.update(
@@ -408,7 +448,8 @@ def main() -> int:
                 "FAMILYBOT_CONFIG_VALIDATOR": str(ROOT / "scripts/validate_config.py"),
             }
         )
-        run([sys.executable, str(ROOT / "scripts/calendar_seed.py")], environment=environment)
+        run([sys.executable, str(ROOT / "scripts/calendar_seed.py")]
+            + (["--replace-school-calendar"] if args.replace_school_calendar else []), environment=environment)
         run(
             [
                 sys.executable,
@@ -417,8 +458,7 @@ def main() -> int:
                 str(database),
                 "--backup-root",
                 str(backups),
-                "--seed",
-            ],
+            ] + ([] if existing_database else ["--seed"]),
             environment=environment,
         )
         run(
@@ -448,7 +488,7 @@ def main() -> int:
             branch = subprocess.check_output(["git", "-C", str(portal), "rev-parse", "HEAD"], text=True).strip()
         deploy_environment = environment | {
             "FAMILYBOT_DEPLOY_BRANCH": branch,
-            "FAMILYBOT_PORTAL_RUNTIME": str(workspace / "runtime/familybot-portal"),
+            "FAMILYBOT_PORTAL_RUNTIME": str(runtime),
             "FAMILYBOT_PYTHON": sys.executable,
             "PATH": f"{Path(sys.executable).parent}:{environment.get('PATH', '')}",
         }

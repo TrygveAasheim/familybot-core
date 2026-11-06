@@ -88,13 +88,13 @@ jobs:
           python-version: "3.12"
       - name: Verify empty-database and dashboard lifecycle
         run: |
-          python3 -m unittest tests.test_database_migrations tests.test_clean_room_install tests.test_install_readiness
+          python3 -m unittest tests.test_database_migrations tests.test_clean_room_install tests.test_install_readiness tests.test_upgrade_preservation
           plutil -lint familybot-portal/launchd/*.plist
       - name: Install deployment toolchain
         run: |
           python3 -m pip install uv==0.13.7
           python3 -m pip install -r requirements-dev.txt
-      - name: Managed install and restart on disposable macOS runner
+      - name: Managed install, restart and preservation upgrade on disposable macOS runner
         env:
           FAMILYBOT_MANAGED_CI: "1"
           RUNNER_ENVIRONMENT: ${{ runner.environment }}

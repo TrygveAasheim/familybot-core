@@ -123,8 +123,11 @@ as returned by `scutil --get LocalHostName`. It never renames your Mac.
 Supplied and existing configs keep their explicit hostname and origins. The
 Bonjour service advertisement does not create a `familie.local` alias.
 
-The operation is idempotent. Running it again keeps the existing config, PIN
-and household data and applies only pending migrations.
+The operation is repeatable, but an existing database requires the explicit
+upgrade procedure in section 11. A plain installer rerun stops without changing
+that database. Upgrades preserve config/PIN, omitted member metadata, stored
+school dates, archived chores and disabled rewards; starter data is first-install
+only. An upgrade can change runtime behavior: it is not just a documentation update.
 
 ### Try fictional data first
 
@@ -197,12 +200,10 @@ Entur stop/quay selection, secondary locations and notification schedules.
 Never put passwords, API tokens, provider cookies or the parent PIN in this
 JSON file.
 
-After a valid edit, rerun the installer to rebuild and verify the Portal:
-
-```bash
-uv run --python 3.12 scripts/install_familybot.py \
-  --portal-repo ../familybot-portal
-```
+After a valid edit, follow section 11 to upgrade and verify the Portal. Stop
+database users first. To deliberately replace existing school dates, additionally
+pass `--replace-school-calendar`; an explicit empty `school.calendar_events`
+list clears them only with that flag. Omitted calendars never clear stored dates.
 
 ## 7. Enable the Connected organizer
 
@@ -304,7 +305,9 @@ flags are false, including for older configs: deliberately add flags before
 upgrading if you want to retain those previously implicit capabilities.
 
 Enable only the corresponding booleans under `portal.features`, validate the
-config and rerun the installer. Provider credentials remain outside Git. The
+config and follow the explicit upgrade procedure in section 11. Managed upgrades
+require all four feature flags as booleans, including explicit `false` choices.
+Provider credentials remain outside Git. The
 plain-HTTP LAN risk is especially important for HelloFresh first-use password
 entry; use only a trusted, isolated LAN.
 
@@ -330,6 +333,14 @@ Git is not a household-state backup.
 
 ## 11. Upgrade safely
 
+Read [the upgrade preflight](REDEPLOY.md#upgrade-an-existing-host) first. Record
+the installed paths, source pair, service labels and configuration. Stop **all**
+Core/Portal/agent processes using this database, not only the web page. The
+`--writers-stopped` option acknowledges that you did this; it does not stop them.
+The example below is for the new `.familybot` layout. For a legacy installation,
+substitute its actual workspace and Portal runtime; do not move state or accept
+new defaults. Explicitly retain any custom hostname, ports, schedule and flags.
+
 ```bash
 cd "$HOME/FamilyBot/familybot-core"
 uv run --python 3.12 scripts/manage_database.py backup \
@@ -340,17 +351,23 @@ git -C ../familybot-portal fetch origin
 git switch --detach REVIEWED_CORE_SHA
 git -C ../familybot-portal switch --detach REVIEWED_PORTAL_SHA
 uv run --python 3.12 scripts/install_familybot.py \
-  --portal-repo ../familybot-portal
+  --portal-repo ../familybot-portal \
+  --workspace "$HOME/.familybot" \
+  --portal-runtime "$HOME/.familybot/runtime/familybot-portal" \
+  --upgrade --writers-stopped
 ```
 
 Substitute the next reviewed compatible pair, not the previous install's SHAs.
 Keep the previous pair with the backup so rollback is reproducible. Detached
 checkouts do not use `git pull`.
 
-The migration ledger checks component version, name and checksum. Existing data
-is backed up before pending migrations run. A failed migration rolls back its
-transaction and leaves a recovery backup; the service refuses incompatible
-schema versions rather than serving partial data.
+Every upgrade takes a verified full `pre-upgrade` SQLite backup before member,
+calendar or schema changes, even if no migration is pending. Core and Portal
+commit separately; the entire installer is not one transaction. If a later step
+fails, keep writers stopped and use the pre-upgrade backup to undo earlier steps.
+Portal validates its complete owned schema, history and integrity before commit
+and again before API startup. A failed Portal migration does not mark versions
+complete. Existing four/five-digit PINs remain valid; new installs require 6–8.
 
 If Core schedules are enabled, redeploy them after the upgrade:
 
@@ -370,18 +387,22 @@ uv run --python 3.12 scripts/manage_database.py status \
   --db "$HOME/.familybot/db/family.db"
 ```
 
-Restore a selected verified backup:
+Stop all database users before restoring a selected verified backup:
 
 ```bash
 uv run --python 3.12 scripts/manage_database.py restore \
   --db "$HOME/.familybot/db/family.db" \
   --backup-root "$HOME/.familybot/backups" \
-  --from-backup "/exact/path/to/backup/family.db"
+  --from-backup "/exact/path/to/backup/family.db" --writers-stopped
 ```
 
 Restore verifies the source before replacing the database and creates a
-pre-restore recovery backup of the current file. Then check out the matching
-Core and Portal commits, rerun the installer and verify the dashboard. Full
+pre-restore recovery backup of the current file. Recognized unversioned legacy
+FamilyBot backups are supported without fabricating migration markers. A target
+with SQLite WAL/SHM/journal sidecars is refused; never delete them to bypass this
+guard. Then check out the matching Core and Portal commits and follow their
+deployment instructions. Use the explicit upgrade path above only if choosing to
+retry the new release, not while rolling back to the old release. Full
 disaster-recovery order is in [REDEPLOY.md](REDEPLOY.md).
 
 ## 13. Troubleshooting
