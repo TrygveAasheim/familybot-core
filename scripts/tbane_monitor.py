@@ -27,11 +27,11 @@ from datetime import datetime
 from difflib import SequenceMatcher
 
 sys.path.insert(0, os.path.dirname(__file__))
-from family_config import integration, telegram_recipients
+from family_config import family_timezone, integration, telegram_recipients
 from reliability import atomic_write_json, workspace_path
 from transport_relevance import classify_for_corridor, parse_siri_disruptions
 
-OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
+LOCAL_ZONE = zoneinfo.ZoneInfo(family_timezone())
 # No persistent status file needed — briefing fetches live at report time
 STATE_FILE = workspace_path() / "db" / "tbane_alert_state.json"
 VACATION_MODE_FILE = workspace_path() / "memory" / "vacation-mode.json"
@@ -191,11 +191,11 @@ def run():
 
     # Alert logic
     state = load_state()
-    now = datetime.now(OSLO)
+    now = datetime.now(LOCAL_ZONE)
     state, fired = reconcile_alerts(classified, state, now)
 
     # Send alert if new disruptions
-    # Only alert during daytime (07:30-22:00 Oslo)
+    # Only alert during daytime (07:30-22:00 in the household time zone).
     hour_min = now.hour * 60 + now.minute
     daytime = 7 * 60 + 30 <= hour_min <= 22 * 60
 

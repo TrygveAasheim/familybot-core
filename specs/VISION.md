@@ -2,7 +2,10 @@
 
 ## What We Are Building
 
-A proactive family organiser for a locally configured household, delivered primarily through a Telegram bot and family dashboard. The bot consolidates information from multiple sources — school communications, activity calendars, email, documents, and a shared task board — and surfaces what matters, when it matters, without requiring the family to go looking for it.
+A local-first family organiser for a configured household, delivered first
+through an iPad dashboard and optionally through Telegram. Deterministic
+services can consolidate school communications, activity calendars, documents
+and a shared task board without making an AI account a prerequisite.
 
 The core value is **reducing cognitive load for busy parents**. The bot handles aggregation, parsing, prioritisation, and daily briefings.
 
@@ -20,7 +23,9 @@ The core value is **reducing cognitive load for busy parents**. The bot handles 
 2. **Per-person context.** Parents share family data but not necessarily preferences. The bot maintains separate context, communication style, and delivery preferences per user.
 3. **One source of truth.** All inputs — emails, Spond, PDFs, kanban tasks — feed into a single unified picture of the day and week.
 4. **Privacy wall between users.** Personal conversations stay with the individual user. Shared family data (tasks, events, school info) is visible to configured parents.
-5. **Self-hosted.** Runs on the family Mac mini. No family data leaves the house except to the LLM API and configured external services (Spond, email).
+5. **Self-hosted.** Runs on the family Mac mini. Data leaves the house only for
+   integrations the household explicitly enables; the Dashboard profile uses no
+   LLM by default. Separately enabled Oda dinner AI requires explicit consent.
 6. **Extensible.** The architecture should make it straightforward to add new skills later without reworking the core.
 7. **Dashboard first for family life.** The chatbot is the intelligence layer;
    the touch dashboard is the calm, direct interface the household lives with.
@@ -30,9 +35,10 @@ The core value is **reducing cognitive load for busy parents**. The bot handles 
 
 ## What Success Looks Like
 
-- Each morning, configured parents receive a daily briefing on Telegram with what matters today
-- School emails and PDFs are automatically parsed and surfaced — no manual reading of every forward
-- Spond events, decisions, and chat updates are monitored and flagged when action is needed
+- A new household can install and personalize the dashboard from empty state
+  without the original developer
+- When enabled, configured parents receive a complete daily Telegram briefing
+- When enabled, school emails/PDFs and supported Spond events are parsed and surfaced
 - The kanban board is a shared, living list that both can add to and that feeds into the daily briefing
 - Nothing important falls through the cracks
 - Children can understand today's information and use their own dashboard

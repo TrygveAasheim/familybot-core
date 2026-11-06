@@ -155,7 +155,7 @@ class UkeplanInterpretationTests(unittest.TestCase):
                 )
             with mock.patch.object(interpret_ukeplan, "database_path", return_value=db_path), \
                     mock.patch.object(interpret_ukeplan, "invoke_model", side_effect=RuntimeError("offline")):
-                self.assertEqual(interpret_ukeplan.run(limit=1), 0)
+                self.assertEqual(interpret_ukeplan.run(limit=1), 1)
             with sqlite3.connect(db_path) as connection:
                 status, plan_count = connection.execute(
                     "SELECT status,(SELECT count(*) FROM week_plans) FROM week_plan_interpretations"

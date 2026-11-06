@@ -38,6 +38,18 @@ REQUIRED_README_LINKS = {
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 
 
+def validate_fresh_install_refs(content: str) -> list[str]:
+    """Keep public entry points independent of temporary review branches."""
+    errors = []
+    for repo in ("familybot-core", "familybot-portal"):
+        command = f"git clone --branch main https://github.com/TrygveAasheim/{repo}.git"
+        if command not in content:
+            errors.append(f"fresh install must clone {repo} from main")
+    if "REVIEWED_" in content or "codex/readiness-review-fixes" in content:
+        errors.append("fresh install must not require review-only refs or SHA placeholders")
+    return errors
+
+
 def markdown_files(root: Path) -> list[Path]:
     excluded = {".git", ".venv", "node_modules"}
     return sorted(path for path in root.rglob("*.md") if excluded.isdisjoint(path.parts))
@@ -64,6 +76,7 @@ def validate_repository(root: Path) -> list[str]:
     readme = root / "README.md"
     if readme.is_file():
         content = readme.read_text(encoding="utf-8")
+        errors.extend(validate_fresh_install_refs(content))
         for required_link in sorted(REQUIRED_README_LINKS):
             if required_link not in content:
                 errors.append(f"README does not link to {required_link}")
@@ -71,17 +84,25 @@ def validate_repository(root: Path) -> list[str]:
     getting_started = root / "GETTING_STARTED.md"
     if getting_started.is_file():
         content = getting_started.read_text(encoding="utf-8")
+        errors.extend(validate_fresh_install_refs(content.split("## 4.", 1)[0]))
         required_install_contract = {
-            "Current clean-install limitation": "does not disclose the clean database limitation",
+            "scripts/install_familybot.py": "does not include the supported installer",
+            "scripts/manage_database.py backup": "does not include the supported backup command",
+            "scripts/manage_database.py restore": "does not include the supported restore command",
+            "--demo": "does not include the fictional demonstration path",
             "22.22.3": "does not pin the tested Node.js baseline",
             "Python | `3.12`": "does not pin the Python 3.12 baseline",
             "minimal OpenClaw footprint": "does not explain the minimal OpenClaw footprint",
             "scripts/check_setup.py --mode source": "does not include the source readiness check",
             "scripts/check_setup.py --mode runtime": "does not include the runtime readiness check",
-            "--profile dashboard": "does not explain the reduced dashboard readiness profile",
+            "--profile dashboard": "does not include the dashboard readiness profile",
             "himalaya account configure": "does not include guided mail setup",
             "scripts/deploy_core.sh --reload": "does not include Core deployment",
-            "scripts/deploy-local.sh": "does not include Portal deployment",
+            "$HOME/.familybot": "does not document the standalone private workspace",
+            "--upgrade --writers-stopped": "does not document explicit stopped-writer upgrades",
+            "--portal-runtime": "does not retain the selected upgrade runtime",
+            "--replace-school-calendar": "does not explain explicit school-date replacement",
+            "pre-upgrade": "does not explain whole-upgrade backup and recovery",
         }
         for marker, message in required_install_contract.items():
             if marker not in content:
@@ -115,6 +136,10 @@ def validate_repository(root: Path) -> list[str]:
         "python 3.9+": "installation documentation still advertises unsupported Python 3.9",
         "not yet a one-command installer for every historical schedule":
             "installation documentation still describes the incomplete LaunchAgent set",
+        "current clean-install limitation":
+            "installation documentation still describes empty database creation as unsupported",
+        "supported starter or restored database":
+            "documentation still requires an owner-provided starter database",
     }
     combined = "\n".join(path.read_text(encoding="utf-8").lower() for path in markdown_files(root))
     for phrase, message in legacy_phrases.items():

@@ -1,9 +1,22 @@
 # Reliability foundation
 
 Status: privacy-safe source baseline. Deployment state must be verified from the
-running OpenClaw workspace and launchd; this document is not a live status file.
+configured private workspace and launchd; OpenClaw status is relevant only for
+the Agent profile. This document is not a live status file.
 
 ## Invariants
+
+Upgrade invariants: require explicit existing workspace/runtime and stopped
+database users; take a full pre-upgrade backup before data synchronization;
+preserve omitted member fields, stored school dates and intentionally archived
+or disabled Portal data. School-calendar replacement requires explicit input
+and operator consent. Schema validation must run before transaction commit and
+API bind, never report current from version numbers alone. Recognized legacy
+backups must restore without invented markers. Core/Portal transactions are
+separate; a later failure requires deliberate recovery, not a false claim of
+whole-installer rollback. See [REDEPLOY.md](../REDEPLOY.md) for the operator gate.
+Every change to these invariants requires fictional upgrade/failure regressions
+and synchronized setup, configuration, recovery and changelog documentation.
 
 1. Structured family facts are collected without an LLM. Inference may improve
    wording, but an empty, malformed, or timed-out inference response must fall
@@ -85,19 +98,43 @@ structured result separately from deterministic `week_plan_days` facts.
 - Ukeplan interpretation runs asynchronously after ingestion. An LLM may only
   produce accepted items whose text is present in stored PDF evidence and whose
   dates are in the plan's Monday–Friday ISO week. A timeout, malformed response,
-  or validation failure leaves deterministic plan data available and is retried.
+  or validation failure leaves deterministic plan data available. A run with a
+  failed attempt exits non-zero; failed interpretations require an explicit
+  retry rather than an unbounded scheduled model-call loop.
 - A recent ukeplan was logged before a class mapping update: the bounded backfill
-  resolves current 3A/6A content, repairs its member mapping and stores the plan.
+  uses the configured household routing to repair its member mapping and store
+  the plan. No particular school class is a supported-household prerequisite.
 - A Saturday/Sunday daily briefing: week-plan lookup rolls forward to Monday's
   ISO week while the displayed calendar date remains the current day.
 - Briefing fallback uses configured child display names, preserves full stored
   PDF text rather than a character-truncated summary, and does not drop trailing
   sections to satisfy a line cap. Long text is split losslessly into numbered
   Telegram parts. All parts for each recipient are queued atomically and remain
-  immutable on retry; both recipients are queued before sending. Retries send
+  immutable on retry; all configured recipients are queued before sending. Retries send
   only unsent parts, never already delivered parts.
 
 ## Promotion checklist
+
+Outcome acceptance contract:
+
+- Before persistence, parsed day dates must belong to the resolved ISO period;
+  an explicit parent-subject period must match the parser result.
+- Interpretation rejects stored attribution that conflicts with the row period.
+- Generated briefings with internal person keys, missing plan-child display
+  names, or omitted important task/RSVP titles use deterministic fallback.
+- Fallback preserves important tasks, RSVP titles, upcoming events, evening
+  advice and cabin forecasts when present, in addition to complete plan text.
+- Briefing quality records contain only a timestamp and fallback boolean and
+  are owner-only. A telemetry write failure never prevents message delivery.
+- Health checks report current/next-week failed interpretations or work pending
+  over one hour. Recent fallback observations remain visible independently of
+  successful delivery/job exits. Historical interpretation failures do not page.
+- Existing SRE consecutive-observation thresholds and alert deduplication apply
+  to these quality checks. They never authorize model switching, resending sent
+  messages, rewriting attribution, or unlimited inference retries.
+
+See [outcome safeguards](../docs/OUTCOME_SAFEGUARDS.md) for acceptance tests,
+staged follow-ups and operational limitations.
 
 1. Make a verified SQLite backup and a source snapshot.
 2. Run the full unit suite against the isolated Python 3.12 baseline.

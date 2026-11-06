@@ -17,11 +17,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Optional
 
-DEFAULT_WORKSPACE = Path.home() / ".openclaw/workspace"
+DEFAULT_WORKSPACE = Path.home() / ".familybot"
 
 
 def workspace_path() -> Path:
-    return Path(os.environ.get("FAMILYBOT_WORKSPACE", str(DEFAULT_WORKSPACE)))
+    return Path(os.environ.get("FAMILYBOT_WORKSPACE") or os.environ.get("OPENCLAW_WORKSPACE") or DEFAULT_WORKSPACE).expanduser()
 
 
 def database_path() -> Path:

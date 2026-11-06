@@ -6,12 +6,22 @@ from __future__ import annotations
 import json
 import re
 import zoneinfo
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
+DEFAULT_ZONE = zoneinfo.ZoneInfo("Europe/Oslo")
+
+
+def schedule_zone() -> zoneinfo.ZoneInfo:
+    """Resolve the configured household zone while keeping diagnostics usable on bad config."""
+    try:
+        from family_config import family_timezone
+
+        return zoneinfo.ZoneInfo(family_timezone())
+    except (KeyError, RuntimeError, zoneinfo.ZoneInfoNotFoundError):
+        return DEFAULT_ZONE
 
 
 @dataclass(frozen=True)
@@ -58,16 +68,61 @@ def active_job_specs(spond_enabled: Optional[bool] = None) -> tuple[JobSpec, ...
     list disables its schedule and health probe.  Invalid configuration keeps
     the complete contract active so a setup error cannot silently hide a job.
     """
-    if spond_enabled is None:
-        try:
-            from family_config import integration
-
-            spond_enabled = bool(integration("spond").get("groups"))
-        except RuntimeError:
+    if spond_enabled is not None:
+        if spond_enabled:
             return JOB_SPECS
-    if spond_enabled:
+        return tuple(spec for spec in JOB_SPECS if spec.label != "familybot.spond")
+    try:
+        from family_config import capability_profile, integration, notification_settings
+
+        profile = capability_profile()
+        notifications = notification_settings()
+        enabled = set()
+        if profile in {"connected", "agent"}:
+            enabled.update({"familybot.health", "familybot.status"})
+            if integration("email"):
+                enabled.add("familybot.email")
+            if integration("spond").get("groups"):
+                enabled.add("familybot.spond")
+            if integration("transport"):
+                enabled.add("familybot.tbane")
+        if profile == "agent":
+            enabled.add("familybot.delivery")
+            if notifications.get("weekday_briefing", True) is not False:
+                enabled.add("familybot.briefing.weekday")
+            if notifications.get("weekend_briefing", True) is not False:
+                enabled.add("familybot.briefing.weekend")
+            if notifications.get("weekly_summary", True) is not False:
+                enabled.add("familybot.briefing.weekly")
+            if integration("email"):
+                enabled.add("familybot.ukeplan")
+        def clock(name: str, fallback: tuple[int, int]) -> tuple[int, int]:
+            value = str(notifications.get(name) or f"{fallback[0]:02d}:{fallback[1]:02d}")
+            hour, minute = value.split(":", 1)
+            return int(hour), int(minute)
+
+        selected = []
+        for spec in JOB_SPECS:
+            if spec.label not in enabled:
+                continue
+            if spec.label == "familybot.briefing.weekday":
+                hour, minute = clock("weekday_time", (6, 45))
+                spec = replace(spec, calendar=tuple((day, hour, minute) for day in range(1, 6)))
+            elif spec.label == "familybot.briefing.weekend":
+                hour, minute = clock("weekend_time", (8, 0))
+                spec = replace(spec, calendar=((0, hour, minute), (6, hour, minute)))
+            elif spec.label == "familybot.briefing.weekly":
+                hour, minute = clock("weekly_time", (21, 0))
+                weekdays = {
+                    "sunday": 0, "monday": 1, "tuesday": 2, "wednesday": 3,
+                    "thursday": 4, "friday": 5, "saturday": 6,
+                }
+                day = weekdays.get(str(notifications.get("weekly_weekday") or "sunday"), 0)
+                spec = replace(spec, calendar=((day, hour, minute),))
+            selected.append(spec)
+        return tuple(selected)
+    except RuntimeError:
         return JOB_SPECS
-    return tuple(spec for spec in JOB_SPECS if spec.label != "familybot.spond")
 
 
 @dataclass(frozen=True)
@@ -138,28 +193,30 @@ def failed_job_is_active(
 
 def latest_calendar_due(spec: JobSpec, now: datetime) -> Optional[datetime]:
     """Return the most recent configured local calendar time not after now."""
-    local_now = now.astimezone(OSLO)
+    local_zone = schedule_zone()
+    local_now = now.astimezone(local_zone)
     for offset in range(0, 8):
         candidate_date = local_now.date() - timedelta(days=offset)
         weekday = (candidate_date.weekday() + 1) % 7
         for configured_day, hour, minute in spec.calendar:
             if configured_day != weekday:
                 continue
-            candidate = datetime.combine(candidate_date, time(hour, minute), tzinfo=OSLO)
+            candidate = datetime.combine(candidate_date, time(hour, minute), tzinfo=local_zone)
             if candidate <= local_now:
                 return candidate.astimezone(timezone.utc)
     return None
 
 
 def next_calendar_due(spec: JobSpec, now: datetime) -> Optional[datetime]:
-    local_now = now.astimezone(OSLO)
+    local_zone = schedule_zone()
+    local_now = now.astimezone(local_zone)
     for offset in range(0, 8):
         candidate_date = local_now.date() + timedelta(days=offset)
         weekday = (candidate_date.weekday() + 1) % 7
         for configured_day, hour, minute in spec.calendar:
             if configured_day != weekday:
                 continue
-            candidate = datetime.combine(candidate_date, time(hour, minute), tzinfo=OSLO)
+            candidate = datetime.combine(candidate_date, time(hour, minute), tzinfo=local_zone)
             if candidate > local_now:
                 return candidate.astimezone(timezone.utc)
     return None

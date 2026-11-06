@@ -16,6 +16,9 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import NamedTuple
 
+from database_migrations import CORE_SCHEMA_VERSION, schema_version
+from family_config import workspace_path
+
 MINIMUM_PYTHON = (3, 12, 0)
 MINIMUM_NODE = (22, 22, 3)
 MAXIMUM_NODE_MAJOR = 22
@@ -134,7 +137,7 @@ def database_check(path: Path) -> Check:
             "FAIL",
             "family database",
             f"missing: {path}",
-            "Restore a supported family.db; clean database creation is not available in this release.",
+            "Run scripts/manage_database.py init with the validated local family configuration.",
         )
     try:
         with sqlite3.connect(f"file:{path}?mode=ro", uri=True, timeout=5) as connection:
@@ -145,6 +148,7 @@ def database_check(path: Path) -> Check:
                     "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
                 )
             }
+            version = schema_version(connection)
     except sqlite3.Error as exc:
         return Check("FAIL", "family database", f"could not be opened safely: {type(exc).__name__}")
     if not result or result[0] != "ok":
@@ -155,9 +159,16 @@ def database_check(path: Path) -> Check:
             "FAIL",
             "family database",
             f"integrity is ok, but the supported Core schema is missing: {', '.join(missing)}",
-            "Restore a supported starter database or reviewed migration; do not copy test SQL.",
+            "Run scripts/manage_database.py migrate; it creates a verified backup before changing existing data.",
         )
-    return Check("PASS", "family database", "integrity and supported Core schema are ok")
+    if version != CORE_SCHEMA_VERSION:
+        return Check(
+            "FAIL",
+            "family database",
+            f"Core schema version is {version}; expected {CORE_SCHEMA_VERSION}",
+            "Run scripts/manage_database.py migrate before deploying either repository.",
+        )
+    return Check("PASS", "family database", f"integrity and Core schema version {version} are ok")
 
 
 def capability_check(name: str, argv: Sequence[str], remedy: str) -> Check:
@@ -170,8 +181,47 @@ def capability_check(name: str, argv: Sequence[str], remedy: str) -> Check:
     return Check("FAIL", name, "capability check failed; command output was intentionally suppressed", remedy)
 
 
-def collect_checks(root: Path, mode: str, profile: str = "full") -> list[Check]:
+def integration_is_enabled(config: dict, name: str) -> bool:
+    value = config.get("integrations", {}).get(name)
+    return isinstance(value, dict) and value.get("enabled", True) is not False
+
+
+def parent_pin_path(workspace: Path) -> Path:
+    return Path(
+        os.environ.get("FAMILYBOT_PARENT_PIN_FILE", workspace / "config/parent-pin.txt")
+    ).expanduser()
+
+
+def profile_selection_check(config: dict, selected: str) -> Check:
+    configured = config.get("profile", "agent")
+    if configured == selected:
+        return Check("PASS", "capability profile", f"configuration and check both use {selected}")
+    return Check(
+        "FAIL",
+        "capability profile",
+        f"configuration uses {configured}; runtime check selected {selected}",
+        f"Rerun with --profile {configured}, or deliberately change and redeploy the configuration.",
+    )
+
+
+def collect_checks(root: Path, mode: str, profile: str = "dashboard") -> list[Check]:
+    profile = {"mail": "connected", "full": "agent"}.get(profile, profile)
     checks: list[Check] = []
+    workspace = workspace_path()
+    config = Path(
+        os.environ.get(
+            "FAMILYBOT_FAMILY_CONFIG", workspace / "config/family.local.json"
+        )
+    ).expanduser()
+    config_document: dict = {}
+    if mode == "runtime" and config.is_file():
+        try:
+            loaded = json.loads(config.read_text(encoding="utf-8"))
+            config_document = loaded if isinstance(loaded, dict) else {}
+        except (OSError, ValueError):
+            pass
+    if mode == "runtime" and config_document:
+        checks.append(profile_selection_check(config_document, profile))
     if platform.system() == "Darwin":
         checks.append(Check("PASS", "macOS", f"host is {platform.mac_ver()[0] or 'macOS'}"))
     else:
@@ -220,7 +270,7 @@ def collect_checks(root: Path, mode: str, profile: str = "full") -> list[Check]:
             "Install the documented Node.js 22 baseline and ensure it is first on PATH.",
         ))
 
-    openclaw_required = mode == "runtime" and profile == "full"
+    openclaw_required = mode == "runtime" and profile == "agent"
     openclaw_check, openclaw_path = check_command(
         "openclaw",
         required=openclaw_required,
@@ -245,9 +295,14 @@ def collect_checks(root: Path, mode: str, profile: str = "full") -> list[Check]:
                 f"npm install --global openclaw@{TESTED_OPENCLAW}",
             ))
 
+    email_required = (
+        mode == "runtime"
+        and profile in {"connected", "agent"}
+        and integration_is_enabled(config_document, "email")
+    )
     himalaya_check, himalaya_path = check_command(
         "himalaya",
-        required=mode == "runtime" and profile in {"mail", "full"},
+        required=email_required,
         remedy="brew install himalaya",
     )
     checks.append(himalaya_check)
@@ -269,8 +324,6 @@ def collect_checks(root: Path, mode: str, profile: str = "full") -> list[Check]:
     )
 
     if mode == "runtime":
-        workspace = Path(os.environ.get("FAMILYBOT_WORKSPACE", Path.home() / ".openclaw/workspace")).expanduser()
-        config = Path(os.environ.get("FAMILYBOT_FAMILY_CONFIG", workspace / "config/family.local.json")).expanduser()
         checks.append(private_file_check(config, "family configuration"))
         if config.is_file():
             checks.append(capability_check(
@@ -278,10 +331,6 @@ def collect_checks(root: Path, mode: str, profile: str = "full") -> list[Check]:
                 [sys.executable, str(root / "scripts/validate_config.py"), "--config", str(config)],
                 "Correct the fields reported by scripts/validate_config.py; values remain private.",
             ))
-            try:
-                config_document = json.loads(config.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
-                config_document = {}
             spond_groups = config_document.get("integrations", {}).get("spond", {}).get("groups", [])
             if spond_groups:
                 checks.append(secret_keys_check(
@@ -290,8 +339,8 @@ def collect_checks(root: Path, mode: str, profile: str = "full") -> list[Check]:
                     "Spond credential file",
                 ))
         checks.append(database_check(Path(os.environ.get("FAMILYBOT_DB_PATH", workspace / "db/family.db")).expanduser()))
-        checks.append(private_file_check(portal / "runtime/parent-pin.txt", "portal parent PIN"))
-        if openclaw_path and profile == "full":
+        checks.append(private_file_check(parent_pin_path(workspace), "portal parent PIN"))
+        if openclaw_path and profile == "agent":
             checks.append(capability_check(
                 "OpenClaw gateway",
                 [openclaw_path, "gateway", "health"],
@@ -307,7 +356,7 @@ def collect_checks(root: Path, mode: str, profile: str = "full") -> list[Check]:
                 [openclaw_path, "channels", "status", "--probe"],
                 "Run openclaw channels add --channel telegram, then check the bot and parent targets.",
             ))
-        if himalaya_path and profile in {"mail", "full"}:
+        if himalaya_path and email_required:
             checks.append(capability_check(
                 "Himalaya mailbox",
                 [himalaya_path, "folder", "list", "--output", "json"],
@@ -316,7 +365,7 @@ def collect_checks(root: Path, mode: str, profile: str = "full") -> list[Check]:
     return checks
 
 
-def print_report(checks: Sequence[Check], mode: str, profile: str = "full") -> int:
+def print_report(checks: Sequence[Check], mode: str, profile: str = "dashboard") -> int:
     print(f"FamilyBot setup check ({mode}, {profile} profile)")
     print("No configuration values, credentials, mailbox contents, or database rows are printed.\n")
     for check in checks:
@@ -341,9 +390,9 @@ def main() -> int:
     )
     parser.add_argument(
         "--profile",
-        choices=("dashboard", "mail", "full"),
-        default="full",
-        help="dashboard omits mail/agent checks; mail adds Himalaya; full adds OpenClaw/Telegram",
+        choices=("dashboard", "connected", "agent", "mail", "full"),
+        default="dashboard",
+        help="dashboard is standalone; connected enables selected adapters; agent adds OpenClaw/Telegram (mail/full are aliases)",
     )
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]

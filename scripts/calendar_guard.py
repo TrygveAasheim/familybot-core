@@ -36,12 +36,9 @@ Usage:
 """
 
 import sqlite3
-import zoneinfo
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Optional
-
-OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
 
 
 @dataclass

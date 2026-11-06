@@ -1,0 +1,2 @@
+# Core's dashboard, scheduler, reliability and briefing paths are stdlib-only.
+# Optional adapter locks are added by scripts/deploy_core.sh when enabled.

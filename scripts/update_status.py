@@ -6,29 +6,31 @@ import subprocess
 import zoneinfo
 from datetime import datetime
 
-from family_config import integration, parents
+from family_config import capability_profile, family_timezone, integration, parents
 from reliability import atomic_write_text, connect_db, workspace_path
-from sre import read_job_state
+from sre import active_job_specs, read_job_state
 
-OSLO = zoneinfo.ZoneInfo("Europe/Oslo")
+LOCAL_ZONE = zoneinfo.ZoneInfo(family_timezone())
+PROFILE = capability_profile()
 WORKSPACE = workspace_path()
 STATUS_PATH = WORKSPACE / "STATUS.md"
 DB_PATH = WORKSPACE / "db" / "family.db"
 VACATION_PATH = WORKSPACE / "memory" / "vacation-mode.json"
 PARENT_NAMES = [str(item["name"]) for item in parents()]
 EMAIL_ACCOUNT = str(integration("email").get("account") or "konfigurert konto")
-JOBS = [
-    ("familybot.email", "E-postimport", "hvert 15. minutt"),
-    ("familybot.spond", "Spond-synk", "hver time"),
-    ("familybot.health", "Helsesjekk", "hvert 30. minutt"),
-    ("familybot.status", "Statusoppdatering", "hvert 30. minutt"),
-    ("familybot.tbane", "T-baneovervåking", "hvert 15. minutt"),
-    ("familybot.briefing.weekday", "Morgenbriefing", "06:45 mandag–fredag"),
-    ("familybot.briefing.weekend", "Morgenbriefing helg", "08:00 lørdag–søndag"),
-    ("familybot.briefing.weekly", "Søndagsoversikt", "21:00 søndag"),
-    ("familybot.delivery", "Telegram-kø", "hvert 5. minutt"),
-    ("familybot.ukeplan", "Ukeplanforståelse", "hvert 15. minutt"),
-]
+JOB_NAMES = {
+    "familybot.email": "E-postimport",
+    "familybot.spond": "Spond-synk",
+    "familybot.health": "Helsesjekk",
+    "familybot.status": "Statusoppdatering",
+    "familybot.tbane": "Kollektivovervåking",
+    "familybot.briefing.weekday": "Morgenbriefing",
+    "familybot.briefing.weekend": "Morgenbriefing helg",
+    "familybot.briefing.weekly": "Ukesoversikt",
+    "familybot.delivery": "Telegram-kø",
+    "familybot.ukeplan": "Ukeplanforståelse",
+}
+JOBS = active_job_specs()
 
 def launchd_state(label):
     result = subprocess.run(["launchctl", "print", f"gui/{os.getuid()}/{label}"],
@@ -72,14 +74,22 @@ spond_freshness = c.execute("SELECT MAX(last_updated) FROM spond_events").fetcho
 conn.close()
 
 lines = ["# STATUS.md — FamilyBot faktisk kjørende konfig", "",
-         f"Sist oppdatert: {datetime.now(OSLO).strftime('%Y-%m-%d %H:%M %Z')}", "",
+         f"Sist oppdatert: {datetime.now(LOCAL_ZONE).strftime('%Y-%m-%d %H:%M %Z')}", "",
          "**Denne filen genereres fra launchd og SQLite.**", "",
-         f"## Driftsmodus: {'feriemodus — utsendinger er pauset' if vacation_active() else 'normal'}", "",
+         f"## Profil: {PROFILE}", "",
+         f"Driftsmodus: {'feriemodus — utsendinger er pauset' if vacation_active() else 'normal'}", "",
          "## Planlagte jobber", ""]
-for label, name, schedule in JOBS:
-    state, last_exit = launchd_state(label)
+for spec in JOBS:
+    state, last_exit = launchd_state(spec.label)
     exit_text = "" if last_exit is None else f", sist exit={last_exit}"
-    lines.append(f"- **{name}** — {schedule} [{state}{exit_text}]")
+    schedule = (
+        f"hvert {int((spec.interval_seconds or 0) / 60)}. minutt"
+        if spec.kind == "interval"
+        else "konfigurert klokkeslett"
+    )
+    lines.append(f"- **{JOB_NAMES[spec.label]}** — {schedule} [{state}{exit_text}]")
+if not JOBS:
+    lines.append("- Ingen Core-jobber i dashboard-profilen")
 lines += ["", "## Datakilder", "", f"- E-post sist behandlet: {email_freshness or 'ingen'}",
           f"- Spond sist oppdatert: {spond_freshness or 'ingen vellykket synk'}",
           f"- SQLite-tabeller: {', '.join(tables)}", "", "## Familiemedlemmer"]
@@ -88,10 +98,22 @@ for name, role, grade in members:
 lines += ["", "## Aktiviteter"]
 for child, activity, schedule, spond_id in activities:
     lines.append(f"- **{child}**: {activity} ({schedule or '?'}) — Spond: {'ja' if spond_id else 'nei'}")
-lines += ["", "## Integrasjoner", "",
-          f"- Telegram: OpenClaw gateway, separate DM-sesjoner for {', '.join(PARENT_NAMES)}",
-          f"- E-post: {EMAIL_ACCOUNT} via Himalaya/IMAP",
-          "- Spond: uoffisiell API-klient; feil rapporteres eksplisitt",
-          "- Database: db/family.db (SQLite)", ""]
+lines += ["", "## Integrasjoner", ""]
+lines.append(
+    f"- Telegram: OpenClaw gateway for {', '.join(PARENT_NAMES)}"
+    if PROFILE == "agent"
+    else "- Telegram/AI: ikke aktivert"
+)
+lines.append(
+    f"- E-post: {EMAIL_ACCOUNT} via Himalaya/IMAP"
+    if integration("email")
+    else "- E-post: ikke aktivert"
+)
+lines.append(
+    "- Spond: uoffisiell API-klient; feil rapporteres eksplisitt"
+    if integration("spond").get("groups")
+    else "- Spond: ikke aktivert"
+)
+lines += ["- Database: db/family.db (SQLite)", ""]
 atomic_write_text(STATUS_PATH, "\n".join(lines) + "\n")
 print("STATUS.md oppdatert fra faktisk driftsstate.")

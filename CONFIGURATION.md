@@ -7,14 +7,16 @@ does not carry a second template.
 
 ## Create the local file
 
-From the `familybot-core` checkout:
+The guided installer creates the private file automatically. To create one
+manually from the `familybot-core` checkout:
 
 ```bash
-install -d -m 700 "$HOME/.openclaw/workspace/config"
+install -d -m 700 "$HOME/.familybot/config"
 install -m 600 config/family.example.json \
-  "$HOME/.openclaw/workspace/config/family.local.json"
-${EDITOR:-nano} "$HOME/.openclaw/workspace/config/family.local.json"
-python3 scripts/validate_config.py
+  "$HOME/.familybot/config/family.local.json"
+${EDITOR:-nano} "$HOME/.familybot/config/family.local.json"
+FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json" \
+  python3 scripts/validate_config.py
 ```
 
 The validator prints paths and diagnoses, never family values. It rejects
@@ -26,39 +28,95 @@ broken references and malformed portal origins.
 | Path | Required | Purpose |
 | --- | --- | --- |
 | `schema_version` | yes | Configuration contract; currently `1` |
+| `profile` | yes for new installs | `dashboard`, `connected`, or `agent`; missing is legacy `agent` compatibility |
 | `family.display_name` | yes | Household label shown in family-facing text |
 | `family.locale` | yes | Locale, normally `nb-NO` |
 | `family.timezone` | yes | IANA time zone, normally `Europe/Oslo` |
-| `portal.hostname` | yes | Bonjour/mDNS browser name, normally `familie.local` |
+| `portal.hostname` | yes | Existing Mac LocalHostName plus `.local`, or explicitly configured local DNS/IPv4; DNS-SD does not create an alias |
 | `portal.web_port`, `api_port` | yes | Local web and curated API ports |
 | `portal.bonjour_name` | yes | Service name advertised by DNS-SD |
 | `portal.allowed_origins[]` | yes | Exact browser origins allowed to call the API |
 | `portal.features.hellofresh` | optional | Boolean, off by default; exposes only Portal's experimental public Norwegian HelloFresh menu |
-| `portal.features.hellofresh_account` | optional | Boolean, off by default; enables Portal's transient email/password, persistent token-only, read-only HelloFresh account test when `hellofresh` is also enabled |
+| `portal.features.hellofresh_account` | optional | Boolean, off by default; with `hellofresh`, enables transient password login, token persistence and confirmed exact-week meal replacement/add/remove and pause/resume; never checkout/payment |
+| `portal.features.oda` | optional | Boolean, off by default; enables bounded Oda OAuth/recipe/product/cart operations |
+| `portal.features.oda_ai` | optional | Boolean, off by default; requires `oda`; explicit external-model consent and the isolated OpenClaw dinner agent; search/cart needs neither AI nor OpenClaw |
 | `members[].member_id` | yes | Stable positive integer matching `family_members.id` |
 | `members[].role` | yes | `parent` or `child` |
 | `members[].name`, `slug` | yes | Local display name and durable lowercase key |
 | `members[].telegram_target` | when Telegram is used | Recipient identifier; parents only |
 | `members[].grade` | recommended for children | School-email and `ukeplan` routing context |
+| `members[].school`, `teacher` | optional | Per-child school context; different children may use different schools |
 | `members[].avatar` | optional | Child dashboard avatar |
 | `members[].default_reward` | optional | Initial portal reward definition |
 | `integrations.email` | when email job is enabled | Himalaya account label and known forwarding addresses |
 | `integrations.spond.groups[]` | when Spond job is enabled | Group ID, label and optional owning `member_id` |
-| `integrations.transport` | dashboard | Entur stop, direction-specific quay, mode, line and labels |
-| `integrations.weather` | dashboard/briefing | MET user agent and coordinates |
+| `school.municipality`, `calendar_events[]` | optional | Household municipality and its authoritative school dates |
+| `notifications.*` | agent only | Enable/disable briefings and configure local delivery times |
+| `integrations.*.enabled` | optional | Explicitly disable one configured adapter without deleting its settings |
+| `integrations.transport` | optional | Entur stop, direction-specific quay, mode, line and labels |
+| `integrations.weather` | optional | MET user agent, required home coordinates and optional secondary location |
 
 A Spond group may omit or set `member_id` to `null` when it belongs to the
 whole household. Never renumber members after the database contains events,
 plans, chores or rewards.
 
-## Optional integrations
+`member_id` and `role` are the durable household identity. Re-running the
+installer or database initializer may update a member's display name, grade,
+school and teacher; it creates a verified `core-profile-*` backup first and
+keeps name-based Kanban assignments in sync. Changing a member's role is
+rejected because historical rows already refer to that identity. Removing a
+member from configuration does not delete or deactivate their database record:
+preserving that history is deliberate. Archive their active work first and
+keep the existing ID reserved; automated member retirement is not yet a
+supported operation.
 
-Remove an unused optional integration block and do not install its LaunchAgent.
-The configuration file does not enable or disable schedules by itself. The
-home weather and transport blocks are required by the current dashboard.
+## Profiles and optional integrations
+
+An absent integration block is disabled. A present block can also set
+`"enabled": false`; disabled blocks require no other fields and are omitted from
+deployment, health and status checks. The dashboard remains usable without
+weather or transport and shows an honest unavailable state instead.
+
+Profile selection controls the background footprint:
+
+- `dashboard`: no Core LaunchAgents and no external account required;
+- `connected`: health/status plus only configured email, Spond and transport
+  jobs;
+- `agent`: connected jobs plus selected briefings, delivery and model-assisted
+  Ukeplan interpretation.
+
+Changing JSON alone does not load or unload a macOS service. Validate, then
+follow [the complete selected-job deployment procedure](GETTING_STARTED.md#deploy-selected-connected-jobs),
+including explicit workspace/config and reviewed-ref guard overrides. Do not
+run a bare deployment command from Main and bypass its default Dev guard.
 
 The three cabin fields are all-or-none:
 `cabin_label`, `cabin_lat`, and `cabin_lon`.
+
+School dates are configuration-owned because Norwegian municipalities and
+individual schools differ. Add `first_day`, `last_day`, `break`,
+`planning_day` or `school_event` entries with ISO dates. `calendar_seed.py`
+initializes an empty calendar from this list and derives national public
+holidays for the current surrounding years. Existing school dates are preserved
+unless `--replace-school-calendar` is explicitly supplied (also available on
+the installer upgrade command). An omitted `school`/`calendar_events` is never
+a deletion request; an explicit empty list plus the flag clears school dates.
+A verified SQLite backup precedes calendar writes. No Oslo calendar is bundled.
+
+Member synchronization uses stable `member_id`. Omitted `grade`, `school` and
+`teacher` fields preserve database-only values; explicit `null` clears a field.
+Removing a member from configuration does not delete their historical data.
+Upgrades do not recreate starter chores or reactivate disabled rewards. See
+[REDEPLOY.md](REDEPLOY.md) for explicit paths, optional-feature consent and downtime.
+
+Notification times use `HH:MM`. Set the Mac's system time zone to match
+`family.timezone` (normally `Europe/Oslo`) before enabling schedules: launchd
+interprets calendar hours/weekdays in the Mac's local time, with no conversion
+from the configuration. Python date/health calculations use `family.timezone`
+and its IANA daylight-saving rules. A mismatch causes different launch and
+expected times; the installer does not enforce this alignment. Available fields are
+`weekday_briefing`, `weekend_briefing`, `weekly_summary`, `weekday_time`,
+`weekend_time`, `weekly_time` and `weekly_weekday`.
 
 ## Configure Ruter or other Norwegian public transport
 
@@ -127,10 +185,25 @@ countdown.
 only if an iPad must use it, for example `http://192.168.1.50:3000`. Do not add
 arbitrary `.local` hosts or entire private ranges.
 
+The public JSON samples use illustrative `familie.local` values; they do not
+register that alias. Wizard/demo installs replace it with the Mac's actual
+LocalHostName. When supplying `--config-source`, set a working hostname and
+matching origins yourself, or use the new-install `--hostname` override.
+
 ## Overrides
 
+Workspace resolution is explicit CLI workspace (where supported), then
+`FAMILYBOT_WORKSPACE`, then legacy `OPENCLAW_WORKSPACE`, then `$HOME/.familybot`.
+No command discovers or migrates an older workspace automatically. Explicit
+config/database overrides remain supported by runtime utilities. The installer
+owns config and database inside its selected workspace and rejects conflicting
+ambient overrides before writing anything. Launchd must record the selected
+workspace; shell profile settings are not inherited.
+
 - `FAMILYBOT_FAMILY_CONFIG`: alternate populated JSON path.
-- `FAMILYBOT_WORKSPACE`: alternate workspace for both repositories.
+- `FAMILYBOT_WORKSPACE`: private workspace for both repositories. New installs
+  default to `$HOME/.familybot`; existing OpenClaw-based installs may keep their
+  prior path.
 - `OPENCLAW_WORKSPACE`: legacy core workspace override.
 - `FAMILYBOT_DB_PATH`: alternate SQLite database.
 - `FAMILYBOT_PORTAL_RUNTIME`: alternate deployed portal runtime.

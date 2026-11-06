@@ -1,10 +1,12 @@
 # Architecture
 
 FamilyBot is a local-first Norwegian family information service. Deterministic
-jobs collect and store facts; optional inference improves wording; the iPad
+jobs collect and store facts; optional inference improves wording and interprets
+week plans against source evidence; the iPad
 dashboard and Telegram expose curated views.
 
-This document describes the running family-information architecture. Planned
+This document describes the implemented family-information architecture, not
+evidence that any particular household has deployed it. Planned
 add-ons are explicitly labelled and may not be treated as deployed services.
 
 ## Physical topology
@@ -26,7 +28,7 @@ flowchart LR
       Launchd["launchd schedules"]
       Core["FamilyBot Core jobs"]
       DB[("SQLite family.db")]
-      Gateway["OpenClaw gateway"]
+      Gateway["OpenClaw gateway - optional"]
       API["Curated local API :8788"]
       Web["Familieportalen :3000"]
       Bonjour["Bonjour: Familieportalen"]
@@ -66,7 +68,8 @@ flowchart TD
   Parent["Parent session\nPIN + rate limit"]
   Mutate["Validated chore/reward writes"]
   Audit["0600 local audit + backup"]
-  LLM["Inference: wording only"]
+  LLM["Optional briefing wording"]
+  Interpret["Optional PDF interpretation\nsource/date validation, no tools"]
   Outbox["Durable delivery outbox"]
 
   Untrusted --> Validate --> Facts --> Curate
@@ -76,11 +79,15 @@ flowchart TD
   Parent --> Mutate
   Mutate --> Audit
   Facts --> LLM --> Outbox
+  Facts --> Interpret --> Curate
   Facts --> Outbox
 ```
 
 Inference is outside the durability boundary. If it fails, deterministic
 briefings, ingestion state, retries and dashboard data remain available.
+Accepted plan interpretations are stored alongside the original facts, never
+as permission to execute tools. Grocery AI has a separate opt-in and bounded
+Portal adapter; see the Portal's grocery and data-boundary documentation.
 
 ## Runtime layout
 
@@ -89,22 +96,33 @@ Git checkouts/                         reviewed, non-private source
   familybot-core/
   familybot-portal/
 
-$HOME/.openclaw/workspace/            private durable state
+$HOME/.familybot/                     private durable state for new installs
   config/family.local.json
+  config/parent-pin.txt
   db/family.db
   scripts/
   secrets.env
   attachments/, logs/, memory/, backups/
 
-$HOME/.openclaw/runtime/familybot-portal/  generated deployed portal
+$HOME/.familybot/runtime/familybot-portal/ generated deployed portal
 $HOME/Library/LaunchAgents/                reviewed schedules/supervisors
 ```
+
+Existing households may keep an older `$HOME/.openclaw/workspace` path through
+`FAMILYBOT_WORKSPACE`; migration does not require moving private state.
 
 Source control is not a household backup. See [REDEPLOY.md](REDEPLOY.md) for
 the source/state/credential restore order and [SECURITY.md](SECURITY.md) for
 the threat model.
 
 ## Core and add-on dependency rule
+
+The dashboard profile deploys no Core runtime and requires no integration
+package. Connected/Agent Core deployment starts with the stdlib-only base lock,
+then adds the hash-locked PDF or unofficial Spond dependency set only when that
+adapter is explicitly enabled. `requirements.txt` remains the aggregate test
+and contributor lock; it is not evidence that every package is required by a
+household profile.
 
 ```mermaid
 flowchart LR
@@ -122,6 +140,32 @@ Core owns ingestion completion, fact durability, briefings, outbox delivery and
 health. Add-ons may consume curated facts or own separate schemas, but they do
 not change core completion state. The detailed ownership map is in
 [`docs/REPOSITORY_GUIDE.md`](docs/REPOSITORY_GUIDE.md).
+
+## Schema and profile contract
+
+Both repositories share one SQLite file but not implicit table ownership.
+`familybot_schema_migrations` records component, version, migration name and
+checksum. Core currently requires `core:1`; Portal requires `core:1` and owns
+`portal:1..2`. Migrations run transactionally, back up an existing database
+before a pending change and fail closed on an unknown future version or changed
+checksum.
+
+Upgrades are explicit and preserve the installed workspace/runtime. The full
+pre-upgrade database snapshot precedes data synchronization, not just schema
+migrations. Core and Portal transactions commit independently: recovery uses
+that snapshot plus the matching source/configuration pair. Portal validates its
+owned schema inside the transaction and before API bind. Runtime validation is
+not permission to reseed or replace household data. See [REDEPLOY.md](REDEPLOY.md).
+
+The runtime footprint is selected by configuration:
+
+- Dashboard: Portal only; no Core background schedule or external account.
+- Connected: only configured deterministic adapters and their health/status.
+- Agent: Connected plus isolated model-assisted interpretation, durable
+  briefing delivery and Telegram.
+
+Optional adapters must fail independently. Their absence cannot make SQLite,
+the dashboard, chores or rewards unavailable.
 
 ## Planned Smart Home topology
 
