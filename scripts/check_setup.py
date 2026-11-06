@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 from database_migrations import CORE_SCHEMA_VERSION, schema_version
+from family_config import workspace_path
 
 MINIMUM_PYTHON = (3, 12, 0)
 MINIMUM_NODE = (22, 22, 3)
@@ -206,9 +207,7 @@ def profile_selection_check(config: dict, selected: str) -> Check:
 def collect_checks(root: Path, mode: str, profile: str = "dashboard") -> list[Check]:
     profile = {"mail": "connected", "full": "agent"}.get(profile, profile)
     checks: list[Check] = []
-    workspace = Path(
-        os.environ.get("FAMILYBOT_WORKSPACE", Path.home() / ".openclaw/workspace")
-    ).expanduser()
+    workspace = workspace_path()
     config = Path(
         os.environ.get(
             "FAMILYBOT_FAMILY_CONFIG", workspace / "config/family.local.json"

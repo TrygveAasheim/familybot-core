@@ -30,8 +30,9 @@ For installation or configuration work, also read `CONFIGURATION.md`,
 - A delivery is not successful until its recipient-specific outbox row is sent.
   Vacation suppression is never recorded as delivery.
 - Runtime state and credentials belong under the configured private FamilyBot
-  workspace, never in Git. OpenClaw has its own credential store only when the
-  Agent profile is enabled. Do not print secret values while testing.
+  workspace, never in Git. OpenClaw has its own credential store when the
+  Agent profile or separately consented Oda dinner AI is enabled. Do not print
+  secret values while testing.
 - Add-ons consume curated interfaces. They do not reach into or repurpose the
   email ledger, delivery outbox, parser state or raw untrusted payloads.
 
@@ -67,8 +68,8 @@ git diff --check
 ```
 
 Run the additional risk-specific checks in `docs/CHANGE_PROTOCOL.md`. Do not
-deploy from an unverified feature branch. Normal work is committed and
-deployed from `dev`; `main` only receives pull requests reviewed and approved
+deploy from an unverified feature branch. Commit on dedicated branches and
+review PRs into `dev`, the normal deployment track; `main` only receives pull requests reviewed and approved
 by `@TrygveAasheim`.
 
 ## Documentation duty

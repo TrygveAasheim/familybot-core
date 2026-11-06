@@ -33,7 +33,7 @@ The managed appliance path is tested on macOS with this baseline:
 | `uv` | current stable | yes |
 | Git, SQLite, `rsync`, Bonjour and `launchd` | macOS / Command Line Tools | yes |
 | Himalaya `1.2+` | current supported | connected email only |
-| OpenClaw | reviewed current release | AI/Telegram only |
+| OpenClaw | reviewed current release | AI/Telegram or separately opted-in Oda dinner AI only |
 
 Install Apple's tools:
 
@@ -54,6 +54,9 @@ sqlite3 --version
 ```
 
 The Node version must be at least `22.22.3` and remain below `23`.
+Log into the Mac desktop as the installation user before managed setup;
+`launchctl` needs that user's GUI domain. SSH-only/headless bootstrap is not a
+supported substitute. Keep the Mac awake for household service availability.
 
 ## 3. Clone both repositories
 
@@ -62,12 +65,22 @@ Keep the checkouts together and outside a cloud-synchronized folder:
 ```bash
 mkdir -p "$HOME/FamilyBot"
 cd "$HOME/FamilyBot"
-git clone https://github.com/TrygveAasheim/familybot-core.git
-git clone https://github.com/TrygveAasheim/familybot-portal.git
+git clone --branch codex/readiness-review-fixes https://github.com/TrygveAasheim/familybot-core.git
+git clone --branch codex/readiness-review-fixes https://github.com/TrygveAasheim/familybot-portal.git
+git -C familybot-core switch --detach REVIEWED_CORE_SHA
+git -C familybot-portal switch --detach REVIEWED_PORTAL_SHA
 ```
 
-Use the reviewed `main` branch for a household installation. The directories
-must be siblings:
+Replace REVIEWED_CORE_SHA and REVIEWED_PORTAL_SHA above with the full paired
+commit IDs in the readiness PR handoff before running the commands; they are
+not literal Git refs. Do not install a moving head without reviewing the pair.
+This guide describes the development installation candidate. The public `main`
+branch does not yet contain this installer. Before a main release, use the
+paired reviewed candidate commits, not default clones. Pre-merge fixes are on
+`codex/readiness-review-fixes` in both repos; the PR handoff records exact SHAs.
+For a reproducible test, fetch that branch then `git switch --detach SHA` in
+each checkout using its respective recorded SHA. Do not mix release tracks.
+The directories must be siblings:
 
 ```text
 $HOME/FamilyBot/familybot-core
@@ -91,7 +104,7 @@ uv run --python 3.12 scripts/install_familybot.py \
   --portal-repo ../familybot-portal
 ```
 
-It asks for the family name, any number of parents and children, optional school
+It asks for the family name, 1–20 parents and 0–20 children, optional school
 and class, and a six-to-eight-digit parent PIN. It then:
 
 1. validates macOS, Node, Python, Git, SQLite, `uv`, `rsync`, Bonjour and
@@ -101,10 +114,20 @@ and class, and a six-to-eight-digit parent PIN. It then:
 4. creates `family.db` from authoritative versioned migrations;
 5. seeds household rows and starter chores;
 6. builds and deploys the Portal; and
-7. verifies both the API and dashboard locally.
+7. verifies FamilyBot API identity, a session with the configured web Origin,
+   authenticated dashboard data and web content through the configured hostname.
 
-The operation is idempotent. Running it again keeps the existing config, PIN
-and household data and applies only pending migrations.
+For a new wizard/demo config it uses the Mac's existing `LocalHostName.local`,
+as returned by `scutil --get LocalHostName`. It never renames your Mac.
+`--hostname YOUR-LOCAL-HOSTNAME` overrides that choice for a new installation.
+Supplied and existing configs keep their explicit hostname and origins. The
+Bonjour service advertisement does not create a `familie.local` alias.
+
+The operation is repeatable, but an existing database requires the explicit
+upgrade procedure in section 11. A plain installer rerun stops without changing
+that database. Upgrades preserve config/PIN, omitted member metadata, stored
+school dates, archived chores and disabled rewards; starter data is first-install
+only. An upgrade can change runtime behavior: it is not just a documentation update.
 
 ### Try fictional data first
 
@@ -137,18 +160,17 @@ finished. Never use a broad home-directory deletion command.
 
 ## 5. Open the dashboard
 
-On the Mac, open:
-
-```text
-http://familie.local:3000/
-```
+On the Mac, open the exact URL printed by the installer (for example
+`http://kitchen-mac.local:3000/`, if that is your Mac's local hostname).
 
 On the iPad, join the same trusted Wi-Fi and open the same URL in Safari. Use
 Safari's **Share → Add to Home Screen** to create an app-like icon.
 
-If Bonjour is unavailable, use the Mac's LAN IP and add that exact origin to
-`portal.allowed_origins` before redeploying. Do not add wildcards or an entire
-private address range.
+If Bonjour is unavailable, reserve the Mac's LAN IP in your router, set
+`portal.hostname` to that IP and add its exact web origin to
+`portal.allowed_origins` before redeploying. Keep localhost origins for local
+diagnostics. Do not add wildcards or an entire private address range. Changing
+the hostname also changes the Oda callback; reconnect Oda after that change.
 
 Verify the installed baseline without printing private values:
 
@@ -178,12 +200,10 @@ Entur stop/quay selection, secondary locations and notification schedules.
 Never put passwords, API tokens, provider cookies or the parent PIN in this
 JSON file.
 
-After a valid edit, rerun the installer to rebuild and verify the Portal:
-
-```bash
-uv run --python 3.12 scripts/install_familybot.py \
-  --portal-repo ../familybot-portal
-```
+After a valid edit, follow section 11 to upgrade and verify the Portal. Stop
+database users first. To deliberately replace existing school dates, additionally
+pass `--replace-school-calendar`; an explicit empty `school.calendar_events`
+list clears them only with that flag. Omitted calendars never clear stored dates.
 
 ## 7. Enable the Connected organizer
 
@@ -223,7 +243,7 @@ configuration and place credentials in the owner-only store described in
 cd "$HOME/FamilyBot/familybot-core"
 export FAMILYBOT_WORKSPACE="$HOME/.familybot"
 export FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json"
-export FAMILYBOT_DEPLOY_BRANCH="$(git branch --show-current)"
+export FAMILYBOT_DEPLOY_BRANCH="$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)"
 bash scripts/deploy_core.sh --reload
 uv run --python 3.12 scripts/check_setup.py --mode runtime --profile connected
 ```
@@ -256,7 +276,7 @@ Change `profile` to `agent`, add parent Telegram targets, validate, then deploy:
 cd "$HOME/FamilyBot/familybot-core"
 export FAMILYBOT_WORKSPACE="$HOME/.familybot"
 export FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json"
-export FAMILYBOT_DEPLOY_BRANCH="$(git branch --show-current)"
+export FAMILYBOT_DEPLOY_BRANCH="$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)"
 bash scripts/deploy_core.sh --reload
 uv run --python 3.12 scripts/check_setup.py --mode runtime --profile agent
 ```
@@ -276,8 +296,18 @@ Both are Portal features and neither changes the capability profile.
   reverse-engineered Norway provider contract for upcoming boxes, bounded meal
   selection and pause/resume. Provider changes may break it without notice.
 
+Enable `oda: true` for Oda, and separately `oda_ai: true` only if you consent to
+the bounded dinner request/preferences leaving home for model processing. Oda
+search/cart works without AI; AI additionally needs the isolated OpenClaw dinner
+agent even outside the Agent profile. Enable `hellofresh: true` for public menus
+and additionally `hellofresh_account: true` for guarded account writes. Omitted
+flags are false, including for older configs: deliberately add flags before
+upgrading if you want to retain those previously implicit capabilities.
+
 Enable only the corresponding booleans under `portal.features`, validate the
-config and rerun the installer. Provider credentials remain outside Git. The
+config and follow the explicit upgrade procedure in section 11. Managed upgrades
+require all four feature flags as booleans, including explicit `false` choices.
+Provider credentials remain outside Git. The
 plain-HTTP LAN risk is especially important for HelloFresh first-use password
 entry; use only a trusted, isolated LAN.
 
@@ -303,28 +333,48 @@ Git is not a household-state backup.
 
 ## 11. Upgrade safely
 
+Read [the upgrade preflight](REDEPLOY.md#upgrade-an-existing-host) first. Record
+the installed paths, source pair, service labels and configuration. Stop **all**
+Core/Portal/agent processes using this database, not only the web page. The
+`--writers-stopped` option acknowledges that you did this; it does not stop them.
+The example below is for the new `.familybot` layout. For a legacy installation,
+substitute its actual workspace and Portal runtime; do not move state or accept
+new defaults. Explicitly retain any custom hostname, ports, schedule and flags.
+
 ```bash
 cd "$HOME/FamilyBot/familybot-core"
 uv run --python 3.12 scripts/manage_database.py backup \
   --db "$HOME/.familybot/db/family.db" \
   --backup-root "$HOME/.familybot/backups"
-git pull --ff-only
-git -C ../familybot-portal pull --ff-only
+git fetch origin
+git -C ../familybot-portal fetch origin
+git switch --detach REVIEWED_CORE_SHA
+git -C ../familybot-portal switch --detach REVIEWED_PORTAL_SHA
 uv run --python 3.12 scripts/install_familybot.py \
-  --portal-repo ../familybot-portal
+  --portal-repo ../familybot-portal \
+  --workspace "$HOME/.familybot" \
+  --portal-runtime "$HOME/.familybot/runtime/familybot-portal" \
+  --upgrade --writers-stopped
 ```
 
-The migration ledger checks component version, name and checksum. Existing data
-is backed up before pending migrations run. A failed migration rolls back its
-transaction and leaves a recovery backup; the service refuses incompatible
-schema versions rather than serving partial data.
+Substitute the next reviewed compatible pair, not the previous install's SHAs.
+Keep the previous pair with the backup so rollback is reproducible. Detached
+checkouts do not use `git pull`.
+
+Every upgrade takes a verified full `pre-upgrade` SQLite backup before member,
+calendar or schema changes, even if no migration is pending. Core and Portal
+commit separately; the entire installer is not one transaction. If a later step
+fails, keep writers stopped and use the pre-upgrade backup to undo earlier steps.
+Portal validates its complete owned schema, history and integrity before commit
+and again before API startup. A failed Portal migration does not mark versions
+complete. Existing four/five-digit PINs remain valid; new installs require 6–8.
 
 If Core schedules are enabled, redeploy them after the upgrade:
 
 ```bash
 export FAMILYBOT_WORKSPACE="$HOME/.familybot"
 export FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json"
-export FAMILYBOT_DEPLOY_BRANCH="$(git branch --show-current)"
+export FAMILYBOT_DEPLOY_BRANCH="$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)"
 bash scripts/deploy_core.sh --reload
 ```
 
@@ -337,23 +387,27 @@ uv run --python 3.12 scripts/manage_database.py status \
   --db "$HOME/.familybot/db/family.db"
 ```
 
-Restore a selected verified backup:
+Stop all database users before restoring a selected verified backup:
 
 ```bash
 uv run --python 3.12 scripts/manage_database.py restore \
   --db "$HOME/.familybot/db/family.db" \
   --backup-root "$HOME/.familybot/backups" \
-  --from-backup "/exact/path/to/backup/family.db"
+  --from-backup "/exact/path/to/backup/family.db" --writers-stopped
 ```
 
 Restore verifies the source before replacing the database and creates a
-pre-restore recovery backup of the current file. Then check out the matching
-Core and Portal commits, rerun the installer and verify the dashboard. Full
+pre-restore recovery backup of the current file. Recognized unversioned legacy
+FamilyBot backups are supported without fabricating migration markers. A target
+with SQLite WAL/SHM/journal sidecars is refused; never delete them to bypass this
+guard. Then check out the matching Core and Portal commits and follow their
+deployment instructions. Use the explicit upgrade path above only if choosing to
+retry the new release, not while rolling back to the old release. Full
 disaster-recovery order is in [REDEPLOY.md](REDEPLOY.md).
 
 ## 13. Troubleshooting
 
-### `familie.local` does not open
+### The printed `.local` hostname does not open
 
 ```bash
 launchctl print "gui/$(id -u)/ai.familybot.portal"

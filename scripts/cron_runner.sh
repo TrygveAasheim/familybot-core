@@ -5,7 +5,7 @@
 set -u
 umask 077
 
-WORKSPACE="${FAMILYBOT_WORKSPACE:-$HOME/.openclaw/workspace}"
+WORKSPACE="${FAMILYBOT_WORKSPACE:-${OPENCLAW_WORKSPACE:-$HOME/.familybot}}"
 PYTHON="${FAMILYBOT_PYTHON:-$WORKSPACE/runtime/core/.venv/bin/python}"
 LOG="$WORKSPACE/logs/cron.log"
 
@@ -83,41 +83,41 @@ trap finish_run EXIT INT TERM
 case "$task" in
   email)
     echo "[$timestamp] email ingestion" >> "$LOG"
-    $PYTHON "$WORKSPACE/scripts/process_emails.py" >> "$LOG" 2>&1
+    "$PYTHON" "$WORKSPACE/scripts/process_emails.py" >> "$LOG" 2>&1
     ;;
   spond)
     echo "[$timestamp] spond sync" >> "$LOG"
-    $PYTHON "$WORKSPACE/scripts/spond_sync.py" >> "$LOG" 2>&1
+    "$PYTHON" "$WORKSPACE/scripts/spond_sync.py" >> "$LOG" 2>&1
     ;;
   tbane)
     echo "[$timestamp] tbane monitor" >> "$LOG"
-    $PYTHON "$WORKSPACE/scripts/tbane_monitor.py" >> "$LOG" 2>&1
+    "$PYTHON" "$WORKSPACE/scripts/tbane_monitor.py" >> "$LOG" 2>&1
     ;;
   health)
     echo "[$timestamp] health check" >> "$LOG"
-    $PYTHON "$WORKSPACE/scripts/healthcheck.py" >> "$LOG" 2>&1
+    "$PYTHON" "$WORKSPACE/scripts/healthcheck.py" >> "$LOG" 2>&1
     health_code=$?
-    $PYTHON "$WORKSPACE/scripts/sre_reconcile.py" >> "$LOG" 2>&1 || true
+    "$PYTHON" "$WORKSPACE/scripts/sre_reconcile.py" >> "$LOG" 2>&1 || true
     exit "$health_code"
     ;;
   status)
     echo "[$timestamp] status update" >> "$LOG"
-    $PYTHON "$WORKSPACE/scripts/update_status.py" >> "$LOG" 2>&1
+    "$PYTHON" "$WORKSPACE/scripts/update_status.py" >> "$LOG" 2>&1
     ;;
   briefing-daily)
     echo "[$timestamp] daily briefing" >> "$LOG"
-    $PYTHON "$WORKSPACE/scripts/briefing.py" daily >> "$LOG" 2>&1
+    "$PYTHON" "$WORKSPACE/scripts/briefing.py" daily >> "$LOG" 2>&1
     ;;
   briefing-weekly)
     echo "[$timestamp] weekly briefing" >> "$LOG"
-    $PYTHON "$WORKSPACE/scripts/briefing.py" weekly >> "$LOG" 2>&1
+    "$PYTHON" "$WORKSPACE/scripts/briefing.py" weekly >> "$LOG" 2>&1
     ;;
   delivery)
     echo "[$timestamp] delivery outbox retry" >> "$LOG"
-    $PYTHON "$WORKSPACE/scripts/flush_outbox.py" >> "$LOG" 2>&1
+    "$PYTHON" "$WORKSPACE/scripts/flush_outbox.py" >> "$LOG" 2>&1
     ;;
   ukeplan-interpret)
     echo "[$timestamp] ukeplan interpretation" >> "$LOG"
-    $PYTHON "$WORKSPACE/scripts/interpret_ukeplan.py" --limit 1 >> "$LOG" 2>&1
+    "$PYTHON" "$WORKSPACE/scripts/interpret_ukeplan.py" --limit 1 >> "$LOG" 2>&1
     ;;
 esac

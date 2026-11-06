@@ -9,9 +9,10 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-PORTAL = (
+PORTAL = Path(os.environ["FAMILYBOT_TEST_PORTAL_REPO"]) if os.environ.get("FAMILYBOT_TEST_PORTAL_REPO") else (
     ROOT.parent / "familybot-portal"
     if (ROOT.parent / "familybot-portal").is_dir()
     else ROOT / "familybot-portal"
@@ -19,6 +20,13 @@ PORTAL = (
 
 
 class CleanRoomInstallTests(unittest.TestCase):
+    def setUp(self):
+        isolated = {key: value for key, value in os.environ.items()
+                    if not key.startswith("FAMILYBOT_") and key != "OPENCLAW_WORKSPACE"}
+        self.environment = patch.dict(os.environ, isolated, clear=True)
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
+
     def test_custom_household_size_seeds_every_child(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -147,7 +155,7 @@ class CleanRoomInstallTests(unittest.TestCase):
             config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
             config_path.chmod(0o600)
 
-            upgraded = subprocess.run(command, capture_output=True, text=True, check=False)
+            upgraded = subprocess.run(command + ["--upgrade", "--writers-stopped"], capture_output=True, text=True, check=False)
 
             self.assertEqual(0, upgraded.returncode, upgraded.stderr)
             self.assertIn("existing capability profile", upgraded.stdout)
@@ -182,7 +190,7 @@ class CleanRoomInstallTests(unittest.TestCase):
             environment = os.environ.copy()
             first = subprocess.run(command, capture_output=True, text=True, env=environment, check=False)
             self.assertEqual(0, first.returncode, first.stderr)
-            second = subprocess.run(command, capture_output=True, text=True, env=environment, check=False)
+            second = subprocess.run(command + ["--upgrade", "--writers-stopped"], capture_output=True, text=True, env=environment, check=False)
             self.assertEqual(0, second.returncode, second.stderr)
 
             database = workspace / "db/family.db"

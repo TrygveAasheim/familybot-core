@@ -16,10 +16,7 @@ from database_migrations import (
     migration_status,
     restore_database,
 )
-
-
-def workspace_path() -> Path:
-    return Path(os.environ.get("FAMILYBOT_WORKSPACE", Path.home() / ".openclaw/workspace")).expanduser()
+from family_config import workspace_path
 
 
 def parser() -> argparse.ArgumentParser:
@@ -38,6 +35,8 @@ def parser() -> argparse.ArgumentParser:
     )
     value.add_argument("--backup-root", type=Path, default=workspace / "backups")
     value.add_argument("--from-backup", type=Path)
+    value.add_argument("--writers-stopped", action="store_true",
+                       help="confirm all database users are stopped before restore; this does not stop them")
     return value
 
 
@@ -51,6 +50,8 @@ def main() -> int:
         elif args.command == "backup":
             result = {"backup": str(backup_database(args.db, args.backup_root, label="manual"))}
         elif args.command == "restore":
+            if not args.writers_stopped:
+                raise MigrationError("restore requires --writers-stopped after stopping all database users")
             if args.from_backup is None:
                 raise MigrationError("restore requires --from-backup")
             result = restore_database(args.db, args.from_backup, args.backup_root)

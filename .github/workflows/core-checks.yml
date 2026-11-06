@@ -31,6 +31,8 @@ jobs:
           else
             echo "No matching Portal branch; testing against reviewed Portal dev."
           fi
+          git rev-parse HEAD
+          git -C familybot-portal rev-parse HEAD
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
@@ -74,11 +76,26 @@ jobs:
           else
             echo "No matching Portal branch; testing against reviewed Portal dev."
           fi
+          git rev-parse HEAD
+          git -C familybot-portal rev-parse HEAD
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
       - name: Verify empty-database and dashboard lifecycle
         run: |
-          python3 -m unittest tests.test_database_migrations tests.test_clean_room_install
+          python3 -m unittest tests.test_database_migrations tests.test_clean_room_install tests.test_install_readiness tests.test_upgrade_preservation
           plutil -lint familybot-portal/launchd/*.plist
+      - name: Install deployment toolchain
+        run: |
+          python3 -m pip install uv==0.13.7
+          python3 -m pip install -r requirements-dev.txt
+      - name: Managed install, restart and preservation upgrade on disposable macOS runner
+        env:
+          FAMILYBOT_MANAGED_CI: "1"
+          RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: python3 -m unittest tests.test_managed_install

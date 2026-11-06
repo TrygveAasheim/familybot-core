@@ -6,6 +6,18 @@ the Agent profile. This document is not a live status file.
 
 ## Invariants
 
+Upgrade invariants: require explicit existing workspace/runtime and stopped
+database users; take a full pre-upgrade backup before data synchronization;
+preserve omitted member fields, stored school dates and intentionally archived
+or disabled Portal data. School-calendar replacement requires explicit input
+and operator consent. Schema validation must run before transaction commit and
+API bind, never report current from version numbers alone. Recognized legacy
+backups must restore without invented markers. Core/Portal transactions are
+separate; a later failure requires deliberate recovery, not a false claim of
+whole-installer rollback. See [REDEPLOY.md](../REDEPLOY.md) for the operator gate.
+Every change to these invariants requires fictional upgrade/failure regressions
+and synchronized setup, configuration, recovery and changelog documentation.
+
 1. Structured family facts are collected without an LLM. Inference may improve
    wording, but an empty, malformed, or timed-out inference response must fall
    back to deterministic text.

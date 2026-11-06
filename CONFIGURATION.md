@@ -32,12 +32,14 @@ broken references and malformed portal origins.
 | `family.display_name` | yes | Household label shown in family-facing text |
 | `family.locale` | yes | Locale, normally `nb-NO` |
 | `family.timezone` | yes | IANA time zone, normally `Europe/Oslo` |
-| `portal.hostname` | yes | Bonjour/mDNS browser name, normally `familie.local` |
+| `portal.hostname` | yes | Existing Mac LocalHostName plus `.local`, or explicitly configured local DNS/IPv4; DNS-SD does not create an alias |
 | `portal.web_port`, `api_port` | yes | Local web and curated API ports |
 | `portal.bonjour_name` | yes | Service name advertised by DNS-SD |
 | `portal.allowed_origins[]` | yes | Exact browser origins allowed to call the API |
 | `portal.features.hellofresh` | optional | Boolean, off by default; exposes only Portal's experimental public Norwegian HelloFresh menu |
-| `portal.features.hellofresh_account` | optional | Boolean, off by default; enables Portal's transient email/password, persistent token-only, read-only HelloFresh account test when `hellofresh` is also enabled |
+| `portal.features.hellofresh_account` | optional | Boolean, off by default; with `hellofresh`, enables transient password login, token persistence and confirmed exact-week meal replacement/add/remove and pause/resume; never checkout/payment |
+| `portal.features.oda` | optional | Boolean, off by default; enables bounded Oda OAuth/recipe/product/cart operations |
+| `portal.features.oda_ai` | optional | Boolean, off by default; requires `oda`; explicit external-model consent and the isolated OpenClaw dinner agent; search/cart needs neither AI nor OpenClaw |
 | `members[].member_id` | yes | Stable positive integer matching `family_members.id` |
 | `members[].role` | yes | `parent` or `child` |
 | `members[].name`, `slug` | yes | Local display name and durable lowercase key |
@@ -92,9 +94,18 @@ The three cabin fields are all-or-none:
 School dates are configuration-owned because Norwegian municipalities and
 individual schools differ. Add `first_day`, `last_day`, `break`,
 `planning_day` or `school_event` entries with ISO dates. `calendar_seed.py`
-replaces the local school-calendar rows from this list and derives national
-public holidays for the current surrounding years; it does not ship or retain
-an Oslo calendar when another household configuration is applied.
+initializes an empty calendar from this list and derives national public
+holidays for the current surrounding years. Existing school dates are preserved
+unless `--replace-school-calendar` is explicitly supplied (also available on
+the installer upgrade command). An omitted `school`/`calendar_events` is never
+a deletion request; an explicit empty list plus the flag clears school dates.
+A verified SQLite backup precedes calendar writes. No Oslo calendar is bundled.
+
+Member synchronization uses stable `member_id`. Omitted `grade`, `school` and
+`teacher` fields preserve database-only values; explicit `null` clears a field.
+Removing a member from configuration does not delete their historical data.
+Upgrades do not recreate starter chores or reactivate disabled rewards. See
+[REDEPLOY.md](REDEPLOY.md) for explicit paths, optional-feature consent and downtime.
 
 Notification times use `HH:MM` in `family.timezone` and therefore follow the
 IANA daylight-saving rules installed with Python. Available fields are
@@ -168,7 +179,20 @@ countdown.
 only if an iPad must use it, for example `http://192.168.1.50:3000`. Do not add
 arbitrary `.local` hosts or entire private ranges.
 
+The public JSON samples use illustrative `familie.local` values; they do not
+register that alias. Wizard/demo installs replace it with the Mac's actual
+LocalHostName. When supplying `--config-source`, set a working hostname and
+matching origins yourself, or use the new-install `--hostname` override.
+
 ## Overrides
+
+Workspace resolution is explicit CLI workspace (where supported), then
+`FAMILYBOT_WORKSPACE`, then legacy `OPENCLAW_WORKSPACE`, then `$HOME/.familybot`.
+No command discovers or migrates an older workspace automatically. Explicit
+config/database overrides remain supported by runtime utilities. The installer
+owns config and database inside its selected workspace and rejects conflicting
+ambient overrides before writing anything. Launchd must record the selected
+workspace; shell profile settings are not inherited.
 
 - `FAMILYBOT_FAMILY_CONFIG`: alternate populated JSON path.
 - `FAMILYBOT_WORKSPACE`: private workspace for both repositories. New installs

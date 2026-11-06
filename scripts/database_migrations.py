@@ -360,9 +360,13 @@ def restore_database(database: Path, source: Path, backup_root: Path) -> dict[st
     if database.exists() and source == database.resolve():
         raise MigrationError("Restore source and target must be different files")
     try:
-        verify_database(source)
+        verify_restore_source(source)
     except (MigrationError, sqlite3.Error) as exc:
         raise MigrationError("Restore source failed database verification") from exc
+    # Replacement must not strand an old WAL beside the restored main file.
+    # This is a guard, not a substitute for stopping every SQLite writer.
+    if any(Path(str(database) + suffix).exists() for suffix in ("-wal", "-shm", "-journal")):
+        raise MigrationError("Stop all database users and cleanly close/checkpoint SQLite before restoring")
     recovery = (
         backup_database(database, backup_root, label="pre-restore")
         if database.is_file()
@@ -378,7 +382,7 @@ def restore_database(database: Path, source: Path, backup_root: Path) -> dict[st
         with connect(source) as source_connection, connect(temporary) as destination:
             source_connection.backup(destination)
         temporary.chmod(0o600)
-        verify_database(temporary)
+        verify_restore_source(temporary)
         os.replace(temporary, database)
         database.chmod(0o600)
     except BaseException:
@@ -388,6 +392,35 @@ def restore_database(database: Path, source: Path, backup_root: Path) -> dict[st
         "restored_from": str(source),
         "recovery_backup": str(recovery) if recovery else None,
     }
+
+
+def verify_restore_source(database: Path) -> None:
+    """Validate a backup without upgrading it or requiring today's version marker.
+
+Unversioned legacy databases are legitimate rollback targets. Recognize their
+stable identity/card/plan contract; versioned Core history must still match
+reviewed migrations. Portal must be paired with the restored source release.
+"""
+    with sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True) as connection:
+        connection.row_factory = sqlite3.Row
+        integrity = connection.execute("PRAGMA integrity_check").fetchone()
+        if not integrity or integrity[0] != "ok" or connection.execute("PRAGMA foreign_key_check").fetchone():
+            raise MigrationError("Backup failed SQLite integrity or foreign-key verification")
+        existing = _existing_migrations(connection)
+        _validate_migration_history(existing)
+        if existing:
+            validate_core_schema(connection)
+        else:
+            # Do not mistake an unrelated, otherwise valid SQLite file for a
+            # FamilyBot legacy backup; do not demand columns added by upgrades.
+            for table, required in {
+                "family_members": {"id", "name", "role"},
+                "kanban_cards": {"id", "title", "assigned_to"},
+                "week_plans": {"id", "member_id", "week_number", "year"},
+            }.items():
+                columns = {row[1] for row in connection.execute(f'PRAGMA table_info("{table}")')}
+                if not required <= columns:
+                    raise MigrationError("Backup is not a recognized FamilyBot legacy database")
 
 
 def _existing_migrations(connection: sqlite3.Connection) -> dict[int, sqlite3.Row]:
@@ -526,7 +559,8 @@ def seed_members(connection: sqlite3.Connection, config: dict[str, Any]) -> dict
                     raise MigrationError(
                         f"Configured member_id {member_id} changes role and conflicts with existing household data"
                     )
-                profile = (raw.get("grade"), raw.get("school"), raw.get("teacher"))
+                profile = tuple(raw[field] if field in raw else existing[field]
+                                for field in ("grade", "school", "teacher"))
                 previous = (existing["grade"], existing["school"], existing["teacher"])
                 if existing["name"] != name:
                     for card in connection.execute(
@@ -575,20 +609,18 @@ def member_sync_required(connection: sqlite3.Connection, config: dict[str, Any])
             return True
         try:
             member_id = int(raw["member_id"])
-            expected = (
-                str(raw["name"]).strip(),
-                str(raw["role"]),
-                raw.get("grade"),
-                raw.get("school"),
-                raw.get("teacher"),
-            )
+            name, role = str(raw["name"]).strip(), str(raw["role"])
         except (KeyError, TypeError, ValueError):
             return True
         existing = connection.execute(
             "SELECT name,role,grade,school,teacher FROM family_members WHERE id=?",
             (member_id,),
         ).fetchone()
-        if existing is None or tuple(existing) != expected:
+        if existing is None:
+            return True
+        expected = (name, role, *(raw[field] if field in raw else existing[field]
+                                 for field in ("grade", "school", "teacher")))
+        if tuple(existing) != expected:
             return True
     return False
 

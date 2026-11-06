@@ -143,6 +143,13 @@ checksum. Core currently requires `core:1`; Portal requires `core:1` and owns
 before a pending change and fail closed on an unknown future version or changed
 checksum.
 
+Upgrades are explicit and preserve the installed workspace/runtime. The full
+pre-upgrade database snapshot precedes data synchronization, not just schema
+migrations. Core and Portal transactions commit independently: recovery uses
+that snapshot plus the matching source/configuration pair. Portal validates its
+owned schema inside the transaction and before API bind. Runtime validation is
+not permission to reseed or replace household data. See [REDEPLOY.md](REDEPLOY.md).
+
 The runtime footprint is selected by configuration:
 
 - Dashboard: Portal only; no Core background schedule or external account.

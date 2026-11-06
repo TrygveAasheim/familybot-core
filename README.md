@@ -17,17 +17,28 @@ The canonical guide for both repositories is
 
 ```bash
 mkdir -p "$HOME/FamilyBot" && cd "$HOME/FamilyBot"
-git clone https://github.com/TrygveAasheim/familybot-core.git
-git clone https://github.com/TrygveAasheim/familybot-portal.git
+git clone --branch codex/readiness-review-fixes https://github.com/TrygveAasheim/familybot-core.git
+git clone --branch codex/readiness-review-fixes https://github.com/TrygveAasheim/familybot-portal.git
 cd familybot-core
+git switch --detach REVIEWED_CORE_SHA
+git -C ../familybot-portal switch --detach REVIEWED_PORTAL_SHA
 uv run --python 3.12 scripts/install_familybot.py \
   --portal-repo ../familybot-portal
 ```
+
+Replace the two SHA placeholders with the full compatible commit IDs in the
+readiness PR handoff before running this block. They are not literal Git refs.
+
+This is the development installation candidate, not yet the public `main`
+release. For pre-merge review use the exact paired commits in the readiness PRs,
+not moving `dev`. See [the execution/review plan](docs/READINESS_FIX_PLAN.md).
 
 The guided installer checks the supported macOS toolchain, creates private
 configuration and a parent PIN, initializes an empty SQLite database, applies
 versioned Core and Portal migrations, builds the Portal and verifies its local
 health. No starter database and no OpenClaw workspace are required.
+Readiness allows configured weather/transport adapters time to return their
+unavailable states; their outage must not be confused with a failed local API.
 
 To explore with entirely fictional data first, add `--demo`. The default private
 workspace for a new installation is `$HOME/.familybot`.
@@ -88,6 +99,13 @@ exact data-flow and residual risks are documented in
 
 See [`CONFIGURATION.md`](CONFIGURATION.md) for household fields and
 [`REDEPLOY.md`](REDEPLOY.md) for upgrade, backup, restore and rollback.
+
+Existing households: do not rerun the fresh-install command. Use the explicit
+upgrade procedure with the actual workspace/runtime and all database users
+stopped. The candidate preserves archived chores, disabled rewards, omitted
+member metadata and stored school dates; it creates a full pre-upgrade backup.
+This train remains a candidate until the paired CI/review and household rollout
+checks are complete. Merging source is not deployment or proof of a live upgrade.
 
 ## Integration support level
 

@@ -6,13 +6,14 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 USER_HOME="${HOME:?HOME is required}"
-WORKSPACE_DIR="${FAMILYBOT_WORKSPACE:-$USER_HOME/.openclaw/workspace}"
+WORKSPACE_DIR="${FAMILYBOT_WORKSPACE:-${OPENCLAW_WORKSPACE:-$USER_HOME/.familybot}}"
 FAMILY_CONFIG="${FAMILYBOT_FAMILY_CONFIG:-$WORKSPACE_DIR/config/family.local.json}"
 CORE_RUNTIME="$WORKSPACE_DIR/runtime/core"
 UV_BIN="${FAMILYBOT_UV:-$(command -v uv || true)}"
 HOST_PYTHON="${FAMILYBOT_PYTHON:-$(command -v python3 || true)}"
 
 CURRENT_BRANCH="$(git -C "$REPO_ROOT" branch --show-current)"
+CURRENT_BRANCH="${CURRENT_BRANCH:-$(git -C "$REPO_ROOT" rev-parse HEAD)}"
 DEPLOY_BRANCH="${FAMILYBOT_DEPLOY_BRANCH:-dev}"
 if [ "$CURRENT_BRANCH" != "$DEPLOY_BRANCH" ]; then
   echo "Refusing deployment from '$CURRENT_BRANCH'. Expected '$DEPLOY_BRANCH'." >&2

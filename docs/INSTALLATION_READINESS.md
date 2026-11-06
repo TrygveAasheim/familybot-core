@@ -1,8 +1,57 @@
 # Installation readiness assessment
 
-Assessment date: 2026-11-05. Scope: reviewed `dev` baselines of
+Initial assessment date: 2026-11-05. Scope: reviewed `dev` baselines of
 `familybot-core` and `familybot-portal`, evaluated without private production
 state or live household credentials.
+
+## Follow-up review, 2026-11-06
+
+### Existing-household upgrade correction
+
+The subsequent regression review found seven upgrade blockers/risks despite
+green fresh-install tests: school-date deletion, rejected legacy restore,
+premature Portal migration markers, backup after data changes, starter chore
+resurrection, clearing omitted member metadata and rejecting valid legacy PINs.
+These are now covered by repository regressions, not only an external review
+script. See U1–U8 in [the plan](READINESS_FIX_PLAN.md) and the explicit operational
+gate in [REDEPLOY.md](../REDEPLOY.md). Existing-household upgrades are not implied
+by clean-install success. Paired final CI, both review perspectives and a separate
+controlled rollout are required before calling an actual household upgraded.
+
+Local tests use fictional databases; no production database or credentials were
+used for these fixes. The new managed-upgrade test runs only on a disposable
+GitHub-hosted Mac. Its result must be recorded from the final PR run; local skips
+are not passes. It does not test physical iPad, Bonjour or provider sessions.
+
+### Earlier fresh-install follow-up
+
+The adversarial review of Core `e47d1fb` / Portal `8b849fa` concluded
+**conditional GO for controlled dev testing, NO-GO for unaided public setup**.
+The initial assessment below overstated restart/deployment coverage: reopening
+a repository object is not restarting a process, and the old macOS CI used
+`--no-deploy`. Those results are historical data-layer evidence only.
+
+The coordinated readiness-fixes PRs address F1–F8 in
+[the execution plan](READINESS_FIX_PLAN.md): explicit candidate setup refs,
+real Mac hostname detection, clean-account launchd directories, consistent
+workspace defaults, explicit grocery/AI consent, profile-aware truthful runtime
+probes, actual API-process lifecycle tests and a disposable macOS managed-install
+CI gate. No schema change or live household migration is included.
+
+Local verification exercises fictional HTTP chore creation, completion,
+parent authorization/approval, termination/restart, old-session rejection and
+retained points after repeat installation. The PR review record contains exact
+commands, final test totals and both commit SHAs. Managed macOS CI results must
+be read from the final paired PR run, never inferred from these local tests.
+The hosted macOS managed test uses explicit localhost: a hosted runner's `.local`
+name did not resolve. Its successful installation would not prove LAN Bonjour;
+the production installer still requires its configured hostname to reach the local API.
+
+The stopping point is **reviewed open PRs**, not merge or deployment. No existing
+system is changed. Main release packaging, physical Mac/iPad LAN/Bonjour/touch
+acceptance and live optional-provider verification remain separate owner gates.
+The recommendation is a controlled test of the reviewed pair in the user's new
+location; not an unconditional public release or a security certification.
 
 ## Before this work
 
@@ -19,7 +68,7 @@ Release readiness was **not acceptable for an independent household**.
 | P2 | CI did not exercise a checkout with no FamilyBot files or database | Unit success did not prove installation |
 | P2 | Public docs described owner experiments and planned behavior as broadly operational | Fork users could not distinguish supported from experimental |
 
-## After this work
+## Historical assessment after the initial installation PRs
 
 The source is a **release candidate for the Dashboard profile**, subject to a
 fresh physical Mac/iPad acceptance run before tagging. Connected and Agent
@@ -29,12 +78,12 @@ its own provider accounts and contracts.
 | Acceptance area | Evidence | Status |
 | --- | --- | --- |
 | Empty initialization | Core migration v1 + Portal migration v2 from no file | Automated pass |
-| Repeat install/restart | Installer run twice; data reopened after chore approval | Automated pass |
+| Repeat install/data reopen | Installer run twice; repository reopened after chore approval | Historical data-layer pass, not process restart |
 | Upgrade/data preservation | Legacy rows migrated with pre-migration backup | Automated pass |
 | Migration failure | Transaction rollback and recovery backup | Automated pass |
 | Restore | Source integrity check, pre-restore backup and data verification | Automated pass |
 | Dashboard-only profile | No Core background jobs, no optional credentials, fictional household | Automated pass |
-| Chore lifecycle | Create, child complete, parent approve, restart with points retained | Automated pass |
+| Chore lifecycle | Repository create, complete, approve, reopen with points retained | Historical data-layer pass |
 | Missing integrations | Weather/transport/provider absence returns isolated unavailable states | Automated pass |
 | Invalid config | Validation stops before database creation | Automated pass |
 | Fictional browser demo | Isolated API and Portal served the clean-room Nordlys data; screenshot captured | Local simulated pass, not hardware |
@@ -68,9 +117,9 @@ The work improves safe defaults; it does not prove security.
   guarantee future availability.
 - Releases are not signed and local audit logs are not tamper-evident.
 
-## Release recommendation
+## Release sequencing after separate owner approval
 
-Merge the Portal source PR first **without deploying it**, then merge Core. This
+If separately approved, merge Portal first **without deploying it**, then Core. This
 keeps Core's post-merge cross-repository clean-install CI on one compatible
 pair. Runtime rollout has the opposite data order: run the Core migration first,
 then the Portal migration/deploy, because Portal schema v2 requires the Core v1
