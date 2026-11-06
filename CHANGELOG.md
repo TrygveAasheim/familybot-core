@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-06 — Double-review follow-up (candidate, not deployed)
+
+- Give dashboard readiness a bounded ten-second request timeout, covering the
+  sequential four-second MET and Entur failure paths; keep other probes at two
+  seconds and retain identity, origin and same-instance checks.
+- Quote every scheduler interpreter invocation so explicit workspace/runtime
+  paths containing spaces work, including failure reporting and SRE dispatch.
+- Correct detached-release Core deployment instructions in the recovery guide.
+- Add slow-response HTTP, route-budget, isolated scheduler dispatch/exit-code
+  and detached/branch recovery-ref regressions. No schema or data migration.
+
+Roll back this follow-up by reverting its source commit; no database restore
+is needed. Runtime deployment is separate and not authorized by this PR train.
+
 Material security, reliability and compatibility changes are recorded here.
 Household data, credentials and operational identifiers are never included.
 

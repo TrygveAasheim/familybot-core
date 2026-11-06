@@ -260,7 +260,11 @@ def service_probe(hostname: str, api_port: int, web_port: int, *, origin_hostnam
     origin = f"http://{origin_hostname or hostname}:{web_port}"
 
     def get(port: int, path: str, token: str = "") -> bytes:
-        connection = http.client.HTTPConnection(hostname, port, timeout=2)
+        # Dashboard reads may sequentially wait four seconds each for MET and
+        # Entur before returning honest unavailable states. Optional outages
+        # must not turn a functioning local installation into a failed probe.
+        request_timeout = 10 if path == "/api/dashboard" else 2
+        connection = http.client.HTTPConnection(hostname, port, timeout=request_timeout)
         try:
             connection.request("GET", path, headers={"Origin": origin, "X-FamilyBot-Local-Token": token})
             response = connection.getresponse()

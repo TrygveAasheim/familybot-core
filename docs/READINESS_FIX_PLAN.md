@@ -96,6 +96,33 @@ installer and the physical Mac/iPad gate has evidence.
 
 ## Rollback and manual gate
 
+### Double-review corrections
+
+Before advancing the same two PRs, resolve the five follow-up findings:
+
+1. Core readiness: budget ten seconds for a dashboard response (MET plus Entur
+   each have four-second failure paths), two for other routes. Verify with a
+   delayed loopback response and bounded timeout assertions; keep wrong-service,
+   Origin and same-instance rejection. No live provider is needed for the test.
+2. Portal AC-17: ingestion disablement does not disable retained plan display.
+   Keep the criterion `not_run` for households with children and test actual
+   retained plan reads with absent and explicitly disabled email configuration.
+3. Core scheduler: quote the interpreter in every task dispatch. Run all task
+   branches and a nonzero-exit fixture under a spaced workspace path with locks
+   redirected only in the test copy; never touch the existing host's task locks.
+4. Portal prefetch: require public AND account flags at job registration and
+   every invocation, before credential/client access. Test flag combinations,
+   missing configuration and retained credentials without real provider calls.
+5. Recovery: use the explicitly selected branch or detached SHA as the Core
+   deployment guard value. Test the documented expression in a disposable Git repo.
+
+Update affected README, changelog, configuration/acceptance/data-boundary and
+recovery documents. Commit Portal before Core, run exact-pair CI and independent
+for/against re-reviews, then leave both PRs open. No merge or existing-system
+deployment is part of this train; no schema or private-state changes are needed.
+
+### Unchanged rollback and manual gate
+
 No schema change is planned. Reverting the two PRs restores source behavior;
 never restore a database merely to undo documentation or default-path changes.
 An installer execution elsewhere may create config/runtime/plists: retain its

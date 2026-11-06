@@ -37,6 +37,8 @@ The guided installer checks the supported macOS toolchain, creates private
 configuration and a parent PIN, initializes an empty SQLite database, applies
 versioned Core and Portal migrations, builds the Portal and verifies its local
 health. No starter database and no OpenClaw workspace are required.
+Readiness allows configured weather/transport adapters time to return their
+unavailable states; their outage must not be confused with a failed local API.
 
 To explore with entirely fictional data first, add `--demo`. The default private
 workspace for a new installation is `$HOME/.familybot`.

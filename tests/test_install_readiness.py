@@ -7,8 +7,10 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
@@ -26,6 +28,57 @@ if not PORTAL.is_dir():
 
 
 class InstallContractTests(unittest.TestCase):
+    def test_readiness_tolerates_slow_optional_adapter_fallback(self):
+        class DelayedDashboard(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def do_GET(self):  # noqa: N802
+                if self.path == "/api/dashboard":
+                    time.sleep(2.2)  # exceeds the old two-second probe timeout
+                payloads = {
+                    "/api/health": {"ok": True, "service": "familybot-dashboard-api"},
+                    "/api/session": {"api": "familybot-local-v2", "token": "fixture-token"},
+                    "/api/dashboard": {"children": [], "weather": {"ok": False}, "transport": {"ok": False}},
+                }
+                body = (json.dumps(payloads[self.path]).encode() if self.path in payloads
+                        else b"<html>FamilyBot</html>")
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                try:
+                    self.wfile.write(body)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), DelayedDashboard)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = server.server_port
+            installer.verify_local_service(port, port, "localhost")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+    def test_probe_has_bounded_route_specific_timeouts(self):
+        with patch.object(installer.http.client, "HTTPConnection") as connection:
+            response = connection.return_value.getresponse.return_value
+            response.status = 200
+            response.read.side_effect = [
+                b'{"ok":true,"service":"familybot-dashboard-api"}',
+                b'{"api":"familybot-local-v2","token":"test"}',
+                b'{"children":[]}', b'<html>FamilyBot</html>',
+            ]
+            installer.service_probe("localhost", 12345, 12346)
+            self.assertEqual([2, 2, 10, 2], [c.kwargs["timeout"] for c in connection.call_args_list])
+            self.assertGreater(connection.call_args_list[2].kwargs["timeout"], 4 + 4)
+        with patch.object(installer.http.client, "HTTPConnection") as connection:
+            connection.return_value.getresponse.side_effect = TimeoutError
+            with self.assertRaisesRegex(installer.InstallError, "/api/health.*TimeoutError"):
+                installer.service_probe("localhost", 12345, 12346)
+
     def test_workspace_defaults_and_explicit_legacy_precedence(self):
         for environment, expected in (
             ({}, Path.home() / ".familybot"),

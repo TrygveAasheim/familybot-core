@@ -65,8 +65,17 @@ Store runtime backup material encrypted and separately from Git.
 
 10. Run `scripts/check_setup.py --mode runtime --profile dashboard` (or the
     restored profile) and both repositories' verification suites.
-11. For connected/agent profiles, deploy the selected Core jobs with
-    `bash scripts/deploy_core.sh --reload`.
+11. For connected/agent profiles, deploy the selected Core jobs from the
+    reviewed Core checkout (including a detached release commit):
+
+    ```bash
+    export FAMILYBOT_DEPLOY_BRANCH="$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)"
+    bash scripts/deploy_core.sh --reload
+    ```
+
+    This authorizes only the currently selected reviewed ref; it does not
+    bypass the deployment guard. Keep the restored workspace/config overrides
+    explicit when they differ from the default paths.
 12. Run `python3 ../familybot-portal/tests/acceptance.py --workspace "$HOME/.familybot" --host TEST-MAC.local`
     with the actual configured hostname and selected restored workspace.
     Add `--allow-integrations` only with consent for configured adapter reads.
