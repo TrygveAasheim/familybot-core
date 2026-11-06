@@ -38,6 +38,18 @@ REQUIRED_README_LINKS = {
 MARKDOWN_LINK = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 
 
+def validate_fresh_install_refs(content: str) -> list[str]:
+    """Keep public entry points independent of temporary review branches."""
+    errors = []
+    for repo in ("familybot-core", "familybot-portal"):
+        command = f"git clone --branch main https://github.com/TrygveAasheim/{repo}.git"
+        if command not in content:
+            errors.append(f"fresh install must clone {repo} from main")
+    if "REVIEWED_" in content or "codex/readiness-review-fixes" in content:
+        errors.append("fresh install must not require review-only refs or SHA placeholders")
+    return errors
+
+
 def markdown_files(root: Path) -> list[Path]:
     excluded = {".git", ".venv", "node_modules"}
     return sorted(path for path in root.rglob("*.md") if excluded.isdisjoint(path.parts))
@@ -64,6 +76,7 @@ def validate_repository(root: Path) -> list[str]:
     readme = root / "README.md"
     if readme.is_file():
         content = readme.read_text(encoding="utf-8")
+        errors.extend(validate_fresh_install_refs(content))
         for required_link in sorted(REQUIRED_README_LINKS):
             if required_link not in content:
                 errors.append(f"README does not link to {required_link}")
@@ -71,6 +84,7 @@ def validate_repository(root: Path) -> list[str]:
     getting_started = root / "GETTING_STARTED.md"
     if getting_started.is_file():
         content = getting_started.read_text(encoding="utf-8")
+        errors.extend(validate_fresh_install_refs(content.split("## 4.", 1)[0]))
         required_install_contract = {
             "scripts/install_familybot.py": "does not include the supported installer",
             "scripts/manage_database.py backup": "does not include the supported backup command",

@@ -17,21 +17,18 @@ The canonical guide for both repositories is
 
 ```bash
 mkdir -p "$HOME/FamilyBot" && cd "$HOME/FamilyBot"
-git clone --branch codex/readiness-review-fixes https://github.com/TrygveAasheim/familybot-core.git
-git clone --branch codex/readiness-review-fixes https://github.com/TrygveAasheim/familybot-portal.git
+git clone --branch main https://github.com/TrygveAasheim/familybot-core.git
+git clone --branch main https://github.com/TrygveAasheim/familybot-portal.git
 cd familybot-core
-git switch --detach REVIEWED_CORE_SHA
-git -C ../familybot-portal switch --detach REVIEWED_PORTAL_SHA
 uv run --python 3.12 scripts/install_familybot.py \
   --portal-repo ../familybot-portal
 ```
 
-Replace the two SHA placeholders with the full compatible commit IDs in the
-readiness PR handoff before running this block. They are not literal Git refs.
-
-This is the development installation candidate, not yet the public `main`
-release. For pre-merge review use the exact paired commits in the readiness PRs,
-not moving `dev`. See [the execution/review plan](docs/READINESS_FIX_PLAN.md).
+Install the prerequisites in the canonical guide first. Use `main` in both
+repositories, never a mix of release tracks. Record both commit IDs with your
+backup. This is a published installation candidate with automated lifecycle
+coverage, not certification of a physical Mac/iPad or any provider account.
+See [readiness and remaining checks](docs/INSTALLATION_READINESS.md).
 
 The guided installer checks the supported macOS toolchain, creates private
 configuration and a parent PIN, initializes an empty SQLite database, applies
@@ -104,8 +101,8 @@ Existing households: do not rerun the fresh-install command. Use the explicit
 upgrade procedure with the actual workspace/runtime and all database users
 stopped. The candidate preserves archived chores, disabled rewards, omitted
 member metadata and stored school dates; it creates a full pre-upgrade backup.
-This train remains a candidate until the paired CI/review and household rollout
-checks are complete. Merging source is not deployment or proof of a live upgrade.
+Physical household rollout checks remain outstanding. Merging source is not
+deployment or proof of a live upgrade.
 
 ## Integration support level
 

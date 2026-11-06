@@ -85,8 +85,10 @@ Profile selection controls the background footprint:
 - `agent`: connected jobs plus selected briefings, delivery and model-assisted
   Ukeplan interpretation.
 
-Changing JSON alone does not load or unload a macOS service. Validate, then run
-`bash scripts/deploy_core.sh --reload` for a deliberate profile change.
+Changing JSON alone does not load or unload a macOS service. Validate, then
+follow [the complete selected-job deployment procedure](GETTING_STARTED.md#deploy-selected-connected-jobs),
+including explicit workspace/config and reviewed-ref guard overrides. Do not
+run a bare deployment command from Main and bypass its default Dev guard.
 
 The three cabin fields are all-or-none:
 `cabin_label`, `cabin_lat`, and `cabin_lon`.
@@ -107,8 +109,12 @@ Removing a member from configuration does not delete their historical data.
 Upgrades do not recreate starter chores or reactivate disabled rewards. See
 [REDEPLOY.md](REDEPLOY.md) for explicit paths, optional-feature consent and downtime.
 
-Notification times use `HH:MM` in `family.timezone` and therefore follow the
-IANA daylight-saving rules installed with Python. Available fields are
+Notification times use `HH:MM`. Set the Mac's system time zone to match
+`family.timezone` (normally `Europe/Oslo`) before enabling schedules: launchd
+interprets calendar hours/weekdays in the Mac's local time, with no conversion
+from the configuration. Python date/health calculations use `family.timezone`
+and its IANA daylight-saving rules. A mismatch causes different launch and
+expected times; the installer does not enforce this alignment. Available fields are
 `weekday_briefing`, `weekend_briefing`, `weekly_summary`, `weekday_time`,
 `weekend_time`, `weekly_time` and `weekly_weekday`.
 

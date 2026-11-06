@@ -65,21 +65,22 @@ Keep the checkouts together and outside a cloud-synchronized folder:
 ```bash
 mkdir -p "$HOME/FamilyBot"
 cd "$HOME/FamilyBot"
-git clone --branch codex/readiness-review-fixes https://github.com/TrygveAasheim/familybot-core.git
-git clone --branch codex/readiness-review-fixes https://github.com/TrygveAasheim/familybot-portal.git
-git -C familybot-core switch --detach REVIEWED_CORE_SHA
-git -C familybot-portal switch --detach REVIEWED_PORTAL_SHA
+git clone --branch main https://github.com/TrygveAasheim/familybot-core.git
+git clone --branch main https://github.com/TrygveAasheim/familybot-portal.git
+git -C familybot-core rev-parse HEAD
+git -C familybot-portal rev-parse HEAD
 ```
 
-Replace REVIEWED_CORE_SHA and REVIEWED_PORTAL_SHA above with the full paired
-commit IDs in the readiness PR handoff before running the commands; they are
-not literal Git refs. Do not install a moving head without reviewing the pair.
-This guide describes the development installation candidate. The public `main`
-branch does not yet contain this installer. Before a main release, use the
-paired reviewed candidate commits, not default clones. Pre-merge fixes are on
-`codex/readiness-review-fixes` in both repos; the PR handoff records exact SHAs.
-For a reproducible test, fetch that branch then `git switch --detach SHA` in
-each checkout using its respective recorded SHA. Do not mix release tracks.
+Save the two printed commit IDs with your installation notes and backups.
+Use `main` in both repositories; do not mix release tracks. For a reproducible
+restore or upgrade, use the exact compatible pair recorded with that operation,
+not whichever commits are newest at the time. Schema compatibility is checked
+before startup, but is not a substitute for paired release tests.
+
+This published installation candidate has automated clean-install, restart and
+upgrade coverage. Physical Mac/iPad LAN/Bonjour/touch acceptance and live
+optional-provider verification remain separate checks; see
+[the readiness assessment](docs/INSTALLATION_READINESS.md).
 The directories must be siblings:
 
 ```text
@@ -215,6 +216,11 @@ Only do this for integrations the household has chosen.
 3. Validate the configuration.
 4. Configure credentials outside Git.
 5. Deploy Core's selected schedules.
+
+Before enabling scheduled jobs, set the Mac's time zone in System Settings to
+match `family.timezone` (normally `Europe/Oslo`). launchd uses the system zone;
+Python date/health calculations use the configured zone. The installer does not
+check or convert between them.
 
 ### School email and PDF plans
 

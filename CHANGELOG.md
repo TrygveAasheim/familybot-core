@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-06 — Main publication documentation
+
+- Publish the coordinated installation/upgrade candidate through reviewed PRs.
+- Point fresh setup at both Main branches and one canonical guide; remove the
+  temporary review-branch and unexplained fresh-install SHA requirements.
+- Distinguish historical PR-only plans from the subsequent source promotion,
+  and automated lifecycle evidence from outstanding physical/provider checks.
+- Correct reviewed-ref deployment commands, recovery inventory, planned Smart
+  Home wording and the requirement to align the Mac/configured time zones.
+
+No runtime deployment, schema change or household data access is part of this
+publication. Existing installations do not update themselves on a GitHub merge.
+Source-only rollback reverts the paired promotion; no database restore is needed
+unless an operator separately ran an installation or upgrade. Historical entries
+below retain their original candidate status.
+
 ## 2026-11-06 — Upgrade preservation fixes (candidate, not deployed)
 
 - Separate first installation from explicit stopped-writer upgrades, retaining
@@ -74,8 +90,8 @@ mean disabled and must be enabled deliberately if wanted.
 - Split deployed PDF and unofficial Spond dependencies into adapter-specific,
   hash-locked sets so a household installs only capabilities it enabled.
 - Replaced fixed school dates with configured municipality calendars and
-  calculated Norwegian public holidays; notification schedules and processing
-  use the configured IANA time zone.
+  calculated Norwegian public holidays. Processing uses the configured IANA
+  time zone; launchd schedules require the Mac's system zone to match it.
 - Made member display and school-profile updates repeatable by stable member
   ID, with a verified pre-change backup and preserved Kanban assignments;
   incompatible role changes fail before household identity is rewritten.

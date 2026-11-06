@@ -93,14 +93,15 @@ the account-selected source data; Telegram carries the generated message; Oda
 and HelloFresh receive only their bounded account operations. See the Portal's
 `docs/DATA_BOUNDARY.md` before enabling grocery integrations.
 
-## Smart Home boundary
+## Planned Smart Home boundary (not implemented)
 
-Smart Home remains an optional add-on behind Home Assistant. Vendor credentials
-stay in Home Assistant or a separate owner-only store. The FamilyBot adapter
-allowlists entities and actions; the browser cannot issue arbitrary Home
-Assistant service calls. Camera access and consequential appliance/climate
-commands require parent authorization and audit. Every device reports whether
-its state is Local, Cloud, Experimental, Stale or Offline.
+Smart Home is a proposed optional add-on behind Home Assistant. Its future
+adapter must keep vendor credentials in Home Assistant or a separate owner-only
+store, allowlist entities/actions, and forbid arbitrary browser service calls.
+Camera access and consequential appliance/climate commands must require parent
+authorization and audit. Every device must report whether its state is Local,
+Cloud, Experimental, Stale or Offline. These are implementation requirements,
+not evidence of existing controls or connected devices.
 
 The Mac mini must not expose Home Assistant, portal or camera ports directly to
 the internet. True cabin-local control requires a cabin-side node and reviewed

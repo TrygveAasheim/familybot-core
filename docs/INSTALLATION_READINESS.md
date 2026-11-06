@@ -6,6 +6,31 @@ state or live household credentials.
 
 ## Follow-up review, 2026-11-06
 
+### Current publication status and evidence
+
+The owner authorized source promotion to Main after the Dev train merged:
+Portal #31 at `02cc6b75f9e0a98dfeab1a69051b53acd00be132`, then Core #11 at
+`3be57a1bd1b6ce81c96715eaa9defd7ea718d954`. Those trees match the reviewed
+implementation pair. The final documentation/promotion PRs record their own
+heads and checks; use the canonical guide's paired Main instructions for new
+installs, not the historical candidate branch.
+
+Verified implementation evidence:
+
+- Core: 147 local tests, 146 passed and one explicitly hosted-only test skipped.
+- Portal: 114 API tests and two rendered contracts passed, plus lint, build,
+  documentation and dependency checks.
+- [Core merged-Dev CI](https://github.com/TrygveAasheim/familybot-core/actions/runs/42252114724):
+  disposable macOS managed installation, restart and upgrade passed.
+- [Portal merged-Dev CI](https://github.com/TrygveAasheim/familybot-portal/actions/runs/42251252829):
+  source gates passed. CodeQL also passed in both repositories.
+
+This is a published installation candidate suitable for controlled testing at
+the owner's new location, not an unconditional household release or security
+certification. Physical iPad, household LAN/Bonjour, and live optional-provider
+checks remain unperformed for this train. No existing household was deployed,
+inspected or migrated. A source merge does not alter a running installation.
+
 ### Existing-household upgrade correction
 
 The subsequent regression review found seven upgrade blockers/risks despite
@@ -47,9 +72,10 @@ The hosted macOS managed test uses explicit localhost: a hosted runner's `.local
 name did not resolve. Its successful installation would not prove LAN Bonjour;
 the production installer still requires its configured hostname to reach the local API.
 
-The stopping point is **reviewed open PRs**, not merge or deployment. No existing
-system is changed. Main release packaging, physical Mac/iPad LAN/Bonjour/touch
-acceptance and live optional-provider verification remain separate owner gates.
+The original stopping point was **reviewed open PRs**. Later Dev merge and Main
+source promotion were separately authorized; deployment was not. Physical
+Mac/iPad LAN/Bonjour/touch acceptance and live optional-provider verification
+remain separate owner gates.
 The recommendation is a controlled test of the reviewed pair in the user's new
 location; not an unconditional public release or a security certification.
 
@@ -117,9 +143,10 @@ The work improves safe defaults; it does not prove security.
   guarantee future availability.
 - Releases are not signed and local audit logs are not tamper-evident.
 
-## Release sequencing after separate owner approval
+## Source promotion and separate runtime rollout
 
-If separately approved, merge Portal first **without deploying it**, then Core. This
+For an owner-approved source promotion, merge Portal first **without deploying
+it**, then Core. This
 keeps Core's post-merge cross-repository clean-install CI on one compatible
 pair. Runtime rollout has the opposite data order: run the Core migration first,
 then the Portal migration/deploy, because Portal schema v2 requires the Core v1

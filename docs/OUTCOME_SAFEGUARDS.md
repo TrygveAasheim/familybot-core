@@ -14,7 +14,7 @@
 - Privacy: quality records contain no child names, prompts, email text, message
   text, destinations or credentials. Raw model stderr is no longer printed by
   briefing generation. Existing private interpretation diagnostics are unchanged.
-- State/deployment: this change was refreshed onto the current `dev` runtime and
+- State/deployment: this change was refreshed onto the `dev` source baseline and
   approved for the development release train. No live sends, model calls,
   database repair or runtime configuration change is required to test it.
 
@@ -38,7 +38,8 @@ preservation, multipart integrity and recipient-specific retries.
 Run the full `AGENTS.md` verification commands. Tests mock model/Telegram calls
 and use temporary databases/state; never use the production workspace for tests.
 
-Verification after rebasing onto current `dev` (2026-11-05):
+Historical verification after rebasing onto `dev` (2026-11-05; not the final
+installation train totals):
 
 ```text
 FAMILYBOT_FAMILY_CONFIG=tests/fixtures/family.test.json python3 -m unittest discover -s tests -p 'test_*.py'
