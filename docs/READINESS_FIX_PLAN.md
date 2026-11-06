@@ -51,6 +51,9 @@ account access, credential use or promotion to `main` is authorized by this work
    and runs managed installation with unique jobs and temporary private state.
    Lack of a GUI launchd domain is a visible failure, not successful deployment.
    Always stop only test-owned jobs. No such deployment runs on the owner's Mac.
+   Hosted runners use an explicit localhost configuration because their `.local`
+   name may not resolve. This tests managed processes, not household LAN/mDNS;
+   production hostname verification remains unchanged and the physical gate stays open.
 
 ## Stage 3: documentation and review
 

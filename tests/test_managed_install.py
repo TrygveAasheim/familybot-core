@@ -34,7 +34,11 @@ class ManagedInstallTests(unittest.TestCase):
                 config["portal"]["api_port"] = available_port()
             web_port = config["portal"]["web_port"]
             config["portal"]["allowed_origins"] = [f"http://localhost:{web_port}", f"http://127.0.0.1:{web_port}"]
-            installer.set_new_hostname(config, installer.new_hostname())
+            # Hosted runners do not provide a household LAN/mDNS resolver.
+            # Exercise the real installer with its supported explicit-host config;
+            # never weaken production hostname verification to make CI green.
+            installer.set_new_hostname(config, "localhost")
+            print("Managed CI uses explicit localhost; physical LAN/mDNS/iPad are NOT tested.", flush=True)
             source = root / "family.json"
             source.write_text(json.dumps(config))
             source.chmod(0o600)

@@ -24,6 +24,9 @@ parent authorization/approval, termination/restart, old-session rejection and
 retained points after repeat installation. The PR review record contains exact
 commands, final test totals and both commit SHAs. Managed macOS CI results must
 be read from the final paired PR run, never inferred from these local tests.
+The hosted macOS managed test uses explicit localhost: a hosted runner's `.local`
+name did not resolve. Its successful installation would not prove LAN Bonjour;
+the production installer still requires its configured hostname to reach the local API.
 
 The stopping point is **reviewed open PRs**, not merge or deployment. No existing
 system is changed. Main release packaging, physical Mac/iPad LAN/Bonjour/touch
