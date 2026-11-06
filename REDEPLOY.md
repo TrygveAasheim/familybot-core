@@ -22,7 +22,7 @@ Store runtime backup material encrypted and separately from Git.
    other optional clients only for capabilities present in the backup.
 2. Clone `familybot-core` and `familybot-portal` as sibling directories. Check
    out the exact compatible Core/Portal commit pair recorded with the backup.
-   The installer is currently a development candidate, not yet on main.
+   Do not substitute the latest `main` for that recorded recovery pair.
 3. Restore `$HOME/.familybot` with directories mode `0700` and private
    files mode `0600`.
 4. Verify the selected backup without replacing current state:

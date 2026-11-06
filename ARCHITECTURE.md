@@ -1,10 +1,12 @@
 # Architecture
 
 FamilyBot is a local-first Norwegian family information service. Deterministic
-jobs collect and store facts; optional inference improves wording; the iPad
+jobs collect and store facts; optional inference improves wording and interprets
+week plans against source evidence; the iPad
 dashboard and Telegram expose curated views.
 
-This document describes the running family-information architecture. Planned
+This document describes the implemented family-information architecture, not
+evidence that any particular household has deployed it. Planned
 add-ons are explicitly labelled and may not be treated as deployed services.
 
 ## Physical topology
@@ -66,7 +68,8 @@ flowchart TD
   Parent["Parent session\nPIN + rate limit"]
   Mutate["Validated chore/reward writes"]
   Audit["0600 local audit + backup"]
-  LLM["Inference: wording only"]
+  LLM["Optional briefing wording"]
+  Interpret["Optional PDF interpretation\nsource/date validation, no tools"]
   Outbox["Durable delivery outbox"]
 
   Untrusted --> Validate --> Facts --> Curate
@@ -76,11 +79,15 @@ flowchart TD
   Parent --> Mutate
   Mutate --> Audit
   Facts --> LLM --> Outbox
+  Facts --> Interpret --> Curate
   Facts --> Outbox
 ```
 
 Inference is outside the durability boundary. If it fails, deterministic
 briefings, ingestion state, retries and dashboard data remain available.
+Accepted plan interpretations are stored alongside the original facts, never
+as permission to execute tools. Grocery AI has a separate opt-in and bounded
+Portal adapter; see the Portal's grocery and data-boundary documentation.
 
 ## Runtime layout
 

@@ -1,5 +1,18 @@
 # New-household readiness: execution and review plan
 
+## Status after execution
+
+This is the historical implementation plan, including its original PR-only
+authorization and stop conditions. Those instructions below describe that task,
+not the current release policy. The owner subsequently authorized the Dev train
+(Portal #31, Core #11, both merged), followed by Main source promotion.
+Current installation commands are in [GETTING_STARTED.md](../GETTING_STARTED.md);
+current evidence and outstanding hardware/provider gates are in
+[INSTALLATION_READINESS.md](INSTALLATION_READINESS.md). Publication does not
+authorize deployment to the existing household.
+
+## Original scope and instructions
+
 Baseline: Core `e47d1fb`, Portal `8b849fa` (reviewed development branches).
 Scope: two coordinated `codex/readiness-review-fixes` PRs targeting `dev`.
 Stop at reviewed, open PRs. No merge, deployment, production state inspection,
