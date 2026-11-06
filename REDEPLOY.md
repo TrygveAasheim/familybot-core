@@ -8,7 +8,10 @@ credentials. You need both.
 - [ ] `familybot-core` and `familybot-portal` refs/tags
 - [ ] `$HOME/.familybot/config/family.local.json` and `parent-pin.txt`
 - [ ] `$HOME/.familybot/db/family.db` plus required attachments/memory
-- [ ] OpenClaw provider and Telegram credential state, only for the agent profile
+- [ ] OpenClaw provider state for the agent profile or separately enabled Oda AI;
+      Telegram credentials only when enabled
+- [ ] `$HOME/.familybot/credentials/oda-mcp.json` when Oda is connected
+- [ ] `$HOME/.familybot/credentials/hellofresh-no.json` when HelloFresh is connected
 - [ ] Himalaya configuration/secret store, only when email is enabled
 - [ ] `$HOME/.familybot/secrets.env` when Spond is enabled
 - [ ] reviewed LaunchAgent schedules and any non-default environment overrides
@@ -67,7 +70,7 @@ Store runtime backup material encrypted and separately from Git.
      --upgrade --writers-stopped
    ```
 
-10. Run `scripts/check_setup.py --mode runtime --profile dashboard` (or the
+10. Run `uv run --python 3.12 scripts/check_setup.py --mode runtime --profile dashboard` (or the
     restored profile) and both repositories' verification suites.
 11. For connected/agent profiles, deploy the selected Core jobs from the
     reviewed Core checkout (including a detached release commit):

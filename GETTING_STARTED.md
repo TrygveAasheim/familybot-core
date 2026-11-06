@@ -217,6 +217,11 @@ Only do this for integrations the household has chosen.
 4. Configure credentials outside Git.
 5. Deploy Core's selected schedules.
 
+Before enabling scheduled jobs, set the Mac's time zone in System Settings to
+match `family.timezone` (normally `Europe/Oslo`). launchd uses the system zone;
+Python date/health calculations use the configured zone. The installer does not
+check or convert between them.
+
 ### School email and PDF plans
 
 Install and configure Himalaya:

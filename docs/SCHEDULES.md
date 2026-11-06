@@ -21,8 +21,11 @@ live in [`ops/launchd/`](../ops/launchd/), and the installer expands the
 | Ukeplan interpretation | every 15 minutes | Agent with email |
 
 The Dashboard profile installs none of these jobs. Briefing times and weekly
-weekday are read from `notifications` and interpreted in `family.timezone`,
-including daylight-saving transitions.
+weekday are read from `notifications` into launchd calendar fields. launchd uses
+the Mac's system time zone, not `family.timezone`; there is no conversion.
+Before enabling schedules, set the Mac's time zone to match `family.timezone`
+(normally `Europe/Oslo`) so launches and Python's date/health calculations agree,
+including daylight-saving changes. The installer does not check this alignment.
 
 Validate the templates before installation:
 
@@ -39,8 +42,15 @@ bash scripts/install_launchagents.sh
 For a deliberate deployment and reload of the affected LaunchAgents:
 
 ```bash
+export FAMILYBOT_WORKSPACE="$HOME/.familybot"
+export FAMILYBOT_FAMILY_CONFIG="$FAMILYBOT_WORKSPACE/config/family.local.json"
+export FAMILYBOT_DEPLOY_BRANCH="$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)"
 bash scripts/deploy_core.sh --reload
 ```
+
+Use the installed workspace/config paths for a legacy household, not these
+new-install defaults. Run from the reviewed Core checkout; the ref override
+permits that selected Main/Dev/detached release without bypassing checks.
 
 The deploy script creates/synchronizes the isolated Python 3.12 Core runtime,
 copies reviewed core scripts into the private workspace, validates all ten
