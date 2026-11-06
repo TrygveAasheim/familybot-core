@@ -13,7 +13,7 @@ Upgrade regression follow-up (implemented on this same paired PR train):
 | --- | --- | --- |
 | U1 | Preserve school dates unless explicit replacement list and flag | Core upgrade-preservation tests, including explicit empty-list clearing and backup content |
 | U2 | Restore recognized unversioned pre-migration backups | Legacy migration → restore → re-upgrade regression; unrelated/future/tampered backups rejected |
-| U3 | Validate Portal schema before committing markers; status/startup fail closed | Portal final-validation rollback, missing column/table, checksum and history-gap tests |
+| U3 | Validate Portal schema before committing markers; status/startup fail closed | Portal final-validation rollback, owned and consumed Core column/table checks, checksum and history-gap tests |
 | U4 | Full verified backup before any upgrade data write | Backup-failure no-write assertion and pre-upgrade calendar content check |
 | U5 | Never recreate archived chores or reactivate rewards during upgrade | Repeated upgrade and explicit-seed regressions; deployment drops automatic repair |
 | U6 | Preserve omitted member metadata; explicit null may clear | Stable-ID upgrade regression for grade/school/teacher |

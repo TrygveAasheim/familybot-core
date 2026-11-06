@@ -17,7 +17,9 @@
   security and reliability instructions with the actual boundaries.
 
 No new schema version or live deployment. Coordinate with Portal's transactional
-validation/no-reseed fix. Source-only rollback reverts the pair; if an upgrade
+validation/no-reseed fix and its consumed-Core-schema startup check (the
+adversarial review found that a version marker could hide a missing calendar
+table). Source-only rollback reverts the pair; if an upgrade
 was run and data changes must be undone, stop all database users and restore the
 full pre-upgrade snapshot plus the matching old source/configuration. Individual
 component transactions do not undo earlier installer steps. See `REDEPLOY.md`.
