@@ -33,7 +33,7 @@ The managed appliance path is tested on macOS with this baseline:
 | `uv` | current stable | yes |
 | Git, SQLite, `rsync`, Bonjour and `launchd` | macOS / Command Line Tools | yes |
 | Himalaya `1.2+` | current supported | connected email only |
-| OpenClaw | reviewed current release | AI/Telegram only |
+| OpenClaw | reviewed current release | AI/Telegram or separately opted-in Oda dinner AI only |
 
 Install Apple's tools:
 
@@ -65,10 +65,15 @@ Keep the checkouts together and outside a cloud-synchronized folder:
 ```bash
 mkdir -p "$HOME/FamilyBot"
 cd "$HOME/FamilyBot"
-git clone --branch dev https://github.com/TrygveAasheim/familybot-core.git
-git clone --branch dev https://github.com/TrygveAasheim/familybot-portal.git
+git clone --branch codex/readiness-review-fixes https://github.com/TrygveAasheim/familybot-core.git
+git clone --branch codex/readiness-review-fixes https://github.com/TrygveAasheim/familybot-portal.git
+git -C familybot-core switch --detach REVIEWED_CORE_SHA
+git -C familybot-portal switch --detach REVIEWED_PORTAL_SHA
 ```
 
+Replace REVIEWED_CORE_SHA and REVIEWED_PORTAL_SHA above with the full paired
+commit IDs in the readiness PR handoff before running the commands; they are
+not literal Git refs. Do not install a moving head without reviewing the pair.
 This guide describes the development installation candidate. The public `main`
 branch does not yet contain this installer. Before a main release, use the
 paired reviewed candidate commits, not default clones. Pre-merge fixes are on
@@ -237,7 +242,7 @@ configuration and place credentials in the owner-only store described in
 cd "$HOME/FamilyBot/familybot-core"
 export FAMILYBOT_WORKSPACE="$HOME/.familybot"
 export FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json"
-export FAMILYBOT_DEPLOY_BRANCH="$(git branch --show-current)"
+export FAMILYBOT_DEPLOY_BRANCH="$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)"
 bash scripts/deploy_core.sh --reload
 uv run --python 3.12 scripts/check_setup.py --mode runtime --profile connected
 ```
@@ -270,7 +275,7 @@ Change `profile` to `agent`, add parent Telegram targets, validate, then deploy:
 cd "$HOME/FamilyBot/familybot-core"
 export FAMILYBOT_WORKSPACE="$HOME/.familybot"
 export FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json"
-export FAMILYBOT_DEPLOY_BRANCH="$(git branch --show-current)"
+export FAMILYBOT_DEPLOY_BRANCH="$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)"
 bash scripts/deploy_core.sh --reload
 uv run --python 3.12 scripts/check_setup.py --mode runtime --profile agent
 ```
@@ -330,11 +335,17 @@ cd "$HOME/FamilyBot/familybot-core"
 uv run --python 3.12 scripts/manage_database.py backup \
   --db "$HOME/.familybot/db/family.db" \
   --backup-root "$HOME/.familybot/backups"
-git pull --ff-only
-git -C ../familybot-portal pull --ff-only
+git fetch origin
+git -C ../familybot-portal fetch origin
+git switch --detach REVIEWED_CORE_SHA
+git -C ../familybot-portal switch --detach REVIEWED_PORTAL_SHA
 uv run --python 3.12 scripts/install_familybot.py \
   --portal-repo ../familybot-portal
 ```
+
+Substitute the next reviewed compatible pair, not the previous install's SHAs.
+Keep the previous pair with the backup so rollback is reproducible. Detached
+checkouts do not use `git pull`.
 
 The migration ledger checks component version, name and checksum. Existing data
 is backed up before pending migrations run. A failed migration rolls back its
@@ -346,7 +357,7 @@ If Core schedules are enabled, redeploy them after the upgrade:
 ```bash
 export FAMILYBOT_WORKSPACE="$HOME/.familybot"
 export FAMILYBOT_FAMILY_CONFIG="$HOME/.familybot/config/family.local.json"
-export FAMILYBOT_DEPLOY_BRANCH="$(git branch --show-current)"
+export FAMILYBOT_DEPLOY_BRANCH="$(git symbolic-ref --quiet --short HEAD || git rev-parse HEAD)"
 bash scripts/deploy_core.sh --reload
 ```
 

@@ -30,6 +30,10 @@ class ManagedInstallTests(unittest.TestCase):
             config = json.loads((ROOT / "config/family.demo.json").read_text())
             config["portal"]["web_port"] = available_port()
             config["portal"]["api_port"] = available_port()
+            while config["portal"]["api_port"] == config["portal"]["web_port"]:
+                config["portal"]["api_port"] = available_port()
+            web_port = config["portal"]["web_port"]
+            config["portal"]["allowed_origins"] = [f"http://localhost:{web_port}", f"http://127.0.0.1:{web_port}"]
             installer.set_new_hostname(config, installer.new_hostname())
             source = root / "family.json"
             source.write_text(json.dumps(config))

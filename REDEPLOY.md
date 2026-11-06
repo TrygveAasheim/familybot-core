@@ -50,7 +50,7 @@ Store runtime backup material encrypted and separately from Git.
 8. For the agent profile only, audit and apply the OpenClaw default model before deployment:
 
    ```bash
-   python3 familybot-core/scripts/configure_openclaw_model.py --apply --restart
+   python3 scripts/configure_openclaw_model.py --apply --restart
    ```
 
    Prove access with one no-delivery agent turn; a configured catalog entry is
@@ -82,6 +82,11 @@ separate acceptance and credential boundary in `specs/SMART_HOME.md` before
 restoring appliance control.
 
 ## Upgrade an existing host
+
+Before switching source, record the current Core/Portal SHA pair and create a
+consistent backup with `scripts/manage_database.py backup`. Replace the SHA
+placeholders below with the next reviewed compatible pair. Do not run the
+literal placeholder names.
 
 ```bash
 git -C familybot-core fetch --prune

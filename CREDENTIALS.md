@@ -27,6 +27,10 @@ Paths below are relative to that workspace.
   does not.
 ## Required only when the integration is enabled
 
+Oda dinner AI separately requires an OpenClaw provider credential and a
+tool-free dinner agent even outside the Agent profile. Set `oda_ai` only with
+external-processing consent; Oda search/cart itself needs neither OpenClaw nor AI.
+
 - [ ] **Mail credential** is in Himalaya's protected configuration, normally
   `~/.config/himalaya/config.toml` plus its chosen secret store. Verify
   `himalaya folder list --output json`. Prefer an app password and least-privilege

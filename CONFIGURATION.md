@@ -170,6 +170,11 @@ countdown.
 only if an iPad must use it, for example `http://192.168.1.50:3000`. Do not add
 arbitrary `.local` hosts or entire private ranges.
 
+The public JSON samples use illustrative `familie.local` values; they do not
+register that alias. Wizard/demo installs replace it with the Mac's actual
+LocalHostName. When supplying `--config-source`, set a working hostname and
+matching origins yourself, or use the new-install `--hostname` override.
+
 ## Overrides
 
 Workspace resolution is explicit CLI workspace (where supported), then
