@@ -90,6 +90,8 @@ exact data-flow and residual risks are documented in
 - Explicit backup, status and restore commands in `scripts/manage_database.py`.
 - Profile-aware `launchd` schedules and health checks: disabled integrations do
   not create false failures.
+- Briefing quality alerts count actual fallback generations, not repeated polls;
+  [schedule diagnostics](docs/SCHEDULES.md) detect and safely retire legacy cron duplicates.
 - Deterministic fallbacks when inference or an external integration is down.
 - Fictional demo data in `config/family.demo.json`.
 - Linux unit/security CI plus a macOS clean-install lifecycle check.

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026-11-08 — Briefing quality and duplicate schedule fix (not deployed)
+
+- Count real consecutive fallback generations per daily/weekly stream, rather
+  than counting repeated health polls of one old fallback as new failures.
+- Retain truthful quality warnings and separate delivery monitoring; record
+  content-free reason codes, handle legacy/malformed state and disabled streams.
+- Detect legacy Unix cron briefing ownership separately and provide an explicit
+  read-only-first retirement command with exact matching, loaded replacement
+  checks, private backup, concurrency checks and post-install verification.
+- Add fictional polling/recovery and mocked schedule-repair regression tests;
+  update reliability, outcome and schedule runbooks.
+
+No migration, live schedule change, deployment, model switch or Telegram resend.
+Source rollback needs no database restore; older readers ignore added outcome
+fields but reintroduce poll-based warnings. Cron retirement, if separately
+authorized, has its own private backup and operator-reviewed rollback procedure.
+
 ## 2026-11-06 — Main publication documentation
 
 - Publish the coordinated installation/upgrade candidate through reviewed PRs.

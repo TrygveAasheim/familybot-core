@@ -61,7 +61,8 @@ class OutcomeTests(unittest.TestCase):
             outcome_health.record_briefing("daily", True)
             path = Path(directory) / "memory/briefing-outcome-daily.json"
             self.assertEqual(path.stat().st_mode & 0o077, 0)
-            self.assertEqual(set(json.loads(path.read_text())), {"checked_at", "fallback"})
+            self.assertEqual(set(json.loads(path.read_text())),
+                             {"checked_at", "fallback", "consecutive_fallbacks", "fallback_since", "reason"})
             self.assertEqual(outcome_health.briefing_health()["status"], "warn")
             outcome_health.record_briefing("daily", False)
             self.assertEqual(outcome_health.briefing_health()["status"], "ok")

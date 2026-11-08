@@ -23,6 +23,7 @@ COOLDOWN = timedelta(minutes=15)
 GATEWAY_FAILURE_THRESHOLD = 2
 HEALTH_ALERT_THRESHOLD = 3
 HEALTH_FAILURE_KEYS = {
+    "briefing_schedule",
     "briefing_quality",
     "ukeplan_quality",
     "gateway",
@@ -89,6 +90,8 @@ def overdue(spec: JobSpec, state: dict[str, Any], current: datetime) -> bool:
 def health_event_key(result: dict[str, Any]) -> str:
     """Build a stable key for one unchanged failure, without raw payloads."""
     service = str(result.get("service", "unknown"))[:80]
+    if service == "briefing_quality" and "consecutive_briefings" in result:
+        return "briefing_quality:consecutive-briefings:" + str(result.get("briefing_incident", ""))[:200]
     if service == "scheduler":
         active = result.get("jobs", [])
         return f"{service}:{json.dumps(active, sort_keys=True, ensure_ascii=True)[:500]}"
@@ -115,7 +118,17 @@ def update_health_failures(
         failed = result.get("status") in {"warn", "critical"}
         record = records.get(service, {})
         event_key = health_event_key(result) if failed else ""
-        if duplicate_observation:
+        briefing_count = result.get("consecutive_briefings")
+        per_briefing = service == "briefing_quality" and type(briefing_count) is int and 0 <= briefing_count <= 1000
+        if per_briefing:
+            # Generation owns this count. Polling the same outcome is not a new failure.
+            count = briefing_count if failed else 0
+            records[service] = {
+                "count": count, "event_key": event_key, "last_seen": checked_at,
+                "alerted": bool(record.get("alerted", False))
+                if count >= threshold and record.get("event_key") == event_key else False,
+            }
+        elif duplicate_observation:
             count = int(record.get("count", 0))
         elif failed:
             count = int(record.get("count", 0)) + 1 if record.get("event_key") == event_key else 1
@@ -136,6 +149,7 @@ def update_health_failures(
                 "count": count,
                 "msg": str(result.get("msg", "failure"))[:300],
                 "event_key": event_key,
+                "unit": "consecutive fallback briefings" if per_briefing else "consecutive unhealthy checks",
             })
 
     previous["last_health_checked_at"] = checked_at
@@ -150,7 +164,8 @@ def send_health_alert(alert: dict[str, Any]) -> tuple[bool, str]:
     if not targets:
         return False, "no configured Telegram alert target"
     message = (
-        f"Health check alert: {alert['service']} has reached {alert['count']} consecutive failures. "
+        f"Health check alert: {alert['service']} has reached {alert['count']} "
+        f"{alert.get('unit', 'consecutive unhealthy checks')}. "
         f"Status: {alert['status']}. SRE analysis: {alert['msg']}"
     )
     for target in targets[:1]:
