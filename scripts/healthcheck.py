@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
+from briefing_schedule import schedule_health
 from family_config import capability_profile, family_timezone, integration
 from outcome_health import briefing_health, interpretation_health
 from reliability import connect_db, database_path, workspace_path
@@ -187,9 +188,15 @@ except Exception as e:
 
 # ── 5. Email processing freshness ─────────────────────────────────────────────
 if PROFILE == "agent":
-    outcome = briefing_health()
+    kinds = {spec.task.removeprefix("briefing-") for spec in ACTIVE_JOB_SPECS
+             if spec.task in {"briefing-daily", "briefing-weekly"}}
+    outcome = briefing_health(sorted(kinds))
     results.append(outcome)
     if outcome["status"] == "warn":
+        exit_code = max(exit_code, 1)
+    schedule = schedule_health(WORKSPACE)
+    results.append(schedule)
+    if schedule["status"] == "warn":
         exit_code = max(exit_code, 1)
 
 # ── 6. Cron jobs and freshness ───────────────────────────────────────────────

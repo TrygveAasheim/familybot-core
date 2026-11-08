@@ -316,10 +316,11 @@ def valid_briefing(text, data):
 
 def select_briefing(kind, text, data, render):
     fallback = not valid_briefing(text, data)
+    reason = "empty_model_output" if not text.strip() else "validation_rejected"
     if fallback:
         text = render(data)
     try:
-        record_briefing(kind, fallback)
+        record_briefing(kind, fallback, reason)
     except OSError:
         # Observability failure must never prevent durable delivery.
         print("[briefing] Unable to persist quality observation")

@@ -63,6 +63,48 @@ Every integration is optional. A missing block or `"enabled": false` removes
 its LaunchAgent and health/freshness expectation on the next deliberate
 `--reload`. Spond additionally requires at least one configured group.
 
+## Retire duplicate legacy Unix cron briefings
+
+Older installations may still have direct `python3 .../scripts/briefing.py`
+entries in the user's Unix crontab. They bypass the managed runner's command
+path and lock, may run at different times, and can overwrite quality observations
+or queue unwanted briefing runs. A launchd deployment does not remove them.
+The agent health check reports this separately as `briefing_schedule`.
+
+Audit from the reviewed Core checkout, using the actual installed workspace:
+
+```bash
+uv run --python 3.12 scripts/briefing_schedule.py --workspace /exact/installed/workspace
+```
+
+The default command is read-only and prints counts and an audit digest, not cron
+commands or household content. Only after authorizing a schedule change, outside
+an active briefing run, replace `AUDIT_SHA256` below with that audit's digest:
+
+```bash
+uv run --python 3.12 scripts/briefing_schedule.py \
+  --workspace /exact/installed/workspace \
+  --apply --expected-sha256 AUDIT_SHA256
+```
+
+Apply requires loaded managed jobs pointing to the same workspace/runner/task
+(both weekday and weekend for a legacy daily entry, weekly for a weekly entry).
+It comments only exact recognized direct-Python entries; ambiguous shell commands
+require manual review. Unrelated lines are preserved. Before installing, it saves
+the exact original crontab to a private `backups/legacy-briefing-cron-*/crontab.txt`
+and rechecks for concurrent changes; it verifies the installed text afterward.
+Cron has no compare-and-swap operation: avoid concurrent crontab editing during
+this short operation. On timeout or verification failure inspect current state
+and the backup before retrying. Do not blindly overwrite newer unrelated edits.
+
+No database, outcome record, provider configuration or launchd job is changed,
+and no briefing is replayed. The existing fallback warning clears after that
+stream next generates successfully or its observation expires; it must not be
+manually marked successful. Old poll-based counts do not become new-generation
+counts. For rollback, review the private backup and restore only the intended
+entries, preserving subsequent unrelated edits; restoring them reintroduces the
+duplicate-schedule defect. Keep backups out of Git.
+
 ## Monitoring and bounded recovery
 
 `cron_runner.sh` records each job's start, finish and exit state under the

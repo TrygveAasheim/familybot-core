@@ -44,6 +44,10 @@ and synchronized setup, configuration, recovery and changelog documentation.
 10. SRE owns consecutive health-failure counters and transition-based Telegram
     alerts. The conversational cron layer must not interpret health snapshots,
     maintain a second counter or send duplicate alerts.
+    Briefing quality counts actual consecutive fallback generations per daily/
+    weekly stream, not repeated health polls of one persisted observation.
+    Legacy Unix cron briefings are reported separately from launchd ownership;
+    removal requires an explicit, backed-up operator action, never auto-replay.
 11. OpenClaw model drift is deployment-blocking and health-visible. Scheduled
     agent jobs inherit the reviewed default unless an intentional supported
     override is documented; known-retired model pins are removed rather than
@@ -124,14 +128,19 @@ Outcome acceptance contract:
   names, or omitted important task/RSVP titles use deterministic fallback.
 - Fallback preserves important tasks, RSVP titles, upcoming events, evening
   advice and cabin forecasts when present, in addition to complete plan text.
-- Briefing quality records contain only a timestamp and fallback boolean and
-  are owner-only. A telemetry write failure never prevents message delivery.
+- Briefing quality records contain only timestamps, a fallback boolean, a
+  bounded consecutive count and an allowlisted reason code. They are owner-only.
+  A telemetry write failure never prevents message delivery.
 - Health checks report current/next-week failed interpretations or work pending
   over one hour. Recent fallback observations remain visible independently of
   successful delivery/job exits. Historical interpretation failures do not page.
-- Existing SRE consecutive-observation thresholds and alert deduplication apply
-  to these quality checks. They never authorize model switching, resending sent
-  messages, rewriting attribution, or unlimited inference retries.
+- Briefing quality escalates after three consecutive fallback generations in
+  one enabled stream, once per streak. Legacy boolean-only records count as one,
+  never inherit old poll counts. A successful generation or expired observation
+  resets that stream; disabled streams do not contribute. Unreadable telemetry
+  and other services retain the three-unhealthy-check threshold, labelled as
+  checks rather than briefing failures. These alerts never authorize model
+  switching, resending sent messages, rewriting attribution or inference loops.
 
 See [outcome safeguards](../docs/OUTCOME_SAFEGUARDS.md) for acceptance tests,
 staged follow-ups and operational limitations.
