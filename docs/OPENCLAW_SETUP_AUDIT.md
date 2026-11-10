@@ -24,6 +24,15 @@ or reachable gateway does not prove that the model runtime can start.
 5. Check that briefing/Ukeplan/dinner agents have minimal tools, no skills or
    elevated access, and the deny-list from their setup scripts. Preserve the
    explicitly trusted-operator boundary of the main conversational agent.
+   Setup supports legacy `agents.list` and current `agents.entries`; failed or
+   ambiguous reads must stop before configuration writes. The minimal profile's
+   `session_status` tool is also explicitly denied for these tool-free agents.
+   A deny-all `*` additionally blocks future/new tool names (the newer runtime
+   otherwise adds `presence`). Verify zero exposed tools in live smoke metadata;
+   a successful text response alone does not prove tool isolation.
+   Review new runtime defaults: scope session visibility to `agent` and disable
+   cross-agent messaging when not required. An unrestricted main agent remains
+   trusted and can still access local files; these settings are not OS isolation.
 6. Run `openclaw secrets audit --check --json`. Prefer supported SecretRefs for
    static gateway/Telegram tokens, backed by an owner-only store. OAuth state is
    provider-managed, not a static secret to blindly migrate or revoke. SecretRefs
@@ -46,6 +55,14 @@ verified executable, validate configuration, and restart the gateway. Do not
 hardcode another household's application bundle path in repository defaults.
 Alternatively install the supported standalone Codex CLI deliberately; do not
 silently install or upgrade it as part of a health check.
+For newer OpenClaw/plugin cohorts, prefer the managed compatible Codex runtime
+instead of retaining a desktop-path override. Verify its actual process/version
+and all configured agents after removing an override. Pin the matching official
+plugin with `plugins install @openclaw/codex@<reviewed-version> --pin --no-enable`
+(consult installed help for existing-install confirmation). Do not accept widened
+capabilities without review. Inspect newly managed automations, including memory
+dreaming; disable newly introduced background AI processing unless deliberately
+requested, and retain the existing disabled launchd-owned duplicates.
 
 After restart, use a fresh session and fictional content for one bounded
 no-delivery turn per enabled inference agent. For example:

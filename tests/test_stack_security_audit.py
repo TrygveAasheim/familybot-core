@@ -83,6 +83,22 @@ class StackAuditTests(unittest.TestCase):
             self.assertEqual(json.loads(path.read_text()), {"status": "ok"})
             self.assertEqual(list(path.parent.glob(".stack-audit-*")), [])
 
+    def test_plugin_dependencies_are_separate_from_gateway_configuration_audit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "package-lock.json").write_text("{}")
+            counts = {key: 0 for key in ("info", "low", "moderate", "high", "critical", "total")}
+            counts.update(high=2, total=2)
+            payload = {"metadata": {"vulnerabilities": counts}, "vulnerabilities": {"private": "not copied"}}
+            with mock.patch.object(audit, "command", side_effect=[(0, "10.9.8", ""), (1, json.dumps(payload), "")]):
+                result = audit.audit({"binaries": {"npm": "/test/npm"}, "codex_plugin_repo": directory})
+            self.assertEqual(result["checks"]["codex_plugin_advisories"]["high"], 2)
+            self.assertEqual(result["status"], "attention")
+            self.assertNotIn("not copied", json.dumps(result))
+            (Path(directory) / "package-lock.json").unlink()
+            with mock.patch.object(audit, "command", return_value=(0, "10.9.8", "")):
+                result = audit.audit({"binaries": {"npm": "/test/npm"}, "codex_plugin_repo": directory})
+            self.assertEqual(result["checks"]["codex_plugin_advisories"]["status"], "unavailable")
+
     def test_timeout_does_not_print_command_or_stderr(self):
         with mock.patch.object(audit.subprocess, "run", side_effect=subprocess.TimeoutExpired("PRIVATE", 90)):
             with self.assertRaisesRegex(audit.CheckError, "command_unavailable_or_timeout"):

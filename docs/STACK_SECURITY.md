@@ -40,6 +40,18 @@ configuration. Copy `ops/stack-audit.example.json` to the private workspace as
 `config/stack-audit.local.json`, replace the absolute paths, remove tools you do
 not use and set mode 0600. Do not include secrets. Configure `portal_repo` only
 when auditing a source checkout with a reviewed `package-lock.json`.
+Optionally set `codex_plugin_repo` to the active OpenClaw-managed npm project
+directory containing the Codex plugin's `package-lock.json`. This adds a separate
+dependency audit: OpenClaw's security audit checks configuration, not dependency
+advisories. Reconfirm this path after plugin updates. A missing lock is unavailable,
+not clean; do not generate a new production lock merely to silence the check.
+The globally installed OpenClaw host may ship without a lock and is not completely
+dependency-audited by this script. In particular, the 2026.11.2 host/plugin pins
+Zod 4.6.5, affected by [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5).
+The fixed Zod release is 4.6.6. Do not use `npm audit fix --force` to replace a
+managed plugin with an incompatible release; review an upstream fixed cohort or
+an explicitly tested package override separately. Loopback/auth and bounded
+inputs reduce exposure, but do not prove the vulnerability unreachable.
 
 Install the auditor deliberately if needed, outside production environments:
 

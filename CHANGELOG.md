@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased — OpenClaw agent-roster compatibility
+
+- Reconcile isolated inference agents against both legacy `agents.list` and
+  current `agents.entries` without rewriting the main agent or entire roster.
+- Fail closed on unreadable/ambiguous agent inventories; explicitly deny
+  `session_status` as well as privileged tool groups to untrusted-content agents.
+- Add a deny-all wildcard so newly introduced runtime tools cannot bypass the
+  tool-free contract; live smoke metadata confirmed zero exposed tools.
+- Audit the optional managed Codex plugin lock separately from gateway security
+  settings; document the unresolved upstream Zod advisory and coverage limits.
+- Add fake-CLI tests for both formats, repeatable creation, malformed responses
+  and invalid identifiers. No model calls or household state are used by tests.
+
+No household migration. Source rollback is independent of an OpenClaw runtime
+rollback: do not downgrade OpenClaw against migrated state. See the
+[stack upgrade gate](docs/STACK_SECURITY.md).
+
 ## Unreleased — stack maintenance
 
 - Add an opt-in weekly read-only stack/security inventory with explicit runtime
