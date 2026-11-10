@@ -99,6 +99,13 @@ restoring appliance control.
 
 ## Upgrade an existing host
 
+For OpenClaw/runtime-only maintenance, use the narrower
+[stack upgrade gate](docs/STACK_SECURITY.md#upgrade-and-rollback-gate). Modern
+OpenClaw may require a separate Node major from the Portal. Preserve the
+Portal's Node 22 runtime and do not run a household database migration as part
+of a gateway update. OpenClaw session-schema changes require matching state
+backups for rollback; reinstalling the old npm package alone is not sufficient.
+
 Before switching source, record the current Core/Portal SHA pair and create a
 consistent backup with `scripts/manage_database.py backup`. Replace the SHA
 placeholders below with the next reviewed compatible pair. Do not run the

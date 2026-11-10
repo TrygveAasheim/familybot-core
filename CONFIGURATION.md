@@ -246,6 +246,11 @@ install software, migrate credentials or certify provider access. Follow
 
 ## What does not belong here
 
+Optional stack audits use a separate owner-only operator file based on
+`ops/stack-audit.example.json`; it contains executable/source/workspace paths,
+not household identity or secrets. See [stack maintenance](docs/STACK_SECURITY.md).
+The weekly schedule is explicitly installed and is not enabled by a profile.
+
 This file contains private household metadata but no passwords, bearer tokens,
 session cookies, API keys or parent PIN. Those belong in separate owner-only
 stores described in [CREDENTIALS.md](CREDENTIALS.md). Keep the populated file

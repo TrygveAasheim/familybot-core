@@ -52,6 +52,10 @@ and synchronized setup, configuration, recovery and changelog documentation.
     agent jobs inherit the reviewed default unless an intentional supported
     override is documented; known-retired model pins are removed rather than
     copied into every schedule.
+12. Optional security inventory has its own explicitly installed launchd job.
+    It cannot upgrade dependencies, switch models, replay jobs or send alerts.
+    External registry/auditor failure is recorded as unavailable, not clean;
+    reports are owner-only and atomically replaced with a freshness timestamp.
 
 ## New durable state
 

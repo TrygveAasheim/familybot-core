@@ -124,6 +124,12 @@ install metadata before the next OpenClaw upgrade.
 
 ## Security release gate
 
+The optional [stack audit](docs/STACK_SECURITY.md) records installed versions and
+advisory counts on a weekly opt-in schedule. Unknown, timed-out and partial
+results remain unavailable, never clean. It performs no automatic upgrades,
+credential checks or remediation. Review bundled SQLite/OpenSSL and macOS
+separately; package-audit success does not cover those boundaries.
+
 Before promotion:
 
 ```bash

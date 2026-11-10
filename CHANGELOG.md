@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — stack maintenance
+
+- Add an opt-in weekly read-only stack/security inventory with explicit runtime
+  paths, private atomic reports, bounded checks and unavailable-state handling.
+- Keep advisory checks separate from automatic upgrades, model calls, delivery
+  and SRE recovery; add failure/privacy/schedule regression tests.
+- Document separate Portal/OpenClaw Node requirements and verified session-state
+  migration/rollback gates; remove the unsafe bare Node-22 OpenClaw install step.
+
 ## 2026-11-10 — Runtime-path preflight and concise briefing fallback
 
 - Detect a missing/non-executable configured local Codex app server in the
