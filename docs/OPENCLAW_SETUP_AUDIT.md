@@ -27,6 +27,9 @@ or reachable gateway does not prove that the model runtime can start.
    Setup supports legacy `agents.list` and current `agents.entries`; failed or
    ambiguous reads must stop before configuration writes. The minimal profile's
    `session_status` tool is also explicitly denied for these tool-free agents.
+   A deny-all `*` additionally blocks future/new tool names (the newer runtime
+   otherwise adds `presence`). Verify zero exposed tools in live smoke metadata;
+   a successful text response alone does not prove tool isolation.
    Review new runtime defaults: scope session visibility to `agent` and disable
    cross-agent messaging when not required. An unrestricted main agent remains
    trusted and can still access local files; these settings are not OS isolation.

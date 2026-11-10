@@ -71,7 +71,7 @@ else:
   "$OPENCLAW_BIN" config set "$agent_path.tools.alsoAllow" '[]' --strict-json >/dev/null
   "$OPENCLAW_BIN" config set "$agent_path.tools.elevated.enabled" 'false' --strict-json >/dev/null
   "$OPENCLAW_BIN" config set "$agent_path.tools.deny" \
-    '["group:runtime","group:fs","group:web","group:memory","group:ui","group:automation","group:messaging","group:nodes","group:agents","group:media","group:plugins","cron","gateway","session_status"]' \
+    '["*","group:runtime","group:fs","group:web","group:memory","group:ui","group:automation","group:messaging","group:nodes","group:agents","group:media","group:plugins","cron","gateway","session_status"]' \
     --strict-json >/dev/null
   "$OPENCLAW_BIN" config set "$agent_path.skills" '[]' --strict-json >/dev/null
 }
