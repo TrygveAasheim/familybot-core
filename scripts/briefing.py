@@ -50,6 +50,7 @@ Skriv en kort, vennlig morgenbriefing på norsk basert på dataene under.
 
 Retningslinjer:
 - Sikt mot 15 linjer, men ikke utelat viktige oppgaver eller svarfrister for å nå dette
+- Maks 1600 tegn. Oppsummer ukeplaner; aldri kopier PDF-fulltekst.
 - Ingen emojis, ingen markdown-overskrifter
 - Naturlig, direkte språk — ikke stivt eller formelt
 - Inkluder bare seksjoner som har innhold (utelat tomme seksjoner helt)
@@ -76,6 +77,7 @@ Skriv en ukeoversikt på norsk basert på dataene under. Dette er søndagsoppsum
 
 Retningslinjer:
 - Naturlig, varm tone — dette er en helgeoppdatering
+- Maks 3200 tegn. Oppsummer ukeplaner; aldri kopier PDF-fulltekst.
 - Ingen emojis, ingen markdown-overskrifter med #
 - Bruk linjeskift mellom seksjoner for lesbarhet
 - Ukeplaner: oppsummer de viktigste tingene for hver unge (lekser, ta med, beskjeder)
@@ -96,6 +98,7 @@ OPENCLAW = executable("FAMILYBOT_OPENCLAW", "openclaw")
 OPENCLAW_MODEL = os.environ.get("FAMILYBOT_BRIEFING_MODEL", "openai/gpt-5.6-sol")
 OPENCLAW_AGENT = os.environ.get("FAMILYBOT_BRIEFING_AGENT", "familybot-briefing")
 VACATION_MODE_FILE = str(workspace_path() / "memory" / "vacation-mode.json")
+MODEL_TEXT_LIMITS = {"daily": 1600, "weekly": 3200}
 
 
 def vacation_mode_active() -> bool:
@@ -178,11 +181,19 @@ def render_daily_fallback(data: dict) -> str:
 
     plans = data.get("ukeplaner", {})
     for child, plan in plans.items():
-        if plan and (plan.get("raw_text") or plan.get("summary")):
-            lines.append(f"Ukeplan {CHILD_NAMES.get(child, child)}: {plan.get('raw_text') or plan['summary']}")
+        if plan:
+            lines.append(plan_reference(child, plan))
 
     lines.extend(action_lines(data))
     return "\n".join(lines)
+
+
+def plan_reference(child: str, plan: dict) -> str:
+    """A failed summarizer must never turn a morning briefing into a PDF dump."""
+    name = CHILD_NAMES.get(child, plan.get("member_name") or child)
+    week = plan.get("week_number")
+    period = f" (uke {week})" if isinstance(week, int) and 1 <= week <= 53 else ""
+    return f"Ukeplan {name}{period}: Se lekser og beskjeder i familieportalen; kort oppsummering er utilgjengelig."
 
 
 def action_lines(data):
@@ -213,8 +224,8 @@ def render_weekly_fallback(data: dict) -> str:
         if bits:
             lines.append(f"{day.get('date')}: " + "; ".join(bits))
     for child, plan in data.get("ukeplaner", {}).items():
-        if plan and (plan.get("raw_text") or plan.get("summary")):
-            lines.append(f"Ukeplan {CHILD_NAMES.get(child, child)}: {plan.get('raw_text') or plan['summary']}")
+        if plan:
+            lines.append(plan_reference(child, plan))
         else:
             lines.append(f"Ukeplan for {CHILD_NAMES.get(child, child)} er ikke mottatt ennå.")
     lines.extend(action_lines(data))
@@ -315,8 +326,9 @@ def valid_briefing(text, data):
 
 
 def select_briefing(kind, text, data, render):
-    fallback = not valid_briefing(text, data)
-    reason = "empty_model_output" if not text.strip() else "validation_rejected"
+    too_long = len(text) > MODEL_TEXT_LIMITS[kind]
+    fallback = too_long or not valid_briefing(text, data)
+    reason = "output_too_long" if too_long else "empty_model_output" if not text.strip() else "validation_rejected"
     if fallback:
         text = render(data)
     try:

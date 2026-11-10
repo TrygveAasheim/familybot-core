@@ -48,7 +48,10 @@ class OutcomeTests(unittest.TestCase):
         for render in (briefing.render_daily_fallback, briefing.render_weekly_fallback):
             text = render(data)
             self.assertTrue(briefing.valid_briefing(text, data))
-            self.assertIn("Les boka.", text)
+            self.assertNotIn("Les boka.", text)
+            self.assertIn("familieportalen", text)
+            self.assertIn("Bestill time", text)
+            self.assertIn("Klassetur", text)
 
     def test_telemetry_failure_does_not_block_fallback(self):
         with mock.patch.object(briefing, "record_briefing", side_effect=OSError):

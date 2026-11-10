@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from reliability import atomic_write_json, workspace_path
 
 BRIEFING_WINDOWS = {"daily": 2, "weekly": 8}
-BRIEFING_REASONS = {"empty_model_output", "validation_rejected", "unknown", "none"}
+BRIEFING_REASONS = {"empty_model_output", "validation_rejected", "output_too_long", "unknown", "none"}
 
 
 def read_briefing(kind):

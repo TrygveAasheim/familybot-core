@@ -1,10 +1,17 @@
 import os
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
-from configure_openclaw_model import apply_configuration, audit
+from configure_openclaw_model import (
+    ConfigurationError,
+    OpenClawClient,
+    apply_configuration,
+    audit,
+    audit_codex_runtime,
+)
 
 
 class FakeClient:
@@ -50,6 +57,44 @@ class FakeClient:
 
 
 class OpenClawModelConfigTests(unittest.TestCase):
+    def test_absent_plugins_section_is_optional_but_other_errors_are_not(self):
+        client = OpenClawClient("openclaw")
+        with mock.patch.object(client, "_json", side_effect=ConfigurationError(
+            "OpenClaw command failed: Config path not found: plugins. Run openclaw config validate"
+        )):
+            self.assertEqual(client.plugin_config(), {})
+        with mock.patch.object(client, "_json", side_effect=ConfigurationError("permission denied")):
+            with self.assertRaises(ConfigurationError):
+                client.plugin_config()
+
+    def test_malformed_plugin_shapes_fail_safely(self):
+        for value in (None, {"entries": []}, {"entries": {"codex": []}},
+                      {"entries": {"codex": {"enabled": True, "config": []}}},
+                      {"entries": {"codex": {"enabled": True, "config": {"appServer": []}}}}):
+            with self.subTest(value=value):
+                self.assertTrue(audit_codex_runtime(value))
+
+    def test_missing_codex_executable_is_detected_without_model_call(self):
+        plugins = {"entries": {"codex": {"enabled": True, "config": {
+            "appServer": {"command": "/missing/private-path/codex"}}}}}
+        with mock.patch("configure_openclaw_model.shutil.which", return_value=None):
+            issues = audit_codex_runtime(plugins)
+        self.assertEqual(len(issues), 1)
+        self.assertNotIn("private-path", issues[0])
+        self.assertIn("missing or not executable", issues[0])
+
+    def test_available_codex_and_remote_or_disabled_plugins(self):
+        with mock.patch("configure_openclaw_model.shutil.which", return_value="/test/codex"):
+            self.assertEqual(audit_codex_runtime({"entries": {"codex": {"enabled": True,
+                "config": {"appServer": {"command": "/test/codex"}}}}}), [])
+        with mock.patch("configure_openclaw_model.shutil.which") as probe:
+            self.assertEqual(audit_codex_runtime({}), [])
+            self.assertEqual(audit_codex_runtime({"entries": {"codex": {"enabled": True}}}), [])
+            self.assertEqual(audit_codex_runtime({"entries": {"codex": {"enabled": False}}}), [])
+            self.assertEqual(audit_codex_runtime({"entries": {"codex": {"enabled": True,
+                "config": {"appServer": {"transport": "websocket"}}}}}), [])
+            probe.assert_not_called()
+
     def test_audit_detects_default_drift_and_retired_cron_pin(self):
         client = FakeClient()
         issues = audit(

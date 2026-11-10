@@ -23,7 +23,9 @@
 `tests/test_outcome_health.py` covers:
 
 - missing child names/internal identifiers/action titles reject generated text;
-- deterministic daily/weekly fallback retains plan text, tasks and RSVP titles;
+- deterministic daily/weekly fallback retains named plan references, tasks and
+  RSVP titles, without copying PDF text (see the November compact-fallback
+  correction in [setup checks](OPENCLAW_SETUP_AUDIT.md));
 - failed telemetry persistence does not prevent delivery;
 - owner-only, content-free observation records, recovery and stale observations;
 - current versus historical interpretation failures and one-hour pending grace;

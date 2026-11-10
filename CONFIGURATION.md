@@ -238,6 +238,12 @@ and with the authenticated smoke test.
 Set overrides explicitly in LaunchAgent plists; launchd does not inherit shell
 startup files.
 
+The same check also verifies an enabled local Codex plugin's explicitly configured
+executable. Unset/managed commands and remote servers require a live smoke test.
+`--apply` repairs model settings only; it does not guess a replacement executable,
+install software, migrate credentials or certify provider access. Follow
+[the setup audit](docs/OPENCLAW_SETUP_AUDIT.md) after desktop/OpenClaw updates.
+
 ## What does not belong here
 
 This file contains private household metadata but no passwords, bearer tokens,
