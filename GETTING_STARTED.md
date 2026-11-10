@@ -35,6 +35,10 @@ The managed appliance path is tested on macOS with this baseline:
 | Himalaya `1.2+` | current supported | connected email only |
 | OpenClaw | reviewed current release | AI/Telegram or separately opted-in Oda dinner AI only |
 
+The Node 22 requirement is for the **Portal**, not current OpenClaw. For optional
+AI/Telegram, install a separate patched Node supported by the chosen OpenClaw
+release and retain absolute service paths; see [stack maintenance](docs/STACK_SECURITY.md).
+
 Install Apple's tools:
 
 ```bash
@@ -270,8 +274,12 @@ guided OpenAI and Telegram setup. This is the **minimal OpenClaw footprint**:
 one local gateway/CLI, one model-backed agent and the Telegram channel. Do not
 enable browser tools, public gateway access or unneeded plugins.
 
+Follow [OpenClaw's installation guide](https://docs.openclaw.ai/install) with its
+supported runtime first. Do not run a bare global npm install under the Portal's
+Node 22: current OpenClaw releases require a newer Node. Keep the dashboard's
+runtime unchanged. Once the reviewed Gateway/CLI is installed:
+
 ```bash
-npm install --global openclaw
 openclaw onboard --flow quickstart --mode local --install-daemon
 openclaw channels add --channel telegram
 ```

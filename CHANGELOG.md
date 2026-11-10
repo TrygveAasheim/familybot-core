@@ -1,5 +1,79 @@
 # Changelog
 
+## Unreleased — structured gateway and Telegram health
+
+- Fix false gateway/Telegram alerts after OpenClaw changed human-readable status
+  labels and placed a Telegram heartbeat before its channel table.
+- Use bounded JSON RPC and enabled-account credential probes with privacy-safe
+  messages; CLI/schema failures remain unavailable, not success.
+- Restrict restart authorization to explicit stopped/unloaded service evidence;
+  deduplicate fresh recovery observations and fix the persisted cooldown key.
+- Persist attempted recovery cooldowns before execution, including failed calls.
+- Add fictional success, outage, malformed output, privacy, multi-account,
+  stale/duplicate observation, cooldown and natural-counter-recovery tests.
+
+No household database migration, model change, message replay or Portal change.
+Deploy the parser, health caller and reconciler as a reviewed compatible set;
+see [monitoring recovery and rollback](docs/OPENCLAW_SETUP_AUDIT.md#gateway-and-telegram-monitoring).
+
+## Unreleased — OpenClaw agent-roster compatibility
+
+- Reconcile isolated inference agents against both legacy `agents.list` and
+  current `agents.entries` without rewriting the main agent or entire roster.
+- Fail closed on unreadable/ambiguous agent inventories; explicitly deny
+  `session_status` as well as privileged tool groups to untrusted-content agents.
+- Add a deny-all wildcard so newly introduced runtime tools cannot bypass the
+  tool-free contract; live smoke metadata confirmed zero exposed tools.
+- Audit the optional managed Codex plugin lock separately from gateway security
+  settings; document the unresolved upstream Zod advisory and coverage limits.
+- Add fake-CLI tests for both formats, repeatable creation, malformed responses
+  and invalid identifiers. No model calls or household state are used by tests.
+
+No household migration. Source rollback is independent of an OpenClaw runtime
+rollback: do not downgrade OpenClaw against migrated state. See the
+[stack upgrade gate](docs/STACK_SECURITY.md).
+
+## Unreleased — stack maintenance
+
+- Add an opt-in weekly read-only stack/security inventory with explicit runtime
+  paths, private atomic reports, bounded checks and unavailable-state handling.
+- Keep advisory checks separate from automatic upgrades, model calls, delivery
+  and SRE recovery; add failure/privacy/schedule regression tests.
+- Document separate Portal/OpenClaw Node requirements and verified session-state
+  migration/rollback gates; remove the unsafe bare Node-22 OpenClaw install step.
+
+## 2026-11-10 — Runtime-path preflight and concise briefing fallback
+
+- Detect a missing/non-executable configured local Codex app server in the
+  existing model preflight, health and deployment path; no inference probes.
+- Replace raw Ukeplan fallback dumps with named portal references and an honest
+  unavailable-summary notice. Preserve source plans, important actions and
+  durable multipart delivery semantics.
+- Reject excessive model output (1600 daily / 3200 weekly characters), record
+  a content-free reason, and add fictional regression tests.
+- Document configuration/credential checks, no-delivery verification and safe
+  retirement of obsolete metadata in [the setup audit](docs/OPENCLAW_SETUP_AUDIT.md).
+
+No database migration or Portal change. Roll back source and backed-up OpenClaw
+configuration separately; never rewind household data for this fix.
+
+## 2026-11-08 — Briefing quality and duplicate schedule fix (not deployed)
+
+- Count real consecutive fallback generations per daily/weekly stream, rather
+  than counting repeated health polls of one old fallback as new failures.
+- Retain truthful quality warnings and separate delivery monitoring; record
+  content-free reason codes, handle legacy/malformed state and disabled streams.
+- Detect legacy Unix cron briefing ownership separately and provide an explicit
+  read-only-first retirement command with exact matching, loaded replacement
+  checks, private backup, concurrency checks and post-install verification.
+- Add fictional polling/recovery and mocked schedule-repair regression tests;
+  update reliability, outcome and schedule runbooks.
+
+No migration, live schedule change, deployment, model switch or Telegram resend.
+Source rollback needs no database restore; older readers ignore added outcome
+fields but reintroduce poll-based warnings. Cron retirement, if separately
+authorized, has its own private backup and operator-reviewed rollback procedure.
+
 ## 2026-11-06 — Main publication documentation
 
 - Publish the coordinated installation/upgrade candidate through reviewed PRs.

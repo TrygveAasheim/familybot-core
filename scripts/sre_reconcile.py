@@ -23,6 +23,7 @@ COOLDOWN = timedelta(minutes=15)
 GATEWAY_FAILURE_THRESHOLD = 2
 HEALTH_ALERT_THRESHOLD = 3
 HEALTH_FAILURE_KEYS = {
+    "briefing_schedule",
     "briefing_quality",
     "ukeplan_quality",
     "gateway",
@@ -79,6 +80,33 @@ def cooldown_allows(action_key: str, state: dict[str, Any], current: datetime) -
     return previous is None or current - previous >= COOLDOWN
 
 
+def gateway_recovery_count(status: dict[str, Any], previous: dict[str, Any], current: datetime) -> int:
+    """Count distinct, fresh, explicitly recoverable observations, never prose."""
+    failures = previous.setdefault("failures", {})
+    record = failures.get("gateway", {})
+    checked_at = status.get("checked_at")
+    checked = parse_timestamp(checked_at)
+    fresh = checked is not None and timedelta(0) <= current - checked <= timedelta(minutes=10)
+    result = next((item for item in status.get("results", []) if item.get("service") == "gateway"), {})
+    eligible = (fresh and result.get("status") == "critical"
+                and result.get("auto_fix") == "restart"
+                and result.get("recovery_evidence") == "service_stopped")
+    if not eligible:
+        count = 0
+    elif record.get("checked_at") == checked_at:
+        count = int(record.get("count", 0))
+    else:
+        count = int(record.get("count", 0)) + 1 if record.get("key") == "service_stopped" else 1
+    failures["gateway"] = {"count": count, "key": "service_stopped" if eligible else "",
+                           "checked_at": checked_at, "last_seen": current.isoformat(timespec="seconds")}
+    return count
+
+
+def record_action_attempt(previous: dict[str, Any], action: dict[str, Any], current: datetime) -> None:
+    # Failed/timeout attempts need the same cooldown as successful restarts.
+    previous.setdefault("actions", {})[f"{action['kind']}:{action['label']}"] = current.isoformat(timespec="seconds")
+
+
 def overdue(spec: JobSpec, state: dict[str, Any], current: datetime) -> bool:
     finished = parse_timestamp(state.get("finished_at"))
     if not finished or spec.kind != "interval" or not spec.interval_seconds:
@@ -89,6 +117,8 @@ def overdue(spec: JobSpec, state: dict[str, Any], current: datetime) -> bool:
 def health_event_key(result: dict[str, Any]) -> str:
     """Build a stable key for one unchanged failure, without raw payloads."""
     service = str(result.get("service", "unknown"))[:80]
+    if service == "briefing_quality" and "consecutive_briefings" in result:
+        return "briefing_quality:consecutive-briefings:" + str(result.get("briefing_incident", ""))[:200]
     if service == "scheduler":
         active = result.get("jobs", [])
         return f"{service}:{json.dumps(active, sort_keys=True, ensure_ascii=True)[:500]}"
@@ -115,7 +145,17 @@ def update_health_failures(
         failed = result.get("status") in {"warn", "critical"}
         record = records.get(service, {})
         event_key = health_event_key(result) if failed else ""
-        if duplicate_observation:
+        briefing_count = result.get("consecutive_briefings")
+        per_briefing = service == "briefing_quality" and type(briefing_count) is int and 0 <= briefing_count <= 1000
+        if per_briefing:
+            # Generation owns this count. Polling the same outcome is not a new failure.
+            count = briefing_count if failed else 0
+            records[service] = {
+                "count": count, "event_key": event_key, "last_seen": checked_at,
+                "alerted": bool(record.get("alerted", False))
+                if count >= threshold and record.get("event_key") == event_key else False,
+            }
+        elif duplicate_observation:
             count = int(record.get("count", 0))
         elif failed:
             count = int(record.get("count", 0)) + 1 if record.get("event_key") == event_key else 1
@@ -136,6 +176,7 @@ def update_health_failures(
                 "count": count,
                 "msg": str(result.get("msg", "failure"))[:300],
                 "event_key": event_key,
+                "unit": "consecutive fallback briefings" if per_briefing else "consecutive unhealthy checks",
             })
 
     previous["last_health_checked_at"] = checked_at
@@ -150,7 +191,8 @@ def send_health_alert(alert: dict[str, Any]) -> tuple[bool, str]:
     if not targets:
         return False, "no configured Telegram alert target"
     message = (
-        f"Health check alert: {alert['service']} has reached {alert['count']} consecutive failures. "
+        f"Health check alert: {alert['service']} has reached {alert['count']} "
+        f"{alert.get('unit', 'consecutive unhealthy checks')}. "
         f"Status: {alert['status']}. SRE analysis: {alert['msg']}"
     )
     for target in targets[:1]:
@@ -216,7 +258,9 @@ def plan_actions(
                 "reason": "stale or overdue interval job",
             })
 
-    if gateway_failures >= GATEWAY_FAILURE_THRESHOLD and cooldown_allows("gateway:restart", previous, current):
+    if (gateway_failures >= GATEWAY_FAILURE_THRESHOLD
+            and cooldown_allows("gateway_restart:openclaw.gateway", previous, current)
+            and cooldown_allows("gateway:restart", previous, current)):
         actions.append({
             "kind": "gateway_restart",
             "label": "openclaw.gateway",
@@ -282,16 +326,7 @@ def main() -> int:
         if not args.dry_run:
             atomic_write_json(db_dir / "health_failures.json", counters)
             os.chmod(db_dir / "health_failures.json", 0o600)
-        failures = previous.setdefault("failures", {})
-        gateway_result = next((item for item in status.get("results", []) if item.get("service") == "gateway"), {})
-        gateway_key = str(gateway_result.get("msg", "unknown"))
-        gateway_record = failures.get("gateway", {})
-        if gateway_result.get("status") == "critical":
-            gateway_count = int(gateway_record.get("count", 0)) + 1 if gateway_record.get("key") == gateway_key else 1
-            failures["gateway"] = {"count": gateway_count, "key": gateway_key, "last_seen": current.isoformat(timespec="seconds")}
-        else:
-            gateway_count = 0
-            failures["gateway"] = {"count": 0, "key": gateway_key, "last_seen": current.isoformat(timespec="seconds")}
+        gateway_count = gateway_recovery_count(status, previous, current)
 
         enabled_specs = active_job_specs()
         launchd = {spec.label: launchd_info(spec.label) for spec in enabled_specs}
@@ -318,12 +353,12 @@ def main() -> int:
             }
             if args.dry_run:
                 continue
+            record_action_attempt(previous, action, current)
+            atomic_write_json(state_path, previous)
             try:
                 result = subprocess.run(argv, capture_output=True, text=True, timeout=30)
                 entry["exit_code"] = result.returncode
-                if result.returncode == 0:
-                    previous.setdefault("actions", {})[f"{action['kind']}:{action['label']}"] = current.isoformat(timespec="seconds")
-                else:
+                if result.returncode != 0:
                     entry["error"] = (result.stderr or result.stdout or "command failed").strip()[:300]
             except (OSError, subprocess.TimeoutExpired) as exc:
                 entry["exit_code"] = -1

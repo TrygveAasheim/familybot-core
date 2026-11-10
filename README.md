@@ -90,7 +90,16 @@ exact data-flow and residual risks are documented in
 - Explicit backup, status and restore commands in `scripts/manage_database.py`.
 - Profile-aware `launchd` schedules and health checks: disabled integrations do
   not create false failures.
+- Structured OpenClaw gateway/Telegram probes: unfamiliar CLI responses stay
+  unavailable, not healthy or automatically restartable. See the
+  [monitoring recovery contract](docs/OPENCLAW_SETUP_AUDIT.md#gateway-and-telegram-monitoring).
+- Briefing quality alerts count actual fallback generations, not repeated polls;
+  [schedule diagnostics](docs/SCHEDULES.md) detect and safely retire legacy cron duplicates.
 - Deterministic fallbacks when inference or an external integration is down.
+- [OpenClaw setup checks](docs/OPENCLAW_SETUP_AUDIT.md) detect missing local Codex
+  executables; briefing fallbacks point to full plans instead of dumping PDFs.
+- Optional [weekly stack/security inventory](docs/STACK_SECURITY.md), with
+  explicit runtime paths and no unattended upgrades or Telegram noise.
 - Fictional demo data in `config/family.demo.json`.
 - Linux unit/security CI plus a macOS clean-install lifecycle check.
 

@@ -23,7 +23,9 @@
 `tests/test_outcome_health.py` covers:
 
 - missing child names/internal identifiers/action titles reject generated text;
-- deterministic daily/weekly fallback retains plan text, tasks and RSVP titles;
+- deterministic daily/weekly fallback retains named plan references, tasks and
+  RSVP titles, without copying PDF text (see the November compact-fallback
+  correction in [setup checks](OPENCLAW_SETUP_AUDIT.md));
 - failed telemetry persistence does not prevent delivery;
 - owner-only, content-free observation records, recovery and stale observations;
 - current versus historical interpretation failures and one-hour pending grace;
@@ -60,6 +62,22 @@ git diff --check
 
 ## Operating policy
 
+### 2026-11-08: duplicate schedule and false failure-count correction
+
+An observed incident had legacy Unix cron and managed launchd briefings running
+alongside each other. The legacy invocation lacked the working runtime command
+path and wrote a weekly fallback observation while managed daily generation
+succeeded. Three later health polls were incorrectly described as three
+briefing failures. Delivery is a separate signal: check the outbox, never infer
+delivery success or failure from the generation record.
+
+The correction adds a read-only `briefing_schedule` health result and an explicit,
+backed-up retirement tool documented in [SCHEDULES.md](SCHEDULES.md). It does not
+rewrite live cron automatically, switch models, replay briefings, clear outcome
+files or alter outbox rows. Source publication alone does not repair a host's
+legacy schedules. This incident was triaged with bounded read-only diagnostics;
+no runtime deployment or cron mutation was part of the fix preparation.
+
 `memory/briefing-outcome-daily.json` and
 `memory/briefing-outcome-weekly.json` hold the latest generation observation.
 Daily observations remain relevant for two days; weekly ones for eight.
@@ -67,9 +85,16 @@ Absent observations are neutral during rollout; existing scheduler checks own
 missing/stale jobs. A fallback warning indicates degraded generation, **not**
 failed delivery. The outbox remains authoritative for delivery.
 
-`briefing_quality` and `ukeplan_quality` participate in the existing three-check
-SRE escalation policy. Messages are stable so unchanged failures do not reset
-the threshold or repeatedly alert. Historical failures outside current/next
+`briefing_quality` counts actual consecutive fallback generations per enabled
+daily/weekly stream and escalates at three, once per streak. Repeated health
+polls never advance that count. Generation success resets only its own stream;
+an expired record starts a fresh streak. Legacy boolean-only files contribute
+one observation, ignoring inflated historical poll counts. Reason codes distinguish
+empty model output from validation rejection without storing output or stderr;
+neither code proves a specific provider outage. Disabled streams are ignored.
+Unreadable telemetry, `briefing_schedule` conflicts and `ukeplan_quality` retain
+the three-unhealthy-check threshold. Alert text distinguishes checks from actual
+fallback briefings. Historical failures outside current/next
 week do not alert. Missing interpretation rows for existing layout-bearing
 plans require attention; pending/processing rows receive a one-hour grace.
 
@@ -77,6 +102,14 @@ On escalation, inspect private job/model diagnostics and resolved attribution.
 Retry a verified plan explicitly with `interpret_ukeplan.py --plan-id ID`;
 do not replay already-delivered briefings or change historical weeks blindly.
 Do not change provider automatically.
+
+Regression checks: `tests/test_briefing_alert_regression.py` reproduces the
+one-record/three-poll bug, independent streams, recovery, legacy records, stale
+observations, reason minimization and malformed telemetry.
+`tests/test_briefing_schedule.py` covers read-only audits, exact target matching,
+unrelated-job preservation, loaded replacement jobs, private backups and refusal
+on changed/ambiguous crontabs. Tests use fictional temporary state and mocked
+processes; they never install a real crontab or send Telegram messages.
 
 ## Risk assessment and next PRs
 

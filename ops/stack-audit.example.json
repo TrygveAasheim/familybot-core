@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "workspace": "/absolute/private/familybot-workspace",
+  "portal_repo": "/absolute/source/familybot-portal",
+  "binaries": {
+    "openclaw": "/absolute/bin/openclaw",
+    "codex": "/absolute/bin/codex",
+    "gateway_node": "/absolute/node24/bin/node",
+    "portal_node": "/absolute/node22/bin/node",
+    "core_python": "/absolute/private/core/.venv/bin/python",
+    "portal_python": "/absolute/private/portal/.venv/bin/python",
+    "uv": "/absolute/bin/uv",
+    "himalaya": "/absolute/bin/himalaya",
+    "npm": "/absolute/node22/bin/npm",
+    "pip_audit": "/absolute/auditor/.venv/bin/pip-audit"
+  }
+}

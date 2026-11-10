@@ -15,7 +15,8 @@ configure_agent() {
   local model="$2"
   local agent_root
   local agent_workspace
-  local agent_index
+  local agent_path
+  local existing
 
   if [[ ! "$agent_id" =~ ^[a-z0-9][a-z0-9-]{0,63}$ ]]; then
     echo "Invalid inference agent id." >&2
@@ -30,9 +31,13 @@ configure_agent() {
   agent_workspace="$agent_root/workspace"
   install -d -m 700 "$agent_root" "$agent_workspace"
 
-  if ! "$OPENCLAW_BIN" agents list --json | /usr/bin/python3 -c \
-    'import json,sys; target=sys.argv[1]; raise SystemExit(0 if any(item.get("id")==target for item in json.load(sys.stdin)) else 1)' \
-    "$agent_id"; then
+  existing="$("$OPENCLAW_BIN" agents list --json | /usr/bin/python3 -c \
+    'import json,sys; target=sys.argv[1]; items=json.load(sys.stdin)
+if not isinstance(items,list) or not all(isinstance(item,dict) and isinstance(item.get("id"),str) for item in items):
+    raise SystemExit("Invalid OpenClaw agent inventory.")
+print("present" if any(item.get("id")==target for item in items) else "absent")' \
+    "$agent_id")"
+  if [[ "$existing" == "absent" ]]; then
     "$OPENCLAW_BIN" agents add "$agent_id" \
       --workspace "$agent_workspace" \
       --agent-dir "$agent_root/agent" \
@@ -41,18 +46,34 @@ configure_agent() {
       --json >/dev/null
   fi
 
-  agent_index="$("$OPENCLAW_BIN" config get agents.list --json | /usr/bin/python3 -c \
-    'import json,sys; target=sys.argv[1]; items=json.load(sys.stdin); print(next(index for index,item in enumerate(items) if item.get("id")==target))' \
+  agent_path="$("$OPENCLAW_BIN" config get agents --json | /usr/bin/python3 -c '
+import json,sys
+target=sys.argv[1]
+roster=json.load(sys.stdin)
+def require(condition):
+    if not condition:
+        raise SystemExit("Invalid or ambiguous OpenClaw agent inventory.")
+require(isinstance(roster,dict))
+if "entries" in roster:
+    entries=roster["entries"]
+    require(isinstance(entries,dict) and isinstance(entries.get(target),dict))
+    print("agents.entries."+target)
+else:
+    items=roster["list"]
+    require(isinstance(items,list) and all(isinstance(item,dict) for item in items))
+    matches=[i for i,item in enumerate(items) if item.get("id")==target]
+    require(len(matches)==1)
+    print("agents.list["+str(matches[0])+"]")' \
     "$agent_id")"
-  "$OPENCLAW_BIN" config set "agents.list[$agent_index].model" "\"$model\"" --strict-json >/dev/null
-  "$OPENCLAW_BIN" config set "agents.list[$agent_index].tools.profile" '"minimal"' --strict-json >/dev/null
-  "$OPENCLAW_BIN" config set "agents.list[$agent_index].tools.allow" '[]' --strict-json >/dev/null
-  "$OPENCLAW_BIN" config set "agents.list[$agent_index].tools.alsoAllow" '[]' --strict-json >/dev/null
-  "$OPENCLAW_BIN" config set "agents.list[$agent_index].tools.elevated.enabled" 'false' --strict-json >/dev/null
-  "$OPENCLAW_BIN" config set "agents.list[$agent_index].tools.deny" \
-    '["group:runtime","group:fs","group:web","group:memory","group:ui","group:automation","group:messaging","group:nodes","group:agents","group:media","group:plugins","cron","gateway"]' \
+  "$OPENCLAW_BIN" config set "$agent_path.model" "\"$model\"" --strict-json >/dev/null
+  "$OPENCLAW_BIN" config set "$agent_path.tools.profile" '"minimal"' --strict-json >/dev/null
+  "$OPENCLAW_BIN" config set "$agent_path.tools.allow" '[]' --strict-json >/dev/null
+  "$OPENCLAW_BIN" config set "$agent_path.tools.alsoAllow" '[]' --strict-json >/dev/null
+  "$OPENCLAW_BIN" config set "$agent_path.tools.elevated.enabled" 'false' --strict-json >/dev/null
+  "$OPENCLAW_BIN" config set "$agent_path.tools.deny" \
+    '["*","group:runtime","group:fs","group:web","group:memory","group:ui","group:automation","group:messaging","group:nodes","group:agents","group:media","group:plugins","cron","gateway","session_status"]' \
     --strict-json >/dev/null
-  "$OPENCLAW_BIN" config set "agents.list[$agent_index].skills" '[]' --strict-json >/dev/null
+  "$OPENCLAW_BIN" config set "$agent_path.skills" '[]' --strict-json >/dev/null
 }
 
 configure_agent \

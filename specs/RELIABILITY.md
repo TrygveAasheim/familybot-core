@@ -44,10 +44,18 @@ and synchronized setup, configuration, recovery and changelog documentation.
 10. SRE owns consecutive health-failure counters and transition-based Telegram
     alerts. The conversational cron layer must not interpret health snapshots,
     maintain a second counter or send duplicate alerts.
+    Briefing quality counts actual consecutive fallback generations per daily/
+    weekly stream, not repeated health polls of one persisted observation.
+    Legacy Unix cron briefings are reported separately from launchd ownership;
+    removal requires an explicit, backed-up operator action, never auto-replay.
 11. OpenClaw model drift is deployment-blocking and health-visible. Scheduled
     agent jobs inherit the reviewed default unless an intentional supported
     override is documented; known-retired model pins are removed rather than
     copied into every schedule.
+12. Optional security inventory has its own explicitly installed launchd job.
+    It cannot upgrade dependencies, switch models, replay jobs or send alerts.
+    External registry/auditor failure is recorded as unavailable, not clean;
+    reports are owner-only and atomically replaced with a freshness timestamp.
 
 ## New durable state
 
@@ -85,8 +93,19 @@ structured result separately from deterministic `week_plan_days` facts.
   its owner-only LaunchAgent or kickstart it after the configured cooldown.
   Calendar jobs are reported for review instead of replayed automatically.
 - The gateway fails two consecutive health observations: the reconciler may
-  restart it once per cooldown, records the action and leaves persistent
-  failures for escalation.
+  restart it only when both observations positively identify a stopped/unloaded
+  service and failed RPC check, with the service marked as the probe target
+  rather than diagnostic-only. Recovery accepts snapshots no older than ten
+  minutes and never counts the same timestamp twice. Unknown CLI output,
+  authentication failures and timeouts alone cannot authorize a restart.
+  Attempts (including failures) are persisted before execution and throttled by
+  the same 15-minute cooldown key that the planner reads. Persistent failures
+  remain visible for escalation.
+- Gateway and Telegram health use JSON contracts, not human table text. Telegram
+  requires running, configured enabled accounts and successful credential
+  probes; explicitly disconnected accounts fail. This proves neither recipient
+  delivery nor model inference. Unknown schemas are warnings, never success.
+  No raw gateway/channel CLI output or account identifiers enter their alerts.
 - Himalaya list/read fails: job exits non-zero; no message is marked processed.
 - Attachment download or ukeplan parsing fails: ledger records the error and the
   email remains retryable.
@@ -106,9 +125,12 @@ structured result separately from deterministic `week_plan_days` facts.
   the plan. No particular school class is a supported-household prerequisite.
 - A Saturday/Sunday daily briefing: week-plan lookup rolls forward to Monday's
   ISO week while the displayed calendar date remains the current day.
-- Briefing fallback uses configured child display names, preserves full stored
-  PDF text rather than a character-truncated summary, and does not drop trailing
-  sections to satisfy a line cap. Long text is split losslessly into numbered
+- Briefing fallback uses configured child display names and short plan references
+  with an explicit unavailable-summary notice. Full PDF text stays in storage and
+  the portal; neither it nor truncated stored summaries enter fallback messages.
+  Generated daily/weekly text exceeding 1600/3200 characters is rejected.
+  Important task/RSVP sections are not dropped to satisfy a line cap. Exceptional
+  long fallback text is split losslessly into numbered
   Telegram parts. All parts for each recipient are queued atomically and remain
   immutable on retry; all configured recipients are queued before sending. Retries send
   only unsent parts, never already delivered parts.
@@ -123,15 +145,23 @@ Outcome acceptance contract:
 - Generated briefings with internal person keys, missing plan-child display
   names, or omitted important task/RSVP titles use deterministic fallback.
 - Fallback preserves important tasks, RSVP titles, upcoming events, evening
-  advice and cabin forecasts when present, in addition to complete plan text.
-- Briefing quality records contain only a timestamp and fallback boolean and
-  are owner-only. A telemetry write failure never prevents message delivery.
+  advice and cabin forecasts when present, with named references to full plans.
+- Model preflight also verifies that an explicitly configured, enabled local Codex app-server command
+  exists and is executable. It never invokes inference or automatically selects
+  another model/runtime. See [setup checks](../docs/OPENCLAW_SETUP_AUDIT.md).
+- Briefing quality records contain only timestamps, a fallback boolean, a
+  bounded consecutive count and an allowlisted reason code. They are owner-only.
+  A telemetry write failure never prevents message delivery.
 - Health checks report current/next-week failed interpretations or work pending
   over one hour. Recent fallback observations remain visible independently of
   successful delivery/job exits. Historical interpretation failures do not page.
-- Existing SRE consecutive-observation thresholds and alert deduplication apply
-  to these quality checks. They never authorize model switching, resending sent
-  messages, rewriting attribution, or unlimited inference retries.
+- Briefing quality escalates after three consecutive fallback generations in
+  one enabled stream, once per streak. Legacy boolean-only records count as one,
+  never inherit old poll counts. A successful generation or expired observation
+  resets that stream; disabled streams do not contribute. Unreadable telemetry
+  and other services retain the three-unhealthy-check threshold, labelled as
+  checks rather than briefing failures. These alerts never authorize model
+  switching, resending sent messages, rewriting attribution or inference loops.
 
 See [outcome safeguards](../docs/OUTCOME_SAFEGUARDS.md) for acceptance tests,
 staged follow-ups and operational limitations.
