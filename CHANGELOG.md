@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased — structured gateway and Telegram health
+
+- Fix false gateway/Telegram alerts after OpenClaw changed human-readable status
+  labels and placed a Telegram heartbeat before its channel table.
+- Use bounded JSON RPC and enabled-account credential probes with privacy-safe
+  messages; CLI/schema failures remain unavailable, not success.
+- Restrict restart authorization to explicit stopped/unloaded service evidence;
+  deduplicate fresh recovery observations and fix the persisted cooldown key.
+- Persist attempted recovery cooldowns before execution, including failed calls.
+- Add fictional success, outage, malformed output, privacy, multi-account,
+  stale/duplicate observation, cooldown and natural-counter-recovery tests.
+
+No household database migration, model change, message replay or Portal change.
+Deploy the parser, health caller and reconciler as a reviewed compatible set;
+see [monitoring recovery and rollback](docs/OPENCLAW_SETUP_AUDIT.md#gateway-and-telegram-monitoring).
+
 ## Unreleased — OpenClaw agent-roster compatibility
 
 - Reconcile isolated inference agents against both legacy `agents.list` and

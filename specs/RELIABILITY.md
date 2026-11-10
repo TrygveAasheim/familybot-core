@@ -93,8 +93,19 @@ structured result separately from deterministic `week_plan_days` facts.
   its owner-only LaunchAgent or kickstart it after the configured cooldown.
   Calendar jobs are reported for review instead of replayed automatically.
 - The gateway fails two consecutive health observations: the reconciler may
-  restart it once per cooldown, records the action and leaves persistent
-  failures for escalation.
+  restart it only when both observations positively identify a stopped/unloaded
+  service and failed RPC check, with the service marked as the probe target
+  rather than diagnostic-only. Recovery accepts snapshots no older than ten
+  minutes and never counts the same timestamp twice. Unknown CLI output,
+  authentication failures and timeouts alone cannot authorize a restart.
+  Attempts (including failures) are persisted before execution and throttled by
+  the same 15-minute cooldown key that the planner reads. Persistent failures
+  remain visible for escalation.
+- Gateway and Telegram health use JSON contracts, not human table text. Telegram
+  requires running, configured enabled accounts and successful credential
+  probes; explicitly disconnected accounts fail. This proves neither recipient
+  delivery nor model inference. Unknown schemas are warnings, never success.
+  No raw gateway/channel CLI output or account identifiers enter their alerts.
 - Himalaya list/read fails: job exits non-zero; no message is marked processed.
 - Attachment download or ukeplan parsing fails: ledger records the error and the
   email remains retryable.

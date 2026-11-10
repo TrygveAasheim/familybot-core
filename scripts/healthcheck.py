@@ -16,6 +16,7 @@ from pathlib import Path
 
 from briefing_schedule import schedule_health
 from family_config import capability_profile, family_timezone, integration
+from openclaw_health import check_openclaw
 from outcome_health import briefing_health, interpretation_health
 from reliability import connect_db, database_path, workspace_path
 from runtime_tools import executable
@@ -66,9 +67,7 @@ def critical(service, msg, fix=None, auto_fix=None):
 
 def run(argv: Sequence[str]):
     try:
-        env = os.environ.copy()
-        env["HOME"] = str(Path.home())
-        r = subprocess.run(list(argv), capture_output=True, text=True, timeout=15, env=env)
+        r = subprocess.run(list(argv), capture_output=True, text=True, timeout=15)
         return r.returncode, r.stdout.strip(), r.stderr.strip()
     except (OSError, subprocess.TimeoutExpired) as exc:
         return -1, "", type(exc).__name__
@@ -76,14 +75,9 @@ def run(argv: Sequence[str]):
 
 if PROFILE == "agent":
     # ── 1. OpenClaw gateway ────────────────────────────────────────────────────
-    code, out, err = run([OPENCLAW, "gateway", "status"])
-    out_lower = out.lower()
-    if "running" in out_lower and ("rpc probe: ok" in out_lower or "connectivity probe: ok" in out_lower):
-        ok("gateway", "Running and connectivity probe OK")
-    else:
-        critical("gateway", f"Gateway may be down: {out or err}",
-                 fix="openclaw gateway restart",
-                 auto_fix="restart")
+    for observation in check_openclaw(OPENCLAW, run):
+        results.append(observation)
+        exit_code = max(exit_code, {"ok": 0, "warn": 1, "critical": 2}[observation["status"]])
 
 # A reachable gateway can still reject every conversational and scheduled turn
 # when its default or a cron override points at a retired provider model.
@@ -98,16 +92,6 @@ if PROFILE == "agent":
             fix=f"python3 {model_check} --apply --restart",
         )
 
-# ── 2. Telegram channel ────────────────────────────────────────────────────────
-# Fast status intentionally reports SETUP/unknown. Deep status performs the
-# actual channel probe and is the only result suitable for health reporting.
-    code, out, err = run([OPENCLAW, "status", "--deep"])
-    telegram_line = next((line for line in out.splitlines() if "telegram" in line.lower()), "")
-    if code == 0 and " OK " in f" {telegram_line.upper()} ":
-        ok("telegram", "Telegram channel connected")
-    else:
-        warn("telegram", f"Telegram channel state unclear: {telegram_line or err}",
-             fix="Check bot token and restart gateway")
 else:
     ok("agent", "Optional AI and Telegram capabilities are not enabled")
 

@@ -41,6 +41,55 @@ or reachable gateway does not prove that the model runtime can start.
 CLI output and backups can contain private identifiers. Publish a sanitized
 finding summary, never full configuration, cron prompts or credential stores.
 
+## Gateway and Telegram monitoring
+
+After an OpenClaw upgrade, verify both structured contracts locally:
+
+```bash
+openclaw gateway status --json --timeout 8000
+openclaw channels status --probe --json --timeout 8000
+```
+
+Keep the raw output private. FamilyBot reads `rpc.ok`, and checks every enabled
+Telegram account's configured/running state, explicit disconnection/error and
+credential `probe.ok`. Older channel-summary-only JSON is supported. A Telegram
+credential probe is not an end-to-end message delivery or model test; the outbox
+and outcome monitors own those separate checks. Never send a test message just
+to clear health counters.
+
+OpenClaw 2026.11 changed the gateway label from “Connectivity probe” to
+“Connectivity check” (or “Read check”). Its first Telegram mention in the status
+table can be a heartbeat, not channel state. Neither prose is a health API.
+Unsupported JSON, CLI errors or process timeouts now produce a bounded warning;
+they do not produce false success or permission to restart. A failed RPC is
+critical, but automatic restart additionally requires explicit evidence of a
+stopped/unloaded service marked as the actual probe target (`targetRole=target`),
+not a diagnostic-only service or an older schema lacking this evidence.
+A running but unreachable gateway needs operator
+diagnosis (authentication, load, configuration or actual hang), not a blind
+restart loop.
+
+Recovery requires two distinct fresh observations and uses a persisted
+15-minute cooldown, including failed attempts. Healthy observations clear SRE
+counters through normal reconciliation; never delete the state files to silence
+an incident. Keep `familybot.health` scheduled under launchd.
+
+For a narrow monitoring hotfix, back up `healthcheck.py`, `sre_reconcile.py`,
+any existing `openclaw_health.py`, the health LaunchAgent and monitoring JSON
+state outside Git. Briefly unload **only** the health job while deploying the
+reviewed compatible monitor files. Do not redeploy schedules, upgrade the
+database or change models for this parser repair. On older installations,
+preserve existing profile/time-zone behavior when applying the monitor call
+site; deploy the new parser and reconciler together. Run the read-only probes,
+inspect reconciliation with `--dry-run`, then reload the same health LaunchAgent
+and verify a normal recorded run. Dry-run takes a temporary reconciliation lock
+but does not persist counters or execute recovery/alerts.
+
+Rollback restores the backed-up monitor files, not household data or historical
+counters. The old parser can reintroduce false alerts/restarts; keep health
+recovery paused during that rollback and restore monitoring only after verifying
+a compatible probe. The gateway, Portal and ingestion need no restart.
+
 ## Repair and prove
 
 Back up configuration, the gateway service definition, cron definitions and
