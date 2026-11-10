@@ -8,6 +8,8 @@
   `session_status` as well as privileged tool groups to untrusted-content agents.
 - Add a deny-all wildcard so newly introduced runtime tools cannot bypass the
   tool-free contract; live smoke metadata confirmed zero exposed tools.
+- Audit the optional managed Codex plugin lock separately from gateway security
+  settings; document the unresolved upstream Zod advisory and coverage limits.
 - Add fake-CLI tests for both formats, repeatable creation, malformed responses
   and invalid identifiers. No model calls or household state are used by tests.
 

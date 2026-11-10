@@ -89,13 +89,13 @@ def load_config(path):
     config = json.loads(path.read_text())
     if not isinstance(config, dict) or config.get("schema_version") != 1:
         raise CheckError("invalid_configuration_version")
-    if set(config) - {"schema_version", "workspace", "binaries", "portal_repo"}:
+    if set(config) - {"schema_version", "workspace", "binaries", "portal_repo", "codex_plugin_repo"}:
         raise CheckError("unknown_configuration_field")
     binaries = config.get("binaries", {})
     if not isinstance(binaries, dict) or set(binaries) - BINARIES:
         raise CheckError("invalid_binary_allowlist")
     for name, value in {**binaries, "workspace": config.get("workspace"),
-                        **({"portal_repo": config["portal_repo"]} if "portal_repo" in config else {})}.items():
+                        **{key: config[key] for key in ("portal_repo", "codex_plugin_repo") if key in config}}.items():
         if not isinstance(value, str) or not Path(value).is_absolute():
             raise CheckError("absolute_paths_required")
         if name == "workspace" and Path(value) in (Path("/"), Path.home()):
@@ -109,6 +109,7 @@ def audit(config):
                   "No automatic upgrades, model calls, messages, household database reads or credential tests.",
                   "Package advisories do not audit bundled SQLite/OpenSSL, host OS or provider contracts.",
                   "Portal npm audit covers the selected source lock, not proof of the deployed bundle.",
+                  "OpenClaw security audit covers configuration, not all host/plugin dependencies; configure the plugin lock separately.",
               ]}
     binaries = config.get("binaries", {})
 
@@ -214,13 +215,16 @@ def audit(config):
             return {"status": "attention" if safe["critical"] or safe["warn"] else "ok", **safe}
         check("openclaw_security", security)
 
-    if "portal_repo" in config:
-        def npm_audit():
-            if "npm" not in binaries or not (Path(config["portal_repo"]) / "package-lock.json").is_file():
+    for repo_key, check_name in (("portal_repo", "portal_source_advisories"),
+                                ("codex_plugin_repo", "codex_plugin_advisories")):
+        if repo_key not in config:
+            continue
+        def npm_audit(repo_key=repo_key):
+            if "npm" not in binaries or not (Path(config[repo_key]) / "package-lock.json").is_file():
                 raise CheckError("lock_or_auditor_missing")
             code, out, _ = command([binaries["npm"], "audit", "--json", "--package-lock-only",
                                     "--ignore-scripts", "--registry=https://registry.npmjs.org"],
-                                   cwd=config["portal_repo"])
+                                   cwd=config[repo_key])
             payload = json.loads(out)
             counts = payload["metadata"]["vulnerabilities"]
             safe = {key: counts[key] for key in ("info", "low", "moderate", "high", "critical", "total")}
@@ -229,7 +233,7 @@ def audit(config):
             if code == 1 and not safe["total"]:
                 raise CheckError("audit_incomplete")
             return {"status": "attention" if safe["total"] else "ok", **safe}
-        check("portal_source_advisories", npm_audit)
+        check(check_name, npm_audit)
     statuses = [item["status"] for item in report["checks"].values()]
     report["status"] = "unavailable" if "unavailable" in statuses or not statuses else "attention" if "attention" in statuses else "ok"
     return report
