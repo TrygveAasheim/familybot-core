@@ -95,6 +95,8 @@ exact data-flow and residual risks are documented in
 - Deterministic fallbacks when inference or an external integration is down.
 - [OpenClaw setup checks](docs/OPENCLAW_SETUP_AUDIT.md) detect missing local Codex
   executables; briefing fallbacks point to full plans instead of dumping PDFs.
+- Optional [weekly stack/security inventory](docs/STACK_SECURITY.md), with
+  explicit runtime paths and no unattended upgrades or Telegram noise.
 - Fictional demo data in `config/family.demo.json`.
 - Linux unit/security CI plus a macOS clean-install lifecycle check.
 
