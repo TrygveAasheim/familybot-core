@@ -20,6 +20,11 @@ SQLite and OpenSSL versions, not just `/usr/bin/python3` or Homebrew's SQLite.
 Python package audits do not cover those bundled native libraries. A Python
 patch upgrade requires rebuilding the affected virtual environments from the
 reviewed hash locks and testing before switching the service.
+The auditor separately flags the known [SQLite WAL-reset risk](https://sqlite.org/wal.html#walresetbug)
+below 3.51.3, recognizing the 3.44.6 and 3.50.7 backports. The race requires
+concurrent connections writing/checkpointing a WAL database; FamilyBot's shared
+database architecture makes a fixed runtime important. This one version check
+is not a complete native-library vulnerability scan.
 
 Keep the Codex executable independently discoverable/versioned. A path inside
 a desktop application bundle can move on a desktop update. Never upgrade the

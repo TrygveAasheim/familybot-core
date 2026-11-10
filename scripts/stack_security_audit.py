@@ -73,6 +73,16 @@ def newer(current, latest):
     return numeric(latest) > numeric(current)
 
 
+def sqlite_wal_reset_risk(value):
+    """Upstream WAL-reset fix: 3.51.3+, with 3.44.6 and 3.50.7 backports."""
+    parts = tuple(int(x) for x in value.split("."))
+    if parts[:2] == (3, 44) and parts >= (3, 44, 6):
+        return False
+    if parts[:2] == (3, 50) and parts >= (3, 50, 7):
+        return False
+    return (3, 7, 0) <= parts < (3, 51, 3)
+
+
 def load_config(path):
     if path.stat().st_mode & 0o077:
         raise CheckError("configuration_must_be_owner_only")
@@ -166,7 +176,10 @@ def audit(config):
             payload = json.loads(out)
             if code or not all(version(payload.get(k)) for k in ("sqlite", "openssl")):
                 raise CheckError("library_versions_unavailable")
-            return {"status": "ok", **{k: version(payload[k]) for k in ("sqlite", "openssl")}}
+            versions = {k: version(payload[k]) for k in ("sqlite", "openssl")}
+            risk = sqlite_wal_reset_risk(versions["sqlite"])
+            return {"status": "attention" if risk else "ok", **versions,
+                    "known_risks": ["sqlite_wal_reset"] if risk else []}
         check("libraries_" + name, libraries)
         if "pip_audit" not in binaries:
             report["checks"]["advisories_" + name] = {"status": "not_configured"}

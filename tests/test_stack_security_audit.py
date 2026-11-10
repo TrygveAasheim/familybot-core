@@ -12,6 +12,12 @@ import stack_security_audit as audit
 
 
 class StackAuditTests(unittest.TestCase):
+    def test_sqlite_wal_fix_and_backports(self):
+        for value in ("3.50.4", "3.51.2", "3.44.5"):
+            self.assertTrue(audit.sqlite_wal_reset_risk(value))
+        for value in ("3.44.6", "3.50.7", "3.51.3", "3.54.1"):
+            self.assertFalse(audit.sqlite_wal_reset_risk(value))
+
     def test_config_rejects_public_permissions_relative_paths_and_unknown_commands(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.json"
