@@ -131,7 +131,7 @@ Outcome acceptance contract:
   names, or omitted important task/RSVP titles use deterministic fallback.
 - Fallback preserves important tasks, RSVP titles, upcoming events, evening
   advice and cabin forecasts when present, with named references to full plans.
-- Model preflight also verifies that an enabled local Codex app-server command
+- Model preflight also verifies that an explicitly configured, enabled local Codex app-server command
   exists and is executable. It never invokes inference or automatically selects
   another model/runtime. See [setup checks](../docs/OPENCLAW_SETUP_AUDIT.md).
 - Briefing quality records contain only timestamps, a fallback boolean, a

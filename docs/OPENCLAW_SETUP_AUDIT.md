@@ -12,8 +12,10 @@ or reachable gateway does not prove that the model runtime can start.
    consult its `--help`. Never run a broad repair/upgrade to silence warnings.
 3. Run `python3 scripts/configure_openclaw_model.py --check`. In addition to the
    default and scheduled model pins, this checks an enabled local Codex plugin's
-   configured executable (or `codex` on PATH). WebSocket app servers have no
-   local executable check. The check executes no model, does not change config,
+   explicitly configured executable. Unset commands may use a gateway-specific
+   environment or managed runtime and require a live smoke test; they are not
+   guessed from this process's PATH. WebSocket app servers have no local
+   executable check. An absent plugins section is supported. The check executes no model, does not change config,
    and prints no secret values. Existing health/deployment callers use it too.
 4. Inspect the actual gateway LaunchAgent command/environment, agent workspaces,
    model runtime mappings, disabled as well as enabled cron jobs, and launchd

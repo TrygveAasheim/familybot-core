@@ -71,7 +71,13 @@ class OpenClawClient:
         return self._json("config", "get", "agents.defaults.model")
 
     def plugin_config(self) -> Any:
-        return self._json("config", "get", "plugins", "--json")
+        try:
+            return self._json("config", "get", "plugins", "--json")
+        except ConfigurationError as exc:
+            # Direct-provider installations need not define any plugins.
+            if str(exc).startswith("OpenClaw command failed: Config path not found: plugins."):
+                return {}
+            raise
 
     def cron_jobs(self) -> list[dict[str, Any]]:
         payload = self._json(
@@ -115,16 +121,30 @@ def audit_codex_runtime(plugins: Any) -> list[str]:
     """
     if not isinstance(plugins, dict):
         return ["OpenClaw plugin configuration is unreadable"]
-    codex = plugins.get("entries", {}).get("codex", {})
+    entries = plugins.get("entries", {})
+    if not isinstance(entries, dict):
+        return ["OpenClaw plugin entries must be an object"]
+    codex = entries.get("codex", {})
+    if not isinstance(codex, dict):
+        return ["Codex plugin configuration must be an object"]
     if codex.get("enabled") is not True:
         return []
-    server = codex.get("config", {}).get("appServer", {})
+    config = codex.get("config", {})
+    if not isinstance(config, dict):
+        return ["Codex plugin configuration must be an object"]
+    server = config.get("appServer", {})
+    if not isinstance(server, dict):
+        return ["Codex app-server configuration must be an object"]
     if server.get("transport") == "websocket":
         return []
-    command = server.get("command") or "codex"
+    command = server.get("command")
+    # Unset commands use gateway environment/managed runtime resolution, which
+    # cannot be inferred safely from this check's (possibly different) PATH.
+    if command is None or (isinstance(command, str) and not command.strip()):
+        return []
     if not isinstance(command, str):
         return ["Codex app-server command must be a string"]
-    resolved = shutil.which(os.path.expanduser(command))
+    resolved = shutil.which(os.path.expanduser(command.strip()))
     if not resolved:
         return ["Configured Codex app-server command is missing or not executable; "
                 "repair plugins.entries.codex.config.appServer.command and run a no-delivery smoke test"]
