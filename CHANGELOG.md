@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — OpenClaw agent-roster compatibility
+
+- Reconcile isolated inference agents against both legacy `agents.list` and
+  current `agents.entries` without rewriting the main agent or entire roster.
+- Fail closed on unreadable/ambiguous agent inventories; explicitly deny
+  `session_status` as well as privileged tool groups to untrusted-content agents.
+- Add fake-CLI tests for both formats, repeatable creation, malformed responses
+  and invalid identifiers. No model calls or household state are used by tests.
+
+No household migration. Source rollback is independent of an OpenClaw runtime
+rollback: do not downgrade OpenClaw against migrated state. See the
+[stack upgrade gate](docs/STACK_SECURITY.md).
+
 ## Unreleased — stack maintenance
 
 - Add an opt-in weekly read-only stack/security inventory with explicit runtime
