@@ -85,7 +85,7 @@ class SubjectTests(unittest.TestCase):
 
 
 class CompleteBriefingTests(unittest.TestCase):
-    def test_fallback_preserves_names_full_text_and_late_sections(self):
+    def test_fallback_preserves_names_without_dumping_plan_text(self):
         content = "En fullstendig setning. " * 100 + "SLUTTEN."
         data = {"today":{"events":[{"title":f"event {i}"} for i in range(20)]},
                 "ukeplaner":{"child_1":{"summary":"cut off", "raw_text":content},
@@ -94,7 +94,10 @@ class CompleteBriefingTests(unittest.TestCase):
             text = render(data)
             self.assertIn("Ukeplan Child One:",text)
             self.assertIn("Ukeplan Child Two:",text)
-            self.assertIn(content,text)
+            self.assertNotIn(content,text)
+            self.assertNotIn("cut off",text)
+            self.assertIn("familieportalen",text)
+            self.assertIn("kort oppsummering er utilgjengelig",text)
             self.assertNotIn("Child_1",text)
 
     def test_all_model_text_payloads_are_kept(self):
@@ -102,7 +105,7 @@ class CompleteBriefingTests(unittest.TestCase):
         with mock.patch.object(briefing.subprocess,"run",return_value=completed):
             self.assertEqual(briefing.generate_text("test"),"First.\n\nLast.")
 
-    def test_model_failure_still_delivers_complete_named_fallback(self):
+    def test_model_failure_delivers_short_named_plan_reference(self):
         content = "Viktig beskjed. " * 100 + "Avslutning."
         data = {"ukeplaner":{"child_1":{"raw_text":content}}}
         with mock.patch.object(briefing,"collect_daily",return_value=data), \
@@ -111,7 +114,18 @@ class CompleteBriefingTests(unittest.TestCase):
              mock.patch.object(briefing,"deliver_briefing",return_value=True) as deliver:
             self.assertTrue(briefing.run_daily())
         self.assertIn("Child One",deliver.call_args.args[1])
-        self.assertIn(content,deliver.call_args.args[1])
+        self.assertNotIn(content,deliver.call_args.args[1])
+        self.assertEqual(len(briefing.message_parts(deliver.call_args.args[1])), 1)
+
+    def test_overlong_model_output_uses_short_fallback_without_touching_delivery(self):
+        data = {"ukeplaner": {"child_1": {"raw_text": "PDF content " * 500, "week_number": 46}}}
+        for kind, render in (("daily", briefing.render_daily_fallback), ("weekly", briefing.render_weekly_fallback)):
+            with mock.patch.object(briefing, "record_briefing") as record:
+                text = briefing.select_briefing(kind, "Child One " * 500, data, render)
+            record.assert_called_once_with(kind, True, "output_too_long")
+            self.assertNotIn("PDF content", text)
+            self.assertIn("uke 46", text)
+            self.assertLess(len(text), 1800)
 
     def test_both_recipients_have_all_parts_before_first_send(self):
         with tempfile.TemporaryDirectory() as directory:

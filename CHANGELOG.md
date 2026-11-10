@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-11-10 — Runtime-path preflight and concise briefing fallback
+
+- Detect a missing/non-executable configured local Codex app server in the
+  existing model preflight, health and deployment path; no inference probes.
+- Replace raw Ukeplan fallback dumps with named portal references and an honest
+  unavailable-summary notice. Preserve source plans, important actions and
+  durable multipart delivery semantics.
+- Reject excessive model output (1600 daily / 3200 weekly characters), record
+  a content-free reason, and add fictional regression tests.
+- Document configuration/credential checks, no-delivery verification and safe
+  retirement of obsolete metadata in [the setup audit](docs/OPENCLAW_SETUP_AUDIT.md).
+
+No database migration or Portal change. Roll back source and backed-up OpenClaw
+configuration separately; never rewind household data for this fix.
+
 ## 2026-11-08 — Briefing quality and duplicate schedule fix (not deployed)
 
 - Count real consecutive fallback generations per daily/weekly stream, rather

@@ -93,6 +93,8 @@ exact data-flow and residual risks are documented in
 - Briefing quality alerts count actual fallback generations, not repeated polls;
   [schedule diagnostics](docs/SCHEDULES.md) detect and safely retire legacy cron duplicates.
 - Deterministic fallbacks when inference or an external integration is down.
+- [OpenClaw setup checks](docs/OPENCLAW_SETUP_AUDIT.md) detect missing local Codex
+  executables; briefing fallbacks point to full plans instead of dumping PDFs.
 - Fictional demo data in `config/family.demo.json`.
 - Linux unit/security CI plus a macOS clean-install lifecycle check.
 

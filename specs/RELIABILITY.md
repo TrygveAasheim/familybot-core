@@ -110,9 +110,12 @@ structured result separately from deterministic `week_plan_days` facts.
   the plan. No particular school class is a supported-household prerequisite.
 - A Saturday/Sunday daily briefing: week-plan lookup rolls forward to Monday's
   ISO week while the displayed calendar date remains the current day.
-- Briefing fallback uses configured child display names, preserves full stored
-  PDF text rather than a character-truncated summary, and does not drop trailing
-  sections to satisfy a line cap. Long text is split losslessly into numbered
+- Briefing fallback uses configured child display names and short plan references
+  with an explicit unavailable-summary notice. Full PDF text stays in storage and
+  the portal; neither it nor truncated stored summaries enter fallback messages.
+  Generated daily/weekly text exceeding 1600/3200 characters is rejected.
+  Important task/RSVP sections are not dropped to satisfy a line cap. Exceptional
+  long fallback text is split losslessly into numbered
   Telegram parts. All parts for each recipient are queued atomically and remain
   immutable on retry; all configured recipients are queued before sending. Retries send
   only unsent parts, never already delivered parts.
@@ -127,7 +130,10 @@ Outcome acceptance contract:
 - Generated briefings with internal person keys, missing plan-child display
   names, or omitted important task/RSVP titles use deterministic fallback.
 - Fallback preserves important tasks, RSVP titles, upcoming events, evening
-  advice and cabin forecasts when present, in addition to complete plan text.
+  advice and cabin forecasts when present, with named references to full plans.
+- Model preflight also verifies that an enabled local Codex app-server command
+  exists and is executable. It never invokes inference or automatically selects
+  another model/runtime. See [setup checks](../docs/OPENCLAW_SETUP_AUDIT.md).
 - Briefing quality records contain only timestamps, a fallback boolean, a
   bounded consecutive count and an allowlisted reason code. They are owner-only.
   A telemetry write failure never prevents message delivery.
