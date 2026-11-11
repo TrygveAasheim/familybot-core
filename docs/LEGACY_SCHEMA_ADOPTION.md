@@ -80,6 +80,47 @@ authorize a live migration or remove the remaining staged-runtime deployment
 gates. A successful private rehearsal is necessary but not sufficient for
 full-stack promotion. Retain the baseline source/runtime/configuration pair.
 
+### Narrow live rollout evidence — 2026-11-11
+
+After separate owner authorization, the reviewed `0036a0f` routing writer and
+migration tools were deployed. Portal migration source was `ec0f303`. A fresh
+private-copy rehearsal first verified the exact schema-only commands, the
+retained legacy API on the migrated copy, repeated migration and exact restore.
+All rehearsal network connections were disabled.
+
+The live rollout stopped the inventoried database users, including the gateway,
+Portal and scheduled workers, and temporarily paused the existing Unix cron
+writer. A verified consistent backup preceded writes. The supported Core
+`manage_database.py migrate` command ran before Portal's
+`dashboard_migration.py`, without seeds, reward repair, member synchronization
+or calendar refresh. Core 1 / Portal 2 validation and a second unchanged run
+passed. Every original field/row in all 27 original tables was preserved;
+historical quarantine flags remained NULL.
+
+The existing Portal API, supervisor, frontend, configuration, credentials and
+service definitions were retained. After restart, LAN web/API access, four
+unchanged curated plan responses, negative authorization, session rotation and
+old-token rejection passed. Original service registrations and cron were
+restored. Gateway RPC and Telegram enabled-account credential probes passed;
+these are not proof of message delivery or model inference. No synthetic chore,
+briefing replay or provider-account mutation was used for live acceptance.
+
+Two preliminary attempts stopped at the no-open-handles gate before migration:
+the operational verifier and an in-process backup-library call retained SQLite
+handles. The verifier now explicitly closes its connections; the rollout uses
+the supported backup CLI in a short-lived process. No schema change occurred in
+those attempts, and original services/source were restored before retrying.
+Deterministic connection closing for long-lived backup-library consumers remains
+a follow-up; the verified CLI rollout does not depend on garbage collection.
+
+This is a completed schema adoption plus a narrow routing backport, **not** a
+full current-runtime deployment or Main promotion. The Portal alignment plan's
+staged-runtime gates, physical iPad checks and observation of a normal scheduled
+cycle remain outstanding. The private receipt records hashes and the exact
+pre-migration snapshot; it and household backups are outside Git. After services
+resume, restore must account for newer household writes rather than blindly
+replacing the database with that snapshot.
+
 Restore with the supported `manage_database.py restore --writers-stopped` path
 only when undoing executed data/schema changes; a source-only revert needs no
 database restore. Restoration has been exercised against the original legacy
