@@ -125,7 +125,10 @@ def resolve_sender(
     else:
         result = _do_resolve(c, effective_email, effective_name, body_text)
 
-    # Write audit log
+    # Old unversioned installations do not have this audit field. Do not mutate
+    # schema from ingestion; after adoption, record the real new decision while
+    # preserving historical NULL (unknown) flags and duplicate audit records.
+    has_quarantine = any(row[1] == 'quarantine' for row in c.execute('PRAGMA table_info(routing_audit)'))
     c.execute("""
         INSERT INTO routing_audit
             (message_id, subject, raw_sender, matched_rule_id,
@@ -149,6 +152,9 @@ def resolve_sender(
         result.member_id,
         result.category,
     ))
+    if has_quarantine and c.rowcount == 1:
+        c.execute('UPDATE routing_audit SET quarantine=? WHERE id=?',
+                  (int(result.quarantine), c.lastrowid))
     conn.commit()
     conn.close()
     return result
@@ -320,7 +326,7 @@ def assert_no_member_mix(events: list, expected_member_id: int):
 
 
 def get_routing_audit(limit: int = 20) -> list:
-    """Return recent routing decisions for review."""
+    """Return recent decisions; adopted legacy quarantine=NULL means unknown."""
     conn = _get_db()
     c = conn.cursor()
     rows = c.execute("""
