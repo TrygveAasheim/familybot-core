@@ -88,6 +88,15 @@ Ukeplan PDF layout evidence is stored with `week_plans.layout_json`. The
 optional `week_plan_interpretations` row records a validated, source-backed
 structured result separately from deterministic `week_plan_days` facts.
 
+Original-document presentation is independent of reading/interpretation. New
+PDF ingestion preserves text line breaks and records `source_sha256` alongside
+`source_pdf`; old rows without fingerprints remain compatible. Viewing must not
+run a model, mark an interpretation accepted, send a message or mutate the plan.
+Existing briefing limits and deterministic fallback still apply: exposing the
+source document is not permission to send its entire text through Telegram.
+Backups/restores must preserve `db/attachments` as well as SQLite when retaining
+original school documents. A fingerprint mismatch must fail closed in the viewer.
+
 ## Failure behaviour
 
 - OpenClaw inference failure: render deterministic briefing, then queue it.

@@ -155,8 +155,11 @@ The Ukeplan incident is the reference pattern for cross-repository fixes:
   week when the PDF omits explicit dates. PDF content remains authoritative.
 - Portal acceptance: keep the dashboard contract compact, expose accepted,
   source-backed interpretation data only through the scoped detail route, and
-  keep the child overview as a link to that route. The detail view uses
-  deterministic text/day facts as fallback.
+  keep the child overview as a link to that route. The current detail view shows
+  the original PDF through the confined document endpoint, with interpretation
+  or deterministic text in a secondary disclosure. Its failure cannot block
+  ingestion or Telegram reading. This is the documented school-PDF exception,
+  not permission to publish arbitrary attachments.
 - Verification: test blank-subject routing, parse real/template PDF variants,
   verify retry and no-duplicate recovery, run both repository suites, and make
   a live API/UI check for each affected child.

@@ -34,7 +34,9 @@ For installation or configuration work, also read `CONFIGURATION.md`,
   Agent profile or separately consented Oda dinner AI is enabled. Do not print
   secret values while testing.
 - Add-ons consume curated interfaces. They do not reach into or repurpose the
-  email ledger, delivery outbox, parser state or raw untrusted payloads.
+  email ledger, delivery outbox, parser state or raw untrusted payloads. The
+  registered original Ukeplan PDF is the narrow read-only document exception
+  described in `SECURITY.md`; it is not a general attachment/file interface.
 
 ## Change classification
 

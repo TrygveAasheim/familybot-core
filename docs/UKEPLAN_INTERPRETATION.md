@@ -1,5 +1,29 @@
 # Ukeplan interpretation
 
+## Original document and independent reading
+
+Portal's primary plan view renders the original PDF, preserving columns, tables
+and page boundaries. Its local passive renderer does not depend on successful
+interpretation. Stored text/accepted interpretation remain in a secondary
+disclosure; Telegram briefings continue reading their existing bounded inputs.
+Opening a document triggers no inference, ingestion, replay or delivery.
+
+New ingestion preserves PDF text line/paragraph breaks and records
+`layout_json.source_sha256` alongside the registered `source_pdf`. Portal reads
+only registered PDFs below the private `db/attachments` root, bound to the
+requested child/plan and local session. A recorded fingerprint mismatch blocks
+display. Legacy rows without hashes remain compatible but cannot prove a mutable
+historical file was never overwritten. Back up attachments with SQLite; a database
+restore alone cannot recreate a missing PDF. No schema migration is needed.
+
+This presentation change does not repair semantic extraction, invent missing
+homework or retry existing failed interpretations. Historical flattened text
+stays flattened until separately authorized reprocessing. Preserved newlines
+are not reliable table cell/day relationships; future structured dashboard facts
+still need source/day validation. Roll back code only, not household data.
+
+## Interpretation pipeline
+
 The original PDF is the source of task content. Explicit child and ISO week/year
 metadata in a configured parent's email subject overrides reused PDF headings
 and forwarded sender/body metadata. For example, `Ukeplan uke 43 Child Two 6A`
@@ -24,12 +48,20 @@ from the documented allowlist. Every item must cite one or more PDF pages.
 
 If the review pass fails, the validated extraction pass is retained. If the
 extraction pass fails, the interpretation remains failed and the portal uses
-the deterministic fallback text.
+the original PDF with secondary deterministic fallback text.
 
 The portal exposes an interpretation only when its status is `accepted`.
 Until then, or after any model, timeout, JSON, or validation failure, it shows
-the deterministic layout-preserving text and day facts. No LLM failure can
+the original PDF with secondary stored text. Historical text may be flattened;
+new line preservation alone does not reconstruct table relationships. No LLM failure can
 prevent email completion, plan persistence, or Telegram delivery.
+
+Source-preservation verification (2026-11-12): the full fictional Core suite ran
+204 tests successfully (one skipped), including idempotent storage, source
+fingerprints, missing-file failure before database access, preserved paragraphs
+and the unchanged `briefing_data.week_plan` reading contract. Ruff, Bandit,
+configuration/docs validation, Python compilation and shell syntax checks passed.
+No existing household PDF was replayed and no Telegram message was sent.
 
 ## Incident pattern and permanent safeguards
 
@@ -45,8 +77,8 @@ is therefore not sufficient. The ingestion contract is:
    subject period before deriving weekday dates;
 4. store the normalized plan and day facts before marking the email terminal;
 5. run the validated LLM interpretation asynchronously and keep it retryable;
-6. expose the accepted interpretation in the full-plan view, linked from the
-   compact child overview.
+6. expose the original PDF in the full-plan view, linked from the compact child
+   overview, with accepted interpretation or stored text in a secondary disclosure.
 
 Some school PDFs state an ISO week but omit explicit calendar dates. The
 deterministic parser derives the Monday-Friday dates from that valid week so
