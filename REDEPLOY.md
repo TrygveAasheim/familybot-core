@@ -99,6 +99,12 @@ restoring appliance control.
 
 ## Upgrade an existing host
 
+For pre-ledger installations, the supported baseline now adopts the known
+`routing_audit` shape lacking `quarantine`. Historical flags remain unknown
+(`NULL`), not guessed false/true; rows and migration fingerprints are preserved.
+Unknown/malformed shapes and damaged versioned databases still fail closed.
+See [adoption tests and rollback evidence](docs/LEGACY_SCHEMA_ADOPTION.md).
+
 For OpenClaw/runtime-only maintenance, use the narrower
 [stack upgrade gate](docs/STACK_SECURITY.md#upgrade-and-rollback-gate). Modern
 OpenClaw may require a separate Node major from the Portal. Preserve the
