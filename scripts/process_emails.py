@@ -5,6 +5,7 @@ Polls the familybot Gmail inbox, processes new emails, parses attachments,
 and stores results in the family SQLite database.
 """
 
+import hashlib
 import html
 import json
 import os
@@ -127,12 +128,17 @@ def save_ukeplan(pdf_path, member_id, email_id, year=None, subject=""):
     if data.get("info"):
         summary_parts.append(data["info"][:300])
     summary = " | ".join(summary_parts)
-    raw_text = clean_text(data.get("raw_text") or data.get("info") or "")
+    # PDF content is not an email transport body: retain its paragraph/line
+    # boundaries for independent reading/briefing consumers and text fallback.
+    raw_text = clean_plan_text(data.get("raw_text") or data.get("info") or "")
+    with Path(pdf_path).open("rb") as source:
+        source_sha256 = hashlib.file_digest(source, "sha256").hexdigest()
     layout_json = json.dumps({
         "version": 1,
         "layout_text": data.get("layout_text") or "",
         "source_blocks": data.get("source_blocks") or [],
         "source_pdf": str(Path(pdf_path).resolve()),
+        "source_sha256": source_sha256,
         "attribution": {"member_id": member_id, "week": week, "year": year, "period_source": "parent_subject" if week_override is not None else "pdf"},
     }, ensure_ascii=False, separators=(",", ":"))
     if not summary:
@@ -193,6 +199,13 @@ def save_ukeplan(pdf_path, member_id, email_id, year=None, subject=""):
     conn.close()
     print(f"  [UKEPLAN] Saved week {week}/{year} for member {member_id} (plan_id={plan_id})")
     return bool(plan_id)
+
+
+def clean_plan_text(text: str) -> str:
+    """Keep PDF paragraphs; whitespace preservation cannot reconstruct tables."""
+    text = html.unescape(text).replace("\r\n", "\n").replace("\r", "\n")
+    lines = [re.sub(r"[^\S\n]+", " ", line).strip() for line in text.split("\n")]
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
 
 def clean_text(text: str) -> str:

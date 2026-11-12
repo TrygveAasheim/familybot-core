@@ -89,6 +89,13 @@ Accepted plan interpretations are stored alongside the original facts, never
 as permission to execute tools. Grocery AI has a separate opt-in and bounded
 Portal adapter; see the Portal's grocery and data-boundary documentation.
 
+Original Ukeplan presentation is independent of interpretation: Core retains
+the registered PDF path/fingerprint and reading text; Portal's scoped document
+endpoint checks the child/plan binding and opens only private `db/attachments`
+PDFs. A local passive PDF renderer preserves page layout. Stored text remains
+available to briefings even if viewing or interpretation fails. No viewer request
+triggers model processing, document reingestion or message delivery.
+
 ## Runtime layout
 
 ```text
@@ -149,6 +156,12 @@ checksum. Core currently requires `core:1`; Portal requires `core:1` and owns
 `portal:1..2`. Migrations run transactionally, back up an existing database
 before a pending change and fail closed on an unknown future version or changed
 checksum.
+
+The known pre-ledger routing-audit shape is adopted transactionally by adding
+its missing quarantine field as nullable: historical NULL means unknown, not
+false. Fresh-schema defaults and recorded migration checksums remain unchanged.
+New decisions record their actual flag; adoption never rewrites processing or
+delivery state. See [legacy adoption](docs/LEGACY_SCHEMA_ADOPTION.md).
 
 Upgrades are explicit and preserve the installed workspace/runtime. The full
 pre-upgrade database snapshot precedes data synchronization, not just schema

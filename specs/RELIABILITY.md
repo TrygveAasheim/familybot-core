@@ -18,6 +18,14 @@ whole-installer rollback. See [REDEPLOY.md](../REDEPLOY.md) for the operator gat
 Every change to these invariants requires fictional upgrade/failure regressions
 and synchronized setup, configuration, recovery and changelog documentation.
 
+Pre-ledger routing-audit adoption may add the missing quarantine column only
+for the recognized legacy shape, transactionally before validation/ledger
+commit. Historical flags remain NULL (unknown); no message category or prose
+is used to reconstruct a decision. New audit rows record the actual routing
+flag, duplicate rows remain unchanged, and no ingestion/outbox state is altered.
+Versioned corruption is not repaired by replaying this adoption step. See
+[legacy-schema adoption](../docs/LEGACY_SCHEMA_ADOPTION.md).
+
 1. Structured family facts are collected without an LLM. Inference may improve
    wording, but an empty, malformed, or timed-out inference response must fall
    back to deterministic text.
@@ -79,6 +87,15 @@ connections enable foreign-key enforcement and a 10-second busy timeout.
 Ukeplan PDF layout evidence is stored with `week_plans.layout_json`. The
 optional `week_plan_interpretations` row records a validated, source-backed
 structured result separately from deterministic `week_plan_days` facts.
+
+Original-document presentation is independent of reading/interpretation. New
+PDF ingestion preserves text line breaks and records `source_sha256` alongside
+`source_pdf`; old rows without fingerprints remain compatible. Viewing must not
+run a model, mark an interpretation accepted, send a message or mutate the plan.
+Existing briefing limits and deterministic fallback still apply: exposing the
+source document is not permission to send its entire text through Telegram.
+Backups/restores must preserve `db/attachments` as well as SQLite when retaining
+original school documents. A fingerprint mismatch must fail closed in the viewer.
 
 ## Failure behaviour
 

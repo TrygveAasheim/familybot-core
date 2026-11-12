@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased — preserve Ukeplan source and independent reading
+
+- Preserve PDF text line/paragraph breaks during ingestion; email transport
+  cleanup is unchanged. Stored text remains available to Telegram briefings.
+- Record a SHA-256 fingerprint alongside the existing source PDF path so Portal
+  can detect a changed attachment before displaying it. Legacy rows remain valid.
+- Add fictional idempotency, subject attribution and briefing-reader regressions.
+- Document the original-document Portal view separately from interpretation.
+
+No schema migration, model invocation, message replay or automatic reprocessing.
+Deploy through the normal reviewed Core release. Roll back code only; additional
+JSON metadata and preserved newlines are backwards-compatible. Retain attachments
+with database backups. See [the contract](docs/UKEPLAN_INTERPRETATION.md).
+
+## Unreleased — legacy routing-audit schema adoption
+
+- Adopt the recognized unversioned audit table missing `quarantine` inside the
+  existing backed-up baseline transaction; keep checksums and versions intact.
+- Preserve historical flags as NULL/unknown; persist actual new routing flags
+  without rewriting duplicate rows or processing/delivery state.
+- Add historical-shape, preservation, rollback, repeat, malformed-schema and
+  writer-compatibility regressions. Private-copy installer/API/restore checks
+  passed; live migration and physical acceptance remain unperformed.
+
+See [the adoption contract and evidence](docs/LEGACY_SCHEMA_ADOPTION.md).
+No deployment accompanies this source change. Executed-schema rollback requires
+the supported restore with all writers stopped; source-only rollback does not.
+
 ## Unreleased — structured gateway and Telegram health
 
 - Fix false gateway/Telegram alerts after OpenClaw changed human-readable status

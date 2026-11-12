@@ -45,8 +45,14 @@ and [OWASP IoT Security Testing Guide](https://owasp.org/owasp-istg/).
 ## Data minimization
 
 The portal returns selected columns only. It excludes raw email text, sender
-addresses, Telegram IDs, Spond `raw_json`, tokens, attachments and filesystem
-paths. Runtime data, backups, config, PIN and audit logs are Git-ignored.
+addresses, Telegram IDs, Spond `raw_json`, tokens and filesystem paths. Registered
+original Ukeplan PDFs are an explicit attachment exception: a child/plan-bound,
+session/Origin-protected route serves only confined `db/attachments` PDFs.
+School-provided personal information printed in those documents is visible to
+trusted LAN sessions, not restricted by individual child identity. Unrelated
+attachments remain private. The local passive viewer does not execute PDF actions
+or upload documents. Plain-HTTP LAN interception remains a risk; see Portal's
+`docs/DATA_BOUNDARY.md`. Runtime data, backups, config, PIN and audit logs are Git-ignored.
 
 Review new fields before adding them to `/api/dashboard`. A value being present
 in SQLite does not make it suitable for a child's screen or browser response.

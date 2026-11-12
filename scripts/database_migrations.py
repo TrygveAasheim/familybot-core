@@ -300,6 +300,24 @@ class Migration:
 def _apply_core_baseline(connection: sqlite3.Connection) -> None:
     for statement in CORE_BASELINE_STATEMENTS:
         connection.execute(statement)
+    # Adoption of the known pre-ledger audit table, in the same transaction as
+    # baseline validation/ledger insertion. Do not rewrite reviewed fingerprints
+    # or "repair" already-versioned databases. No historical flag was recorded:
+    # NULL means unknown, not a reconstructed routing/processing decision.
+    audit_columns = {row[1]: row for row in connection.execute('PRAGMA table_info(routing_audit)')}
+    if 'quarantine' not in audit_columns:
+        expected_types = {
+            'id': 'INTEGER', 'message_id': 'TEXT', 'subject': 'TEXT', 'raw_sender': 'TEXT',
+            'matched_rule_id': 'INTEGER', 'resolved_member_id': 'INTEGER',
+            'resolved_category': 'TEXT', 'confidence': 'TEXT', 'notes': 'TEXT', 'routed_at': 'TEXT',
+        }
+        if (any(name not in audit_columns or audit_columns[name][2].upper() != kind
+                for name, kind in expected_types.items())
+                or [name for name, row in audit_columns.items() if row[5]] != ['id']):
+            raise MigrationError('Unrecognized legacy routing_audit shape; adoption requires review')
+        connection.execute(
+            'ALTER TABLE routing_audit ADD COLUMN quarantine INTEGER CHECK(quarantine IN (0,1))'
+        )
     columns = {row[1] for row in connection.execute("PRAGMA table_info(week_plans)")}
     if columns and "layout_json" not in columns:
         connection.execute("ALTER TABLE week_plans ADD COLUMN layout_json TEXT NOT NULL DEFAULT ''")
