@@ -18,6 +18,14 @@ whole-installer rollback. See [REDEPLOY.md](../REDEPLOY.md) for the operator gat
 Every change to these invariants requires fictional upgrade/failure regressions
 and synchronized setup, configuration, recovery and changelog documentation.
 
+Pre-ledger routing-audit adoption may add the missing quarantine column only
+for the recognized legacy shape, transactionally before validation/ledger
+commit. Historical flags remain NULL (unknown); no message category or prose
+is used to reconstruct a decision. New audit rows record the actual routing
+flag, duplicate rows remain unchanged, and no ingestion/outbox state is altered.
+Versioned corruption is not repaired by replaying this adoption step. See
+[legacy-schema adoption](../docs/LEGACY_SCHEMA_ADOPTION.md).
+
 1. Structured family facts are collected without an LLM. Inference may improve
    wording, but an empty, malformed, or timed-out inference response must fall
    back to deterministic text.

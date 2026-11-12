@@ -157,6 +157,12 @@ checksum. Core currently requires `core:1`; Portal requires `core:1` and owns
 before a pending change and fail closed on an unknown future version or changed
 checksum.
 
+The known pre-ledger routing-audit shape is adopted transactionally by adding
+its missing quarantine field as nullable: historical NULL means unknown, not
+false. Fresh-schema defaults and recorded migration checksums remain unchanged.
+New decisions record their actual flag; adoption never rewrites processing or
+delivery state. See [legacy adoption](docs/LEGACY_SCHEMA_ADOPTION.md).
+
 Upgrades are explicit and preserve the installed workspace/runtime. The full
 pre-upgrade database snapshot precedes data synchronization, not just schema
 migrations. Core and Portal transactions commit independently: recovery uses
