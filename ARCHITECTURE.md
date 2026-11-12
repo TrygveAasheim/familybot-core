@@ -89,6 +89,13 @@ Accepted plan interpretations are stored alongside the original facts, never
 as permission to execute tools. Grocery AI has a separate opt-in and bounded
 Portal adapter; see the Portal's grocery and data-boundary documentation.
 
+Original Ukeplan presentation is independent of interpretation: Core retains
+the registered PDF path/fingerprint and reading text; Portal's scoped document
+endpoint checks the child/plan binding and opens only private `db/attachments`
+PDFs. A local passive PDF renderer preserves page layout. Stored text remains
+available to briefings even if viewing or interpretation fails. No viewer request
+triggers model processing, document reingestion or message delivery.
+
 ## Runtime layout
 
 ```text

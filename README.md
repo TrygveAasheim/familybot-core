@@ -51,6 +51,11 @@ workspace for a new installation is `$HOME/.familybot`.
 Oda and HelloFresh are separate Portal capabilities. Neither is required by a
 profile.
 
+School plans retain their original PDFs for Portal's in-page document viewer,
+while stored text and interpretation remain independent inputs for briefings and
+future dashboard facts. Viewing a plan needs no AI. See
+[Ukeplan reading and source preservation](docs/UKEPLAN_INTERPRETATION.md).
+
 ## Repository boundary
 
 Keep both repositories as sibling checkouts:

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased — preserve Ukeplan source and independent reading
+
+- Preserve PDF text line/paragraph breaks during ingestion; email transport
+  cleanup is unchanged. Stored text remains available to Telegram briefings.
+- Record a SHA-256 fingerprint alongside the existing source PDF path so Portal
+  can detect a changed attachment before displaying it. Legacy rows remain valid.
+- Add fictional idempotency, subject attribution and briefing-reader regressions.
+- Document the original-document Portal view separately from interpretation.
+
+No schema migration, model invocation, message replay or automatic reprocessing.
+Deploy through the normal reviewed Core release. Roll back code only; additional
+JSON metadata and preserved newlines are backwards-compatible. Retain attachments
+with database backups. See [the contract](docs/UKEPLAN_INTERPRETATION.md).
+
 ## Unreleased — structured gateway and Telegram health
 
 - Fix false gateway/Telegram alerts after OpenClaw changed human-readable status

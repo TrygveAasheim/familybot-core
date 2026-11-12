@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import sqlite3
@@ -72,16 +73,39 @@ class SubjectTests(unittest.TestCase):
                     CREATE TABLE week_plan_days (week_plan_id INTEGER, day TEXT, date TEXT, note TEXT, homework TEXT, bring TEXT);
                     INSERT INTO week_plans (member_id,week_number,year,raw_text,source_email_id) VALUES (4,35,2026,'old content','1');
                 """)
-            parsed = {"week":43, "raw_text":"PDF content only", "days":{"2026-10-19":{"weekday":"mandag"}}}
+            source = Path(directory) / "test.pdf"
+            source.write_bytes(b"%PDF-1.4\nfictional parser input")
+            parsed = {"week":43, "raw_text":"Norsk:\nLes side 12.\n\nEngelsk:\nLearn words.", "days":{"2026-10-19":{"weekday":"mandag"}}}
             with mock.patch.object(process_emails,"DB_PATH",db), \
                  mock.patch.object(process_emails,"parse_ukeplan_pdf",return_value=parsed) as parser:
                 for _ in range(2):
-                    self.assertTrue(process_emails.save_ukeplan_attachments(["test.pdf"],4,"2",subject="Uke 43",year=2026))
+                    self.assertTrue(process_emails.save_ukeplan_attachments([str(source)],4,"2",subject="Uke 43",year=2026))
                 self.assertEqual(parser.call_args.kwargs["week_override"],43)
             with sqlite3.connect(db) as c:
                 self.assertEqual(c.execute("SELECT week_number,raw_text FROM week_plans ORDER BY week_number").fetchall(),
-                                 [(35,"old content"),(43,"PDF content only")])
+                                 [(35,"old content"),(43,parsed["raw_text"])])
                 self.assertEqual(c.execute("SELECT count(*) FROM week_plan_days").fetchone()[0],1)
+                layout = json.loads(c.execute("SELECT layout_json FROM week_plans WHERE week_number=43").fetchone()[0])
+                self.assertEqual(layout["source_pdf"], str(source.resolve()))
+                self.assertEqual(layout["source_sha256"], hashlib.sha256(source.read_bytes()).hexdigest())
+                # Reading for Telegram remains independent of the Portal viewer.
+                from briefing_data import week_plan
+                self.assertEqual(week_plan(4,43,2026,c.cursor())["raw_text"],parsed["raw_text"])
+
+    def test_pdf_text_preserves_paragraphs_without_changing_email_cleaning(self):
+        value = " Norsk:\r\n Les\t sammen.\r\n\r\n\r\nEngelsk: &amp; ord "
+        self.assertEqual(process_emails.clean_plan_text(value), "Norsk:\nLes sammen.\n\nEngelsk: & ord")
+        self.assertNotIn("\n", process_emails.clean_text(value))
+
+    def test_missing_source_cannot_update_existing_plan(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "missing.pdf"
+            parsed = {"week":43, "raw_text":"Norsk:\nLes sammen.", "days":{}}
+            with mock.patch.object(process_emails,"parse_ukeplan_pdf",return_value=parsed), \
+                 mock.patch.object(process_emails,"get_db") as connect:
+                with self.assertRaises(FileNotFoundError):
+                    process_emails.save_ukeplan_attachments([str(source)],4,"2",subject="Uke 43",year=2026)
+                connect.assert_not_called()
 
 
 class CompleteBriefingTests(unittest.TestCase):
